@@ -1,5 +1,7 @@
+import 'package:uuid/uuid.dart';
+
 class Flashcard {
-  final String id;           // UUID
+  final String cardID;           // UUID
   final String deckId;       // Parent deck
   final String front;        // Question/prompt side
   final String back;         // Answer side
@@ -16,4 +18,9 @@ class Flashcard {
   final int reps;            // Total review count
   final int lapses;          // Times forgotten (rated "Again")
   final DateTime? lastReview;
+
+  enum CardState {newCard, learning, review, relearning}
+
+  const Flashcard(uuid.v4(), this.deckId, this.front, this.back, this.createdAt, this.updatedAt, this.isDeleted, this.due,
+    this.stability, this.elapsedDays, this.scheduledDays, this.reps, this.lapses this.lastReview, this.CardState);
 }
