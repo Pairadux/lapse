@@ -15,6 +15,21 @@ The Cards feature handles flashcard management within a deck—viewing, creating
 
 ---
 
+## Architecture Note: Separation from Study
+
+This feature is a **dumb data container**. It handles CRUD operations for cards but does NOT contain study logic.
+
+| Belongs Here | Belongs in Study |
+|--------------|------------------|
+| `Flashcard` model | `Rating` enum |
+| `CardState` enum | `StudySession` model |
+| FSRS fields on card (storage) | FSRS scheduling logic |
+| `CardRepository` CRUD | Session flow orchestration |
+
+The card stores scheduling **state** (`due`, `stability`, `reps`). The study feature handles the scheduling **process** (rating, calculating next due date).
+
+---
+
 ## User Stories
 
 - As a user, I can see all cards in a specific deck
@@ -30,13 +45,15 @@ The Cards feature handles flashcard management within a deck—viewing, creating
 
 | Layer | Purpose | Key Files |
 |-------|---------|-----------|
-| `data/` | Database operations | `card_repository.dart`, `card_local_data_source.dart` |
-| `domain/` | Data models | `flashcard.dart` |
+| `data/` | Database operations | `card_repository.dart` |
+| `domain/` | Data models | `flashcard.dart`, `card_state.dart` |
 | `presentation/` | UI components | Screens, widgets, providers |
 
 ---
 
 ## Folder Structure
+
+Keep `domain/` flat—no `models/` subfolder unless you have 5+ files.
 
 ```
 cards/
@@ -46,7 +63,8 @@ cards/
 │   └── card_remote_data_source.dart   # Supabase operations (Sprint 4)
 │
 ├── domain/
-│   └── flashcard.dart                 # Card model (named to avoid Flutter's Card widget)
+│   ├── flashcard.dart                 # Card model (named to avoid Flutter's Card widget)
+│   └── card_state.dart                # CardState enum (new, learning, review, relearning)
 │
 ├── presentation/
 │   ├── screens/
@@ -197,13 +215,14 @@ deckRepository.decrementCardCount(deckId);
 - Deleting a deck should cascade-delete its cards
 - Card operations update deck's `cardCount`
 
-### → Study Feature
-- Study feature reads cards where `due <= now`
-- Study feature writes back updated FSRS state
-- Card repository exposes `updateFsrsState()` method
+### ← Study Feature
+- Study reads cards via `CardRepository`
+- Study writes updated FSRS state (`due`, `stability`, etc.) after reviews
+- Card repository exposes `updateFsrsState(cardId, fsrsFields)` method
+- **Rating enum lives in Study, not here** — it's a study-time action
 
-### ← Auth Feature
-- Eventually, cards sync via Auth's sync service
+### ← Auth Feature (Sprint 4)
+- Cards sync via Auth's sync service
 - `isDeleted` flag enables soft delete for sync
 
 ---
