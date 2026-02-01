@@ -52,3 +52,12 @@ Input Summary: Requested help starting Phase 1, asked for dark-first color palet
 Output Summary: AI generated app_colors.dart with soft violet/warm pink palette optimized for dark theme, app_theme.dart with full ThemeData configuration, routes.dart with path constants and helper methods, app_router.dart with GoRouter and placeholder screens, and updated main.dart with ProviderScope and MaterialApp.router.
 Modifications: Initial color palette was light-theme-first with indigo/teal - requested dark-first revision with friendlier colors. AI adjusted to violet/pink palette with layered dark surfaces. Also discussed Flutter idioms (ColorScheme.fromSeed, ThemeExtension) but chose simpler approach for MVP.
 Files Referenced: lib/core/theme/app_colors.dart, lib/core/theme/app_theme.dart, lib/core/routing/routes.dart, lib/core/routing/app_router.dart, lib/main.dart
+
+Date: 2026-02-01
+User: Austin
+Purpose: Implement Phase 2 (Shared Widgets) - reusable UI components and dev tooling
+Approach: Asked AI to assess which widgets were truly needed vs Flutter built-ins, then built only what added value. Added debug screen for visual QA during development.
+Input Summary: Questioned necessity of each widget, requested dev navigation drawer for testing routes.
+Output Summary: Created empty_state_widget, loading_indicator, confirm_dialog, plus a debug preview screen with navigation drawer to test all routes and widget variants.
+Modifications: Fixed Flutter API deprecation (CardTheme → CardThemeData), adjusted preview card heights after overflow errors during testing.
+Files Referenced: lib/core/widgets/
