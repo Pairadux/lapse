@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'spacing.dart';
 
 abstract class AppTheme {
   static ThemeData get dark => ThemeData(
@@ -26,12 +27,14 @@ abstract class AppTheme {
           foregroundColor: AppColors.textPrimary,
           elevation: 0,
           centerTitle: false,
+          titleSpacing: Spacing.sm,
+          actionsPadding: EdgeInsets.only(right: Spacing.sm),
         ),
         cardTheme: CardThemeData(
           color: AppColors.surface,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(Spacing.radiusLg),
             side: const BorderSide(color: AppColors.outline, width: 1),
           ),
         ),
@@ -40,9 +43,9 @@ abstract class AppTheme {
             backgroundColor: AppColors.primary,
             foregroundColor: AppColors.textOnPrimary,
             elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.xl, vertical: Spacing.md),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(Spacing.radiusMd),
             ),
           ),
         ),
@@ -50,16 +53,16 @@ abstract class AppTheme {
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.primary,
             side: const BorderSide(color: AppColors.outline),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.xl, vertical: Spacing.md),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(Spacing.radiusMd),
             ),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
             foregroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
           ),
         ),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -71,22 +74,22 @@ abstract class AppTheme {
           filled: true,
           fillColor: AppColors.surfaceElevated,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Spacing.radiusMd),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Spacing.radiusMd),
             borderSide: const BorderSide(color: AppColors.outline),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Spacing.radiusMd),
             borderSide: const BorderSide(color: AppColors.primary, width: 2),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Spacing.radiusMd),
             borderSide: const BorderSide(color: AppColors.error),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
           hintStyle: const TextStyle(color: AppColors.textTertiary),
         ),
         dividerTheme: const DividerThemeData(
@@ -102,14 +105,14 @@ abstract class AppTheme {
           backgroundColor: AppColors.surfaceBright,
           contentTextStyle: const TextStyle(color: AppColors.textPrimary),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Spacing.radiusMd),
           ),
           behavior: SnackBarBehavior.floating,
         ),
         dialogTheme: DialogThemeData(
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(Spacing.radiusXl),
           ),
         ),
         textTheme: const TextTheme(

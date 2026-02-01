@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import '../routing/routes.dart';
 import '../theme/app_colors.dart';
+import '../theme/spacing.dart';
+import 'app_scaffold.dart';
 import 'empty_state_widget.dart';
 import 'loading_indicator.dart';
 import 'confirm_dialog.dart';
@@ -11,11 +11,10 @@ class DebugWidgetScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Widget Preview')),
-      drawer: const _DevDrawer(),
+    return AppScaffold(
+      title: 'Widget Preview',
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.lg),
         children: [
           _buildSection(
             context,
@@ -86,7 +85,7 @@ class DebugWidgetScreen extends StatelessWidget {
                 height: 100,
                 child: Center(
                   child: Wrap(
-                    spacing: 12,
+                    spacing: Spacing.md,
                     children: [
                       ElevatedButton(
                         onPressed: () => _showConfirmDialog(context, false),
@@ -203,7 +202,7 @@ class DebugWidgetScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: Spacing.xxl),
         ],
       ),
     );
@@ -218,7 +217,7 @@ class DebugWidgetScreen extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleLarge,
@@ -262,12 +261,12 @@ class _WidgetPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: Spacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            padding: const EdgeInsets.fromLTRB(Spacing.md, Spacing.md, Spacing.md, Spacing.sm),
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelMedium,
@@ -296,14 +295,14 @@ class _ColorDot extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 32,
-          height: 32,
+          width: Spacing.xxl,
+          height: Spacing.xxl,
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: Spacing.xs),
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall,
@@ -313,108 +312,3 @@ class _ColorDot extends StatelessWidget {
   }
 }
 
-class _DevDrawer extends StatelessWidget {
-  const _DevDrawer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  'Dev Navigation',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Navigate between screens',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          _DrawerItem(
-            icon: Icons.bug_report,
-            label: 'Widget Preview',
-            route: Routes.debug,
-          ),
-          const Divider(),
-          _DrawerItem(
-            icon: Icons.home,
-            label: 'Home (Deck List)',
-            route: Routes.home,
-          ),
-          _DrawerItem(
-            icon: Icons.add,
-            label: 'New Deck',
-            route: Routes.deckNew,
-          ),
-          _DrawerItem(
-            icon: Icons.folder,
-            label: 'Deck Detail (mock)',
-            route: Routes.deckPath('demo'),
-          ),
-          _DrawerItem(
-            icon: Icons.edit,
-            label: 'Edit Deck (mock)',
-            route: Routes.deckEditPath('demo'),
-          ),
-          const Divider(),
-          _DrawerItem(
-            icon: Icons.note_add,
-            label: 'New Card (mock)',
-            route: Routes.cardNewPath('demo'),
-          ),
-          _DrawerItem(
-            icon: Icons.credit_card,
-            label: 'Edit Card (mock)',
-            route: Routes.cardPath('demo', 'card1'),
-          ),
-          const Divider(),
-          _DrawerItem(
-            icon: Icons.play_arrow,
-            label: 'Study Session (mock)',
-            route: Routes.studyPath('demo'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DrawerItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String route;
-
-  const _DrawerItem({
-    required this.icon,
-    required this.label,
-    required this.route,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final currentRoute = GoRouterState.of(context).uri.toString();
-    final isActive = currentRoute == route;
-
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      selected: isActive,
-      onTap: () {
-        Navigator.pop(context);
-        context.go(route);
-      },
-    );
-  }
-}

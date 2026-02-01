@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/spacing.dart';
 
 class LoadingIndicator extends StatelessWidget {
   final double size;
@@ -7,7 +8,7 @@ class LoadingIndicator extends StatelessWidget {
 
   const LoadingIndicator({
     super.key,
-    this.size = 32,
+    this.size = Spacing.xxl,
     this.color,
   });
 

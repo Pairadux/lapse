@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/spacing.dart';
 
 class EmptyStateWidget extends StatelessWidget {
   final IconData icon;
@@ -21,23 +22,23 @@ class EmptyStateWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(Spacing.xxl),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: 64,
+              size: 64, // Intentionally larger for visual emphasis
               color: AppColors.textTertiary,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: Spacing.lg),
             Text(
               title,
               style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: Spacing.sm),
               Text(
                 subtitle!,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -47,7 +48,7 @@ class EmptyStateWidget extends StatelessWidget {
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: Spacing.xl),
               ElevatedButton(
                 onPressed: onAction,
                 child: Text(actionLabel!),
