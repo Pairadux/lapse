@@ -61,3 +61,12 @@ Input Summary: Questioned necessity of each widget, requested dev navigation dra
 Output Summary: Created empty_state_widget, loading_indicator, confirm_dialog, plus a debug preview screen with navigation drawer to test all routes and widget variants.
 Modifications: Fixed Flutter API deprecation (CardTheme → CardThemeData), adjusted preview card heights after overflow errors during testing.
 Files Referenced: lib/core/widgets/
+
+Date: 2026-02-01
+User: Austin
+Purpose: Implement Phase 3 (Decks UI) and establish Material Design spacing system
+Approach: Built deck list with breadcrumb navigation for nested decks (Option 2 from plan). User requested Material Design compliance, so researched M3 guidelines and created centralized spacing constants.
+Input Summary: Requested compact deck cards supporting hierarchy, settings gear with consistent padding, and adherence to Material Design 4dp baseline grid.
+Output Summary: Created deck_card.dart, empty_deck_state.dart, deck_list_screen.dart with breadcrumb navigation, and spacing.dart with Material 4dp grid constants. Refactored all widgets to use Spacing constants. Created AppScaffold and DevDrawer as reusable layout components.
+Modifications: Initial spacing used arbitrary values - user caught that 4 is valid in Material (4dp baseline, not 8dp). Created spacing.dart to centralize all spacing/radius values for consistency across codebase.
+Files Referenced: lib/core/theme/spacing.dart, lib/features/decks/presentation/, lib/core/widgets/app_scaffold.dart, lib/core/widgets/dev_drawer.dart
