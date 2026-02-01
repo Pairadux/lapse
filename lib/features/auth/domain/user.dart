@@ -1,7 +1,19 @@
+import 'package:uuid/uuid.dart';
+
 class User {
-  final String id;              // Supabase user ID (or local UUID if anonymous)
-  final String? email;          // Null if anonymous
-  final bool isAnonymous;       // True = local only, False = synced account
+  String userID;              // Supabase user ID (or local UUID if anonymous)
+  String? email;          // Null if anonymous
+  bool isAnonymous;       // True = local only, False = synced account
   final DateTime createdAt;
-  final DateTime? lastSyncAt;   // Last successful sync timestamp
+  DateTime? lastSyncAt;   // Last successful sync timestamp
+
+  User(uuid.v4(), this.email, this.isAnonymous, DateTime.now(), this.lastSyncAt);
+
+  User.anon()
+    : userID = "Anonymous",
+    email = "",
+    isAnonymous = true,
+    createdAt = DateTime.now(),
+    lastSyncAt = DateTime.now();
+  // For anonymous users
 }
