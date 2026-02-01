@@ -9,6 +9,7 @@ class AppScaffold extends StatelessWidget {
   final Widget? floatingActionButton;
   final List<Widget>? actions;
   final bool showBackButton;
+  final bool showSettingsButton;
   final VoidCallback? onBack;
 
   const AppScaffold({
@@ -18,6 +19,7 @@ class AppScaffold extends StatelessWidget {
     this.floatingActionButton,
     this.actions,
     this.showBackButton = false,
+    this.showSettingsButton = true,
     this.onBack,
   });
 
@@ -34,10 +36,11 @@ class AppScaffold extends StatelessWidget {
             : null,
         actions: [
           ...?actions,
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push(Routes.settings),
-          ),
+          if (showSettingsButton)
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: () => context.push(Routes.settings),
+            ),
         ],
       ),
       drawer: const DevDrawer(),

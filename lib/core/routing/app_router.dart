@@ -18,7 +18,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: Routes.settings,
-      builder: (context, state) => const _PlaceholderScreen(title: 'Settings'),
+      builder: (context, state) => const _SettingsPlaceholder(),
     ),
     GoRoute(
       path: Routes.deckNew,
@@ -82,6 +82,29 @@ class _PlaceholderScreen extends StatelessWidget {
               'Swipe right or tap ☰ for navigation',
               style: Theme.of(context).textTheme.bodySmall,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsPlaceholder extends StatelessWidget {
+  const _SettingsPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      title: 'Settings',
+      showBackButton: true,
+      showSettingsButton: false,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Settings', style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 16),
+            const Text('Screen not implemented yet'),
           ],
         ),
       ),
