@@ -15,11 +15,45 @@ The Study feature is the core learning experience—presenting due cards, captur
 
 ---
 
+## Architecture Decisions
+
+### Why `Rating` Lives Here (Not in Cards)
+
+`Rating` is a **study-time action**, not a card property. The flow:
+
+```
+Card (data)          Study (process)           Card (updated)
+    │                      │                        │
+    └───► User sees card   │                        │
+          User rates ◄──── Rating (INPUT)           │
+          FSRS calculates                           │
+          Card.due ◄────── (OUTPUT) ────────────────┘
+```
+
+Cards store the **outcome** (`due`, `stability`). Rating is a **transient input** to the study process. This keeps the cards feature as dumb data containers.
+
+### Review History: Skip for MVP
+
+A `Review` record logs every rating event (cardId, rating, timestamp). This enables:
+- Analytics ("85% retention this week")
+- FSRS parameter optimization
+- Undo functionality
+
+**The cost:** 100 cards/day × 365 days = 36,500 rows/year per user.
+
+**For MVP:** Skip review persistence entirely. Update card scheduling state directly. Add review history later if you need stats or FSRS optimization.
+
+### Flat Domain Structure
+
+Don't create `domain/models/` subfolder—just put files directly in `domain/`. Only add subfolders if you have 5+ files and it feels cluttered.
+
+---
+
 ## User Stories
 
 - As a user, I can start a study session for a deck
 - As a user, I see cards one at a time (question first, then reveal answer)
-- As a user, I rate my recall (Again, Hard, Good, Easy)
+- As a user, I rate my recall (Again, Good — or full Again/Hard/Good/Easy)
 - As a user, I see my progress during the session (X of Y cards)
 - As a user, I see a summary when the session is complete
 - As a user, I can end a session early if needed
@@ -28,11 +62,21 @@ The Study feature is the core learning experience—presenting due cards, captur
 
 ## Quick Reference
 
+### MVP (Minimal)
+
 | Layer | Purpose | Key Files |
 |-------|---------|-----------|
-| `data/` | Review history storage | `review_repository.dart` |
-| `domain/` | Models | `review.dart`, `study_session.dart` |
-| `application/` | FSRS logic | `fsrs_service.dart`, `study_session_service.dart` |
+| `domain/` | Models | `rating.dart`, `study_session.dart` |
+| `application/` | Session logic | `study_session_service.dart` |
+| `presentation/` | UI + state | `providers/study_session_provider.dart` |
+
+### Full Implementation (Later)
+
+| Layer | Purpose | Key Files |
+|-------|---------|-----------|
+| `domain/` | Models | `rating.dart`, `study_session.dart` |
+| `application/` | FSRS + session logic | `fsrs_service.dart`, `study_session_service.dart` |
+| `data/` | Review persistence | `review_repository.dart` (if tracking history) |
 | `presentation/` | UI | Screens, widgets, providers |
 
 ---
@@ -42,17 +86,17 @@ The Study feature is the core learning experience—presenting due cards, captur
 ```
 study/
 ├── data/
-│   ├── review_repository.dart         # Stores review history
+│   ├── review_repository.dart         # Stores review history (optional, for stats)
 │   └── review_local_data_source.dart  # SQLite operations for reviews
 │
 ├── domain/
-│   ├── review.dart                    # Review record model
+│   ├── rating.dart                    # Rating enum (Again, Hard, Good, Easy)
 │   ├── study_session.dart             # Session state model
-│   └── rating.dart                    # Rating enum (Again, Hard, Good, Easy)
+│   └── review.dart                    # Review record model (optional, for stats)
 │
 ├── application/
-│   ├── fsrs_service.dart              # Wraps dart-fsrs package
-│   └── study_session_service.dart     # Manages session flow logic
+│   ├── study_session_service.dart     # Manages session flow logic
+│   └── fsrs_service.dart              # Wraps dart-fsrs package
 │
 ├── presentation/
 │   ├── screens/
@@ -72,6 +116,117 @@ study/
 │
 └── README.md
 ```
+
+---
+
+## MVP Implementation Guide
+
+Build in this order for fastest path to working study flow:
+
+### Step 1: Domain Models (~15 min)
+
+**`domain/rating.dart`**
+```dart
+enum Rating {
+  again,  // Forgot — show again soon
+  good,   // Remembered — schedule next review
+}
+```
+
+**`domain/study_session.dart`**
+```dart
+class StudySession {
+  final String deckId;
+  final List<Flashcard> cards;
+  final Set<String> studiedIds;
+  final int againCount;
+  final int goodCount;
+  final DateTime startedAt;
+
+  Flashcard? get currentCard {
+    return cards.cast<Flashcard?>().firstWhere(
+      (c) => !studiedIds.contains(c!.id),
+      orElse: () => null,
+    );
+  }
+
+  bool get isComplete => studiedIds.length >= cards.length;
+  int get remaining => cards.length - studiedIds.length;
+  int get total => cards.length;
+}
+```
+
+### Step 2: Session Service (~30 min)
+
+**`application/study_session_service.dart`**
+```dart
+class StudySessionService {
+  StudySession startSession(String deckId, List<Flashcard> cards) {
+    return StudySession(
+      deckId: deckId,
+      cards: cards,
+      studiedIds: {},
+      againCount: 0,
+      goodCount: 0,
+      startedAt: DateTime.now(),
+    );
+  }
+
+  StudySession rateCard(StudySession session, Flashcard card, Rating rating) {
+    // Mark as studied
+    final newStudiedIds = {...session.studiedIds, card.id};
+
+    // Update counts
+    return session.copyWith(
+      studiedIds: newStudiedIds,
+      againCount: rating == Rating.again
+          ? session.againCount + 1
+          : session.againCount,
+      goodCount: rating == Rating.good
+          ? session.goodCount + 1
+          : session.goodCount,
+    );
+  }
+}
+```
+
+### Step 3: Riverpod Provider (~30 min)
+
+**`presentation/providers/study_session_provider.dart`**
+```dart
+@riverpod
+class StudySessionNotifier extends _$StudySessionNotifier {
+  late final StudySessionService _service;
+
+  @override
+  StudySession? build() {
+    _service = StudySessionService();
+    return null;
+  }
+
+  void startSession(String deckId, List<Flashcard> cards) {
+    state = _service.startSession(deckId, cards);
+  }
+
+  void rateCard(Rating rating) {
+    if (state == null) return;
+    final card = state!.currentCard;
+    if (card == null) return;
+
+    state = _service.rateCard(state!, card, rating);
+
+    // TODO: Update card.due in database (add FSRS later)
+  }
+
+  void endSession() {
+    state = null;
+  }
+}
+```
+
+### Step 4: Wire to UI
+
+UI calls provider → provider updates state → UI rebuilds.
 
 ---
 
@@ -114,23 +269,24 @@ final (:card updatedCard, :reviewLog) = scheduler.reviewCard(card, rating);
 
 Create a service that wraps the package and handles our data model:
 
+**`application/fsrs_service.dart`**
 ```dart
 class FsrsService {
   final Scheduler _scheduler = Scheduler();
-  
+
   /// Process a review and return updated card state
   FsrsResult processReview(Flashcard card, Rating rating) {
     // Convert our Flashcard to fsrs Card
     final fsrsCard = _toFsrsCard(card);
-    
+
     // Get scheduling result
-    final (:card updatedFsrsCard, :reviewLog) = 
-        _scheduler.reviewCard(fsrsCard, rating);
-    
+    final (:card updatedFsrsCard, :reviewLog) =
+        _scheduler.reviewCard(fsrsCard, _toFsrsRating(rating));
+
     // Convert back to our Flashcard with updated state
     final updatedCard = _fromFsrsCard(card, updatedFsrsCard);
-    
-    // Create review record for history
+
+    // Optionally create review record for history
     final review = Review(
       id: uuid.v4(),
       cardId: card.id,
@@ -140,17 +296,99 @@ class FsrsService {
       elapsedDays: updatedFsrsCard.elapsedDays,
       state: updatedFsrsCard.state,
     );
-    
+
     return FsrsResult(updatedCard: updatedCard, review: review);
+  }
+
+  Card _toFsrsCard(Flashcard card) {
+    return Card(
+      cardId: card.id,
+      due: card.due,
+      stability: card.stability,
+      difficulty: card.difficulty,
+      elapsedDays: card.elapsedDays,
+      scheduledDays: card.scheduledDays,
+      reps: card.reps,
+      lapses: card.lapses,
+      state: card.state,
+      lastReview: card.lastReview,
+    );
+  }
+
+  Flashcard _fromFsrsCard(Flashcard original, Card fsrsCard) {
+    return original.copyWith(
+      due: fsrsCard.due,
+      stability: fsrsCard.stability,
+      difficulty: fsrsCard.difficulty,
+      elapsedDays: fsrsCard.elapsedDays,
+      scheduledDays: fsrsCard.scheduledDays,
+      reps: fsrsCard.reps,
+      lapses: fsrsCard.lapses,
+      state: fsrsCard.state,
+      lastReview: fsrsCard.lastReview,
+    );
   }
 }
 ```
+
+Then call `FsrsService.processReview()` from `StudySessionService.rateCard()` and persist the updated card.
 
 ---
 
 ## Data Models
 
-### Review (history record)
+### Rating Enum
+
+```dart
+enum Rating {
+  again(1),  // Forgot completely
+  hard(2),   // Remembered with difficulty
+  good(3),   // Remembered after hesitation
+  easy(4);   // Remembered instantly
+
+  final int value;
+  const Rating(this.value);
+}
+```
+
+For MVP, you can simplify to just `again` and `good` without values.
+
+### Study Session (Runtime State)
+
+```dart
+class StudySession {
+  final String deckId;
+  final List<Flashcard> cards;      // Cards to review
+  final int currentIndex;           // Current position
+  final List<Review> completedReviews;  // Reviews this session (optional)
+  final DateTime startedAt;
+
+  bool get isComplete => currentIndex >= cards.length;
+  Flashcard get currentCard => cards[currentIndex];
+  int get remaining => cards.length - currentIndex;
+}
+```
+
+Or for MVP with simpler tracking:
+
+```dart
+class StudySession {
+  final String deckId;
+  final List<Flashcard> cards;
+  final Set<String> studiedIds;
+  final int againCount;
+  final int goodCount;
+  final DateTime startedAt;
+
+  bool get isComplete => studiedIds.length >= cards.length;
+  Flashcard? get currentCard => /* first unstudied */;
+  int get remaining => cards.length - studiedIds.length;
+}
+```
+
+### Review Record (Optional)
+
+Persisting reviews enables analytics and FSRS optimization but adds storage cost. **Skip for MVP.**
 
 ```dart
 class Review {
@@ -164,77 +402,83 @@ class Review {
 }
 ```
 
-### Study Session (runtime state)
+### SQLite Table (If Persisting Reviews)
 
-```dart
-class StudySession {
-  final String deckId;
-  final List<Flashcard> cards;      // Cards to review
-  final int currentIndex;           // Current position
-  final List<Review> completedReviews;  // Reviews this session
-  final DateTime startedAt;
-  
-  bool get isComplete => currentIndex >= cards.length;
-  Flashcard get currentCard => cards[currentIndex];
-  int get remaining => cards.length - currentIndex;
-}
-```
+```sql
+CREATE TABLE reviews (
+  id TEXT PRIMARY KEY,
+  card_id TEXT NOT NULL,
+  reviewed_at TEXT NOT NULL,
+  rating INTEGER NOT NULL,
+  scheduled_days INTEGER NOT NULL,
+  elapsed_days INTEGER NOT NULL,
+  state INTEGER NOT NULL,
 
-### Rating Enum
+  FOREIGN KEY (card_id) REFERENCES cards(id)
+);
 
-```dart
-enum Rating {
-  again(1),  // Forgot completely
-  hard(2),   // Remembered with difficulty
-  good(3),   // Remembered after hesitation
-  easy(4);   // Remembered instantly
-  
-  final int value;
-  const Rating(this.value);
-}
+CREATE INDEX idx_reviews_card_id ON reviews(card_id);
+CREATE INDEX idx_reviews_reviewed_at ON reviews(reviewed_at);
 ```
 
 ---
 
 ## Study Session Flow
 
+### MVP Flow
+
 ```
 1. User taps "Study" on a deck
           ↓
-2. Fetch all cards where due <= now AND isDeleted = false
+2. Fetch cards (MVP: all cards in deck, or filter by due <= now)
           ↓
-3. If no cards due → show "All caught up!" message
+3. If no cards → show "No cards to study" message
           ↓
-4. Create StudySession with due cards
+4. Create StudySession with cards
           ↓
 5. LOOP:
    a. Show current card (front side)
    b. User taps to flip → show back side
-   c. User taps rating button (Again/Hard/Good/Easy)
-   d. Process with FsrsService → get updated card state
-   e. Save updated card to database
-   f. Save review record to database
-   g. Advance to next card
-   h. If more cards → repeat from (a)
+   c. User taps rating button (Again/Good)
+   d. Mark card as studied, update session stats
+   e. Advance to next card
+   f. If more cards → repeat from (a)
           ↓
-6. Show completion screen with stats
+6. Show completion screen with stats (X reviewed, Y% good)
+```
+
+### Full Flow (With FSRS)
+
+```
+5. LOOP:
+   ...
+   c. User taps rating button (Again/Hard/Good/Easy)
+   d. Process with FsrsService → get updated card scheduling
+   e. Save updated card.due to database
+   f. (Optional) Save review record to database
+   ...
 ```
 
 ---
 
 ## Key Implementation Notes
 
-### Fetching Due Cards
+### Fetching Cards
+
+**MVP:** Just get all cards in deck.
 
 ```dart
-// In CardRepository (or DueCardsProvider)
+Future<List<Flashcard>> getCardsForDeck(String deckId) async {
+  return db.query('cards', where: 'deck_id = ? AND is_deleted = 0', whereArgs: [deckId]);
+}
+```
+
+**With FSRS:** Filter by due date.
+
+```dart
 Future<List<Flashcard>> getDueCards(String deckId) async {
   final now = DateTime.now().toIso8601String();
-  return db.query(
-    'cards',
-    where: 'deck_id = ? AND due <= ? AND is_deleted = 0',
-    whereArgs: [deckId, now],
-  );
+  return db.query('cards', where: 'deck_id = ? AND due <= ? AND is_deleted = 0', whereArgs: [deckId, now]);
 }
 ```
 
@@ -249,11 +493,12 @@ Future<List<Flashcard>> getDueCards(String deckId) async {
 ### Card Flip Animation
 
 Use `AnimatedSwitcher` or a package like `flip_card`:
+
 ```dart
 // Simple approach with AnimatedSwitcher
 AnimatedSwitcher(
   duration: Duration(milliseconds: 300),
-  child: isFlipped 
+  child: isFlipped
     ? BackOfCard(card: card, key: ValueKey('back'))
     : FrontOfCard(card: card, key: ValueKey('front')),
 )
@@ -261,17 +506,23 @@ AnimatedSwitcher(
 
 ### Rating Buttons
 
-Show expected next review date for each rating:
+**MVP:** Just Again/Good.
+
+```
+[Again]     [Good]
+```
+
+**With FSRS:** Show expected intervals (FSRS can preview these before rating).
+
 ```
 [Again]     [Hard]      [Good]      [Easy]
  <1 min      10 min      1 day       4 days
 ```
 
-The FSRS scheduler can preview these intervals before the user rates.
-
 ### Updating Deck Due Count
 
 After each review, the card's `due` date changes. Update the deck's `dueCount`:
+
 ```dart
 // After processing review:
 await deckRepository.recalculateDueCount(deckId);
@@ -305,7 +556,10 @@ Or recalculate when returning to deck list.
 - `features/cards` — card repository for reading/updating cards
 - `features/decks` — deck info, due count updates
 
-### External
+### External (MVP)
+- `flutter_riverpod`
+
+### External (Full)
 - `flutter_riverpod`
 - `fsrs: ^2.0.0` — **the FSRS algorithm package**
 - `uuid`
@@ -314,7 +568,13 @@ Or recalculate when returning to deck list.
 
 ## Testing Requirements
 
-### Unit Tests (Critical)
+### Unit Tests — MVP
+- [ ] `StudySessionService.startSession()` creates valid session
+- [ ] `StudySessionService.rateCard()` marks card as studied
+- [ ] `StudySession.currentCard` returns first unstudied card
+- [ ] `StudySession.isComplete` returns true when all studied
+
+### Unit Tests — FSRS (Critical)
 - [ ] `FsrsService.processReview()` returns correct next interval
 - [ ] New card → Good rating → ~1 day interval
 - [ ] Review card → Again rating → relearning state
@@ -324,7 +584,7 @@ Or recalculate when returning to deck list.
 
 ### Integration Tests
 - [ ] Complete study session updates all card states
-- [ ] Review records are saved correctly
+- [ ] Review records are saved correctly (if persisting)
 - [ ] Deck due count updates after session
 
 ### Widget Tests
@@ -348,10 +608,12 @@ This could be an in-app help screen or README content.
 
 ## Open Questions
 
+- [ ] Again/Good only, or full Again/Hard/Good/Easy?
+- [ ] Persist review history for stats? (Cost vs benefit)
+- [ ] Study across all decks vs one deck at a time?
 - [ ] Show undo button after rating? (Anki has this)
 - [ ] Audio for card flip?
 - [ ] Haptic feedback on rating?
-- [ ] Study across all decks vs one deck at a time?
 - [ ] Daily review limit setting?
 
 ---
