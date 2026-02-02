@@ -54,8 +54,10 @@ final appRouter = GoRouter(
           path: 'study',
           builder: (context, state) {
             final deckId = state.pathParameters['deckId']!;
-            final deckName = state.extra as String? ?? 'Study';
-            return StudySessionScreen(deckId: deckId, deckName: deckName);
+            final extra = state.extra as Map<String, dynamic>?;
+            final deckName = extra?['name'] as String? ?? 'Study';
+            final deckIds = extra?['deckIds'] as List<String>? ?? [deckId];
+            return StudySessionScreen(deckName: deckName, deckIds: deckIds);
           },
         ),
       ],
