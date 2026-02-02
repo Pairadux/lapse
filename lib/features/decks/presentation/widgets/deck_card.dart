@@ -8,6 +8,8 @@ class DeckCard extends StatelessWidget {
   final bool hasChildren;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final int? cardCount;
+  final int? dueCount;
 
   const DeckCard({
     super.key,
@@ -15,7 +17,12 @@ class DeckCard extends StatelessWidget {
     required this.onTap,
     this.hasChildren = false,
     this.onLongPress,
+    this.cardCount,
+    this.dueCount,
   });
+
+  int get _cardCount => cardCount ?? deck.cardCount;
+  int get _dueCount => dueCount ?? deck.dueCount;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +42,7 @@ class DeckCard extends StatelessWidget {
               _buildIcon(),
               const SizedBox(width: Spacing.lg),
               Expanded(child: _buildContent(context)),
-              if (deck.dueCount > 0) _buildDueBadge(context),
+              if (_dueCount > 0) _buildDueBadge(context),
               const SizedBox(width: Spacing.sm),
               const Icon(
                 Icons.chevron_right,
@@ -78,7 +85,7 @@ class DeckCard extends StatelessWidget {
         ),
         const SizedBox(height: Spacing.xs),
         Text(
-          '${deck.cardCount} cards',
+          '$_cardCount cards',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -96,7 +103,7 @@ class DeckCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(Spacing.radiusMd),
       ),
       child: Text(
-        '${deck.dueCount} due',
+        '$_dueCount due',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w600,

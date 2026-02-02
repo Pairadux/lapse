@@ -7,13 +7,13 @@ import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 
 class StudySessionScreen extends StatefulWidget {
-  final String deckId;
   final String deckName;
+  final List<String> deckIds;
 
   const StudySessionScreen({
     super.key,
-    required this.deckId,
     required this.deckName,
+    required this.deckIds,
   });
 
   @override
@@ -24,7 +24,9 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   // =============================================================================
   // MOCK DATA - TODO: Replace with provider/state management
   // =============================================================================
-  late final List<Flashcard> _cards = _generateMockCards(widget.deckId);
+  late final List<Flashcard> _cards = _generateMockCardsForDecks(widget.deckIds);
+  // TODO: Apply daily limit here when implemented (e.g., _cards.take(dailyLimit))
+  // TODO: Filter by due date when FSRS scheduling is implemented
   // =============================================================================
 
   int _currentIndex = 0;
@@ -353,6 +355,14 @@ class _StatItem extends StatelessWidget {
 // =============================================================================
 // MOCK DATA - TODO: Remove when providers/state management are ready
 // =============================================================================
+List<Flashcard> _generateMockCardsForDecks(List<String> deckIds) {
+  final allCards = <Flashcard>[];
+  for (final deckId in deckIds) {
+    allCards.addAll(_generateMockCards(deckId));
+  }
+  return allCards;
+}
+
 List<Flashcard> _generateMockCards(String deckId) {
   final now = DateTime.now();
 
@@ -389,11 +399,7 @@ List<Flashcard> _generateMockCards(String deckId) {
     ],
   };
 
-  final cards = mockCardSets[deckId] ?? [
-    ('Sample Question 1', 'Sample Answer 1'),
-    ('Sample Question 2', 'Sample Answer 2'),
-    ('Sample Question 3', 'Sample Answer 3'),
-  ];
+  final cards = mockCardSets[deckId] ?? [];
 
   return cards.asMap().entries.map((entry) {
     final i = entry.key;

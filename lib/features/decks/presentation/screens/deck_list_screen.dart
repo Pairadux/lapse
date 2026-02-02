@@ -31,6 +31,34 @@ class _DeckListScreenState extends State<DeckListScreen> {
     return _mockDecks.any((d) => d.parentID == deck.deckID);
   }
 
+  /// Recursively get all descendant deck IDs (including the given deck)
+  List<String> _getAllDescendantDeckIds(String deckId) {
+    final result = <String>[deckId];
+    final children = _mockDecks.where((d) => d.parentID == deckId);
+    for (final child in children) {
+      result.addAll(_getAllDescendantDeckIds(child.deckID));
+    }
+    return result;
+  }
+
+  /// Get aggregated card count for a deck (including all descendants)
+  int _getAggregatedCardCount(String deckId) {
+    final deckIds = _getAllDescendantDeckIds(deckId);
+    return deckIds.fold(0, (sum, id) {
+      final deck = _mockDecks.firstWhere((d) => d.deckID == id);
+      return sum + deck.cardCount;
+    });
+  }
+
+  /// Get aggregated due count for a deck (including all descendants)
+  int _getAggregatedDueCount(String deckId) {
+    final deckIds = _getAllDescendantDeckIds(deckId);
+    return deckIds.fold(0, (sum, id) {
+      final deck = _mockDecks.firstWhere((d) => d.deckID == id);
+      return sum + deck.dueCount;
+    });
+  }
+
   void _navigateInto(Deck deck) {
     if (_hasChildren(deck)) {
       setState(() {
@@ -38,8 +66,22 @@ class _DeckListScreenState extends State<DeckListScreen> {
       });
     } else {
       // Navigate to study session for this deck
-      context.go(Routes.studyPath(deck.deckID), extra: deck.deckName);
+      context.go(
+        Routes.studyPath(deck.deckID),
+        extra: {'name': deck.deckName, 'deckIds': [deck.deckID]},
+      );
     }
+  }
+
+  void _studyAll() {
+    if (_navigationStack.isEmpty) return;
+    final currentDeck = _navigationStack.last;
+    final allDeckIds = _getAllDescendantDeckIds(currentDeck.deckID);
+    // TODO: Apply daily limit and due date filtering here when scheduling is implemented
+    context.go(
+      Routes.studyPath(currentDeck.deckID),
+      extra: {'name': currentDeck.deckName, 'deckIds': allDeckIds},
+    );
   }
 
   void _navigateToIndex(int index) {
@@ -76,12 +118,42 @@ class _DeckListScreenState extends State<DeckListScreen> {
       body: Column(
         children: [
           if (_navigationStack.isNotEmpty) _buildBreadcrumb(),
+          if (_navigationStack.isNotEmpty) _buildStudyAllBar(),
           Expanded(child: _buildDeckList()),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.go(Routes.deckNew),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildStudyAllBar() {
+    final currentDeck = _navigationStack.last;
+    final totalCards = _getAggregatedCardCount(currentDeck.deckID);
+    final totalDue = _getAggregatedDueCount(currentDeck.deckID);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
+      color: AppColors.surface,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '$totalCards cards total • $totalDue due',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _studyAll,
+            icon: const Icon(Icons.play_arrow, size: 18),
+            label: const Text('Study All'),
+          ),
+        ],
       ),
     );
   }
@@ -130,9 +202,12 @@ class _DeckListScreenState extends State<DeckListScreen> {
       itemCount: decks.length,
       itemBuilder: (context, index) {
         final deck = decks[index];
+        final hasChildren = _hasChildren(deck);
         return DeckCard(
           deck: deck,
-          hasChildren: _hasChildren(deck),
+          hasChildren: hasChildren,
+          cardCount: hasChildren ? _getAggregatedCardCount(deck.deckID) : deck.cardCount,
+          dueCount: hasChildren ? _getAggregatedDueCount(deck.deckID) : deck.dueCount,
           onTap: () => _navigateInto(deck),
         );
       },
@@ -185,11 +260,13 @@ class _BreadcrumbItem extends StatelessWidget {
 
 // =============================================================================
 // MOCK DATA - TODO: Remove when providers/state management are ready
+// Card counts match mock cards in study_session_screen.dart
 // =============================================================================
 List<Deck> _generateMockDecks() {
   final now = DateTime.now();
   return [
     // Root-level decks (parentID: '')
+    // Languages is a folder - no direct cards, children have 10 total
     Deck(
       deckID: '1',
       parentID: '',
@@ -198,9 +275,10 @@ List<Deck> _generateMockDecks() {
       updatedAt: now,
       isDeleted: false,
       cards: [],
-      cardCount: 120,
-      dueCount: 15,
+      cardCount: 0,
+      dueCount: 0,
     ),
+    // Science is a folder - no direct cards, children have 6 total
     Deck(
       deckID: '2',
       parentID: '',
@@ -209,9 +287,10 @@ List<Deck> _generateMockDecks() {
       updatedAt: now,
       isDeleted: false,
       cards: [],
-      cardCount: 85,
-      dueCount: 8,
+      cardCount: 0,
+      dueCount: 0,
     ),
+    // History 101 is a leaf deck with 3 cards
     Deck(
       deckID: '3',
       parentID: '',
@@ -220,7 +299,7 @@ List<Deck> _generateMockDecks() {
       updatedAt: now,
       isDeleted: false,
       cards: [],
-      cardCount: 45,
+      cardCount: 3,
       dueCount: 3,
     ),
     // Nested under Languages (parentID: '1')
@@ -232,8 +311,8 @@ List<Deck> _generateMockDecks() {
       updatedAt: now,
       isDeleted: false,
       cards: [],
-      cardCount: 60,
-      dueCount: 8,
+      cardCount: 5,
+      dueCount: 5,
     ),
     Deck(
       deckID: '1-2',
@@ -243,8 +322,8 @@ List<Deck> _generateMockDecks() {
       updatedAt: now,
       isDeleted: false,
       cards: [],
-      cardCount: 60,
-      dueCount: 7,
+      cardCount: 5,
+      dueCount: 5,
     ),
     // Nested under Science (parentID: '2')
     Deck(
@@ -255,8 +334,8 @@ List<Deck> _generateMockDecks() {
       updatedAt: now,
       isDeleted: false,
       cards: [],
-      cardCount: 45,
-      dueCount: 5,
+      cardCount: 3,
+      dueCount: 3,
     ),
     Deck(
       deckID: '2-2',
@@ -266,7 +345,7 @@ List<Deck> _generateMockDecks() {
       updatedAt: now,
       isDeleted: false,
       cards: [],
-      cardCount: 40,
+      cardCount: 3,
       dueCount: 3,
     ),
   ];
