@@ -67,17 +67,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
         ),
         title: Text(widget.deckName),
         centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: Spacing.md),
-            child: Center(
-              child: Text(
-                '${_currentIndex + (_isSessionComplete ? 0 : 1)}/${_cards.length}',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-          ),
-        ],
+        // TODO: Add edit button here to quickly edit current card
       ),
       body: Column(
         children: [
