@@ -70,3 +70,12 @@ Input Summary: Requested compact deck cards supporting hierarchy, settings gear 
 Output Summary: Created deck_card.dart, empty_deck_state.dart, deck_list_screen.dart with breadcrumb navigation, and spacing.dart with Material 4dp grid constants. Refactored all widgets to use Spacing constants. Created AppScaffold and DevDrawer as reusable layout components.
 Modifications: Initial spacing used arbitrary values - user caught that 4 is valid in Material (4dp baseline, not 8dp). Created spacing.dart to centralize all spacing/radius values for consistency across codebase.
 Files Referenced: lib/core/theme/spacing.dart, lib/features/decks/presentation/, lib/core/widgets/app_scaffold.dart, lib/core/widgets/dev_drawer.dart
+
+Date: 2026-02-02
+User: Austin
+Purpose: Implement study session screen and "Study All" feature for demo-ready MVP
+Approach: Focused on core demo flow (deck list → study → stats) with mock data. Iteratively fixed UX issues (layout shift, keyboard shortcuts) and added nested deck aggregation feature.
+Input Summary: Requested minimal demo flow: open app, select deck, study cards, see stats. Asked for keyboard shortcuts (Space to flip, 1-4 to rate). Wanted "Study All" to aggregate cards from nested decks like Anki.
+Output Summary: Created study_session_screen.dart with card flip, rating buttons, session complete stats, and keyboard support. Added "Study All" bar for folder decks that recursively collects cards from descendants. Updated deck cards to show aggregated counts for folders. Added simple README.
+Modifications: Fixed card layout shift by keeping rating buttons always rendered (invisible until answer shown). Removed number labels from rating buttons (looked weird on mobile). Fixed back button crash when nothing to pop. Updated mock data to match actual card counts.
+Files Referenced: lib/features/study/presentation/screens/study_session_screen.dart, lib/features/decks/presentation/screens/deck_list_screen.dart, lib/features/decks/presentation/widgets/deck_card.dart, README.md
