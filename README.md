@@ -1,16 +1,73 @@
-# lapse
+# Lapse
 
-A new Flutter project.
+A cross-platform flashcard app with spaced repetition, built with Flutter.
+
+## Features
+
+- **Spaced Repetition**: Uses the FSRS algorithm for optimal review scheduling
+- **Nested Decks**: Organize cards into hierarchical deck structures
+- **Offline-First**: Study anywhere, sync when connected
+- **Cross-Platform**: Runs on iOS, Android, macOS, Windows, Linux, and web
+
+## Tech Stack
+
+- **Framework**: Flutter 3.10+
+- **State Management**: Riverpod
+- **Routing**: GoRouter
+- **Local Storage**: SQLite (planned)
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+### Prerequisites
 
-A few resources to get you started if this is your first Flutter project:
+- Flutter SDK ^3.10.7
+- Dart SDK
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Installation
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+# Clone the repository
+git clone https://github.com/Pairadux/lapse.git
+cd lapse
+
+# Install dependencies
+flutter pub get
+
+# Run the app
+flutter run
+```
+
+## Project Structure
+
+```
+lib/
+├── core/
+│   ├── routing/      # GoRouter configuration
+│   ├── theme/        # Colors, spacing, theme data
+│   └── widgets/      # Shared UI components
+├── features/
+│   └── decks/        # Deck management feature
+│       ├── domain/   # Models
+│       └── presentation/
+└── main.dart
+```
+
+## Development
+
+This project is currently in active MVP development.
+
+### Running in Debug Mode
+
+```bash
+flutter run
+```
+
+The app includes a dev drawer (swipe from left) for navigating between screens during development.
+
+## Team
+
+Built as a collaborative project with AI-assisted development. See `docs/AI-Usage-*.md` for usage logs.
+
+## License
+
+TBD
