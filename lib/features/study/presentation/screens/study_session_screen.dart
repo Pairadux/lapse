@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
@@ -108,75 +109,104 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     );
   }
 
+  void _handleKeyPress(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+
+    if (!_showingAnswer) {
+      if (event.logicalKey == LogicalKeyboardKey.space) {
+        _flipCard();
+      }
+    } else {
+      if (event.logicalKey == LogicalKeyboardKey.digit1) {
+        _rateCard(Rating.again);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
+        _rateCard(Rating.hard);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
+        _rateCard(Rating.good);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
+        _rateCard(Rating.easy);
+      }
+    }
+  }
+
   Widget _buildStudyCard() {
-    return Padding(
-      padding: const EdgeInsets.all(Spacing.lg),
-      child: Column(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: _showingAnswer ? null : _flipCard,
-              child: Card(
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(Spacing.xl),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _showingAnswer ? _currentCard.back : _currentCard.front,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                        textAlign: TextAlign.center,
-                      ),
-                      if (!_showingAnswer) ...[
+    return KeyboardListener(
+      focusNode: FocusNode()..requestFocus(),
+      autofocus: true,
+      onKeyEvent: _handleKeyPress,
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: Column(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: _showingAnswer ? null : _flipCard,
+                child: Card(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(Spacing.xl),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _showingAnswer ? _currentCard.back : _currentCard.front,
+                          style: Theme.of(context).textTheme.headlineSmall,
+                          textAlign: TextAlign.center,
+                        ),
                         const SizedBox(height: Spacing.xl),
                         Text(
-                          'Tap to reveal answer',
+                          _showingAnswer ? '' : 'Tap or press Space to reveal',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: AppColors.textTertiary,
                               ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: Spacing.lg),
-          if (_showingAnswer) _buildRatingButtons() else const SizedBox(height: 72),
-        ],
+            const SizedBox(height: Spacing.lg),
+            _buildRatingButtons(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildRatingButtons() {
-    return Row(
-      children: [
-        _RatingButton(
-          label: 'Again',
-          color: AppColors.ratingAgain,
-          onPressed: () => _rateCard(Rating.again),
+    return Opacity(
+      opacity: _showingAnswer ? 1.0 : 0.0,
+      child: IgnorePointer(
+        ignoring: !_showingAnswer,
+        child: Row(
+          children: [
+            _RatingButton(
+              label: 'Again',
+              color: AppColors.ratingAgain,
+              onPressed: () => _rateCard(Rating.again),
+            ),
+            const SizedBox(width: Spacing.sm),
+            _RatingButton(
+              label: 'Hard',
+              color: AppColors.ratingHard,
+              onPressed: () => _rateCard(Rating.hard),
+            ),
+            const SizedBox(width: Spacing.sm),
+            _RatingButton(
+              label: 'Good',
+              color: AppColors.ratingGood,
+              onPressed: () => _rateCard(Rating.good),
+            ),
+            const SizedBox(width: Spacing.sm),
+            _RatingButton(
+              label: 'Easy',
+              color: AppColors.ratingEasy,
+              onPressed: () => _rateCard(Rating.easy),
+            ),
+          ],
         ),
-        const SizedBox(width: Spacing.sm),
-        _RatingButton(
-          label: 'Hard',
-          color: AppColors.ratingHard,
-          onPressed: () => _rateCard(Rating.hard),
-        ),
-        const SizedBox(width: Spacing.sm),
-        _RatingButton(
-          label: 'Good',
-          color: AppColors.ratingGood,
-          onPressed: () => _rateCard(Rating.good),
-        ),
-        const SizedBox(width: Spacing.sm),
-        _RatingButton(
-          label: 'Easy',
-          color: AppColors.ratingEasy,
-          onPressed: () => _rateCard(Rating.easy),
-        ),
-      ],
+      ),
     );
   }
 
