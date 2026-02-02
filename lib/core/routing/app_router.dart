@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_list_screen.dart';
+import 'package:lapse/features/study/presentation/screens/study_session_screen.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/debug_widget_screen.dart';
 import 'routes.dart';
@@ -53,7 +54,8 @@ final appRouter = GoRouter(
           path: 'study',
           builder: (context, state) {
             final deckId = state.pathParameters['deckId']!;
-            return _PlaceholderScreen(title: 'Study: $deckId');
+            final deckName = state.extra as String? ?? 'Study';
+            return StudySessionScreen(deckId: deckId, deckName: deckName);
           },
         ),
       ],
