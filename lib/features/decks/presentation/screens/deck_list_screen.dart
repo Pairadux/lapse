@@ -23,19 +23,12 @@ class _DeckListScreenState extends State<DeckListScreen> {
   final List<Deck> _mockDecks = _generateMockDecks();
 
   List<Deck> get _currentDecks {
-    final parentId = _navigationStack.isEmpty ? null : _navigationStack.last.deckID;
-    // TODO: Filter by parentId when model supports it
-    // For now, show all decks at root, none in subfolders (mock behavior)
-    if (parentId == null) {
-      return _mockDecks;
-    }
-    return []; // Empty for subfolders until parentId is implemented
+    final parentId = _navigationStack.isEmpty ? '' : _navigationStack.last.deckID;
+    return _mockDecks.where((d) => d.parentID == parentId).toList();
   }
 
   bool _hasChildren(Deck deck) {
-    // TODO: Check if deck has children when parentId is implemented
-    // Mock: decks with "Languages" or "Science" in name have children
-    return deck.deckName.contains('Languages') || deck.deckName.contains('Science');
+    return _mockDecks.any((d) => d.parentID == deck.deckID);
   }
 
   void _navigateInto(Deck deck) {
@@ -44,8 +37,8 @@ class _DeckListScreenState extends State<DeckListScreen> {
         _navigationStack.add(deck);
       });
     } else {
-      // Navigate to card list for this deck
-      context.go(Routes.deckPath(deck.deckID));
+      // Navigate to study session for this deck
+      context.go(Routes.studyPath(deck.deckID), extra: deck.deckName);
     }
   }
 
@@ -190,12 +183,16 @@ class _BreadcrumbItem extends StatelessWidget {
   }
 }
 
-// Mock data generator - remove when providers are ready
+// =============================================================================
+// MOCK DATA - TODO: Remove when providers/state management are ready
+// =============================================================================
 List<Deck> _generateMockDecks() {
   final now = DateTime.now();
   return [
+    // Root-level decks (parentID: '')
     Deck(
       deckID: '1',
+      parentID: '',
       deckName: 'Languages',
       createdAt: now,
       updatedAt: now,
@@ -206,6 +203,7 @@ List<Deck> _generateMockDecks() {
     ),
     Deck(
       deckID: '2',
+      parentID: '',
       deckName: 'Science',
       createdAt: now,
       updatedAt: now,
@@ -216,23 +214,61 @@ List<Deck> _generateMockDecks() {
     ),
     Deck(
       deckID: '3',
+      parentID: '',
       deckName: 'History 101',
       createdAt: now,
       updatedAt: now,
       isDeleted: false,
       cards: [],
       cardCount: 45,
-      dueCount: 0,
+      dueCount: 3,
     ),
+    // Nested under Languages (parentID: '1')
     Deck(
-      deckID: '4',
-      deckName: 'Programming',
+      deckID: '1-1',
+      parentID: '1',
+      deckName: 'Spanish',
       createdAt: now,
       updatedAt: now,
       isDeleted: false,
       cards: [],
-      cardCount: 200,
-      dueCount: 32,
+      cardCount: 60,
+      dueCount: 8,
+    ),
+    Deck(
+      deckID: '1-2',
+      parentID: '1',
+      deckName: 'Japanese',
+      createdAt: now,
+      updatedAt: now,
+      isDeleted: false,
+      cards: [],
+      cardCount: 60,
+      dueCount: 7,
+    ),
+    // Nested under Science (parentID: '2')
+    Deck(
+      deckID: '2-1',
+      parentID: '2',
+      deckName: 'Biology',
+      createdAt: now,
+      updatedAt: now,
+      isDeleted: false,
+      cards: [],
+      cardCount: 45,
+      dueCount: 5,
+    ),
+    Deck(
+      deckID: '2-2',
+      parentID: '2',
+      deckName: 'Chemistry',
+      createdAt: now,
+      updatedAt: now,
+      isDeleted: false,
+      cards: [],
+      cardCount: 40,
+      dueCount: 3,
     ),
   ];
 }
+// =============================================================================

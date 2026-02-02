@@ -54,7 +54,7 @@ class DeckCard extends StatelessWidget {
       height: Spacing.iconContainerSize,
       decoration: BoxDecoration(
         color: hasChildren
-            ? AppColors.primaryDark.withOpacity(0.2)
+            ? AppColors.primaryDark.withValues(alpha: 0.2)
             : AppColors.surfaceElevated,
         borderRadius: BorderRadius.circular(Spacing.radiusMd),
       ),
@@ -92,7 +92,7 @@ class DeckCard extends StatelessWidget {
         vertical: Spacing.xs,
       ),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.15),
+        color: AppColors.primary.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(Spacing.radiusMd),
       ),
       child: Text(
