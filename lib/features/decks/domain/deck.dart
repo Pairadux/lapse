@@ -2,6 +2,7 @@ import 'package:lapse/features/cards/domain/flashcard.dart';
 
 class Deck {
   final String deckID; // UUID, generated on creation
+  final String parentID; // ID of parent
   String deckName; // Deck title (required)
   // final String? description; // Optional description
   final DateTime createdAt;
@@ -15,6 +16,7 @@ class Deck {
 
   Deck({
     required this.deckID,
+    required this.parentID,
     required this.deckName,
     required this.createdAt,
     required this.updatedAt,
