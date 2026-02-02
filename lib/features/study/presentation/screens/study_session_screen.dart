@@ -168,7 +168,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
 
   Widget _buildRatingButtons() {
     return Opacity(
-      opacity: _showingAnswer ? 1.0 : 0.0,
+      opacity: _showingAnswer ? 1.0 : 0.3,
       child: IgnorePointer(
         ignoring: !_showingAnswer,
         child: Row(
