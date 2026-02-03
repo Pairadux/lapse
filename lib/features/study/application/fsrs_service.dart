@@ -36,6 +36,7 @@ class FsrsService {
       card.difficulty = updatedFsrsCard.difficulty ?? 0;
       card.elapsedDays = elapsedDays;
       card.scheduledDays = scheduledDays;
+      card.cardState = _updateCardState(rating);
       card.reps = (card.reps) + 1;
       if (rating == Rating.again) {
         card.lapses = (card.lapses) + 1;
@@ -66,6 +67,16 @@ class FsrsService {
       Rating.hard => fsrs.Rating.hard,
       Rating.good => fsrs.Rating.good,
       Rating.easy => fsrs.Rating.easy,
+    };
+  }
+
+  /// Updates cardState based on rating
+  CardState _updateCardState(Rating rating) {
+    return switch (rating) {
+      Rating.again => CardState.relearning,
+      Rating.hard => CardState.learning,
+      Rating.good => CardState.review,
+      Rating.easy => CardState.review,
     };
   }
 }
