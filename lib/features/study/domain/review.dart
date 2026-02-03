@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 
 class Review extends Equatable {
@@ -7,7 +8,7 @@ class Review extends Equatable {
   final Rating rating; // 1=Again, 2=Hard, 3=Good, 4=Easy
   final int scheduledDays; // Interval assigned after this review
   final int elapsedDays; // Days since previous review
-  final int state; // State at time of review
+  final CardState state; // State at time of review
 
   const Review({
     required this.cardId,
@@ -24,7 +25,7 @@ class Review extends Equatable {
     Rating? rating,
     int? scheduledDays,
     int? elapsedDays,
-    int? state,
+    CardState? state,
   }) {
     return Review(
       cardId: cardId ?? this.cardId,
