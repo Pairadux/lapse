@@ -31,19 +31,20 @@ class FsrsService {
       scheduledDays = updatedFsrsCard.due.difference(DateTime.now()).inDays;
 
       // Update card with FSRS results and tracking info
-      card.dueDate = updatedFsrsCard.due;
-      card.stability = updatedFsrsCard.stability ?? 0;
-      card.difficulty = updatedFsrsCard.difficulty ?? 0;
-      card.elapsedDays = elapsedDays;
-      card.scheduledDays = scheduledDays;
-      card.cardState = _updateCardState(rating);
-      card.reps = (card.reps) + 1;
-      if (rating == Rating.again) {
-        card.lapses = (card.lapses) + 1;
-      }
-      card.lastReview = DateTime.now();
 
-      return FsrsResult(updatedCard: card);
+      Flashcard updatedCard = card.copyWith(
+        dueDate: updatedFsrsCard.due,
+        stability: updatedFsrsCard.stability ?? 0,
+        difficulty: updatedFsrsCard.difficulty ?? 0,
+        elapsedDays: elapsedDays,
+        scheduledDays: scheduledDays,
+        cardState: _updateCardState(rating),
+        reps: (card.reps) + 1,
+        lapses: (rating == Rating.again) ? card.lapses + 1 : card.lapses,
+        lastReview: DateTime.now(),
+      );
+
+      return FsrsResult(updatedCard: updatedCard);
     } catch (e) {
       throw Exception('Failed to process review: $e');
     }
@@ -52,7 +53,7 @@ class FsrsService {
   /// Convert Flashcard to fsrs Card (only relevant fields)
   fsrs.Card _toFsrsCard(Flashcard card) {
     return fsrs.Card(
-      cardId: int.tryParse(card.cardID) ?? card.cardID.hashCode,
+      cardId: int.tryParse(card.cardId) ?? card.cardId.hashCode,
       due: card.dueDate,
       stability: card.stability,
       difficulty: card.difficulty,
