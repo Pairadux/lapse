@@ -10,17 +10,6 @@ class User extends Equatable {
 
   const User({required this.userId, this.email, required this.isAnonymous, required this.createdAt, this.lastSyncAt});
 
-  // Factory for regular users
-  factory User.reg() {
-    return User(
-      userId: const Uuid().v4(),
-      email: null,
-      isAnonymous: false,
-      createdAt: DateTime.now(),
-      lastSyncAt: null,
-    );
-  }
-
   // Factory for anonymous users
   factory User.anon() {
     return User(userId: const Uuid().v4(), email: null, isAnonymous: true, createdAt: DateTime.now(), lastSyncAt: null);
