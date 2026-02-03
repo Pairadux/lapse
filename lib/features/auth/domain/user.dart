@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:uuid/uuid.dart';
 
 class User extends Equatable {
   final String userId; // Supabase user ID (or local UUID if anonymous)
@@ -10,8 +11,14 @@ class User extends Equatable {
   const User({required this.userId, this.email, required this.isAnonymous, required this.createdAt, this.lastSyncAt});
 
   // Factory for anonymous users
-  factory User.anonymous() {
-    return User(userId: DateTime.now().millisecondsSinceEpoch.toString(), isAnonymous: true, createdAt: DateTime.now());
+  factory User.anon() {
+    return User(
+      userId: const Uuid().v4(),
+      email: null, // Should be null, not ""
+      isAnonymous: true,
+      createdAt: DateTime.now(),
+      lastSyncAt: null,
+    );
   }
 
   // Factory from JSON
