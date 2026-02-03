@@ -1,11 +1,14 @@
 import 'fsrs_service.dart';
 import '../domain/rating.dart';
+import '../domain/review.dart';
 import '../domain/study_session.dart';
 import '../../cards/domain/flashcard.dart';
 
 /// Manages study session flow and card rating
 class StudySessionService {
-  final FsrsService _fsrsService = FsrsService();
+  final FsrsService _fsrsService;
+
+  StudySessionService({FsrsService? fsrsService}) : _fsrsService = fsrsService ?? FsrsService();
 
   /// Initialize a new study session
   StudySession startSession(String deckId, List<Flashcard> cards) {
@@ -22,12 +25,22 @@ class StudySessionService {
     );
   }
 
+  /// Converts enum Rating to a int value
+  int _ratingToInt(Rating rating) {
+    return switch (rating) {
+      Rating.again => 1,
+      Rating.hard => 2,
+      Rating.good => 3,
+      Rating.easy => 4,
+    };
+  }
+
   /// Process card rating, update scheduling with FSRS, and advance session
   StudySession rateCard(StudySession session, Flashcard card, Rating rating) {
-    // Apply FSRS to update card scheduling
+    /// Apply FSRS to update card scheduling
     _fsrsService.processReview(card, rating);
 
-    // Update rating counts
+    /// Update rating counts
     int againCount = session.againCount;
     int hardCount = session.hardCount;
     int goodCount = session.goodCount;
@@ -44,12 +57,25 @@ class StudySessionService {
         easyCount++;
     }
 
-    // Return session with next card position and updated counts
+    /// Appends Review with updated results
+    final review = Review(
+      cardID: card.cardID,
+      reviewedAt: DateTime.now(),
+      rating: _ratingToInt(rating),
+      scheduledDays: card.scheduledDays,
+      elapsedDays: card.elapsedDays,
+      state: card.cardState,
+    );
+
+    /// Creates a new list containing the existing review with the new ones
+    final updatedCompletedReviews = List<Review>.from(session.completedReviews)..add(review);
+
+    /// Return session with next card position and updated counts
     return StudySession(
       deckId: session.deckId,
       cards: session.cards,
       currentIndex: session.currentIndex + 1,
-      completedReviews: session.completedReviews,
+      completedReviews: updatedCompletedReviews,
       startedAt: session.startedAt,
       againCount: againCount,
       hardCount: hardCount,
