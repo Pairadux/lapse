@@ -25,4 +25,6 @@ class Deck {
     required this.cardCount,
     required this.dueCount,
   });
+
+  copyWith({required String deckName, required DateTime updatedAt, String? parentID}) {}
 }
