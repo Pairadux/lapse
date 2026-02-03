@@ -19,19 +19,19 @@ class DeckListNotifier extends AsyncNotifier<List<Deck>> {
   }
 
   Future<void> createDeck(Deck deck) async {
-    state = const AsyncLoading<List<Deck>>().copyWithPrevious(state);
+    state = const AsyncLoading<List<Deck>>();
     await _repository.createDeck(deck);
     state = await AsyncValue.guard(_repository.getAllDecks);
   }
 
   Future<void> updateDeck(Deck updatedDeck) async {
-    state = const AsyncLoading<List<Deck>>().copyWithPrevious(state);
+    state = const AsyncLoading<List<Deck>>();
     await _repository.updateDeck(updatedDeck);
     state = await AsyncValue.guard(_repository.getAllDecks);
   }
 
   Future<void> deleteDeck(String deckId) async {
-    state = const AsyncLoading<List<Deck>>().copyWithPrevious(state);
+    state = const AsyncLoading<List<Deck>>();
     await _repository.deleteDeck(deckId);
     state = await AsyncValue.guard(_repository.getAllDecks);
   }
