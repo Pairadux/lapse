@@ -1,9 +1,10 @@
 import 'package:equatable/equatable.dart';
+import 'package:lapse/features/study/domain/rating.dart';
 
 class Review extends Equatable {
   final String cardId;
   final DateTime reviewedAt;
-  final int rating; // 1=Again, 2=Hard, 3=Good, 4=Easy
+  final Rating rating; // 1=Again, 2=Hard, 3=Good, 4=Easy
   final int scheduledDays; // Interval assigned after this review
   final int elapsedDays; // Days since previous review
   final int state; // State at time of review
@@ -20,7 +21,7 @@ class Review extends Equatable {
   Review copyWith({
     String? cardId,
     DateTime? reviewedAt,
-    int? rating,
+    Rating? rating,
     int? scheduledDays,
     int? elapsedDays,
     int? state,

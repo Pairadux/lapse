@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
-import 'package:lapse/features/study/domain/rating.dart';
+
+enum CardState { newCard, learning, review, relearning }
 
 class Flashcard extends Equatable {
   final String cardId; // UUID
@@ -19,8 +20,7 @@ class Flashcard extends Equatable {
   final int reps; // Total review count
   final int lapses; // Times forgotten (rated "Again")
   final DateTime? lastReview;
-  final int cardState;
-  final Rating? rating;
+  final CardState cardState;
 
   const Flashcard({
     required this.cardId,
@@ -39,7 +39,6 @@ class Flashcard extends Equatable {
     required this.lapses,
     this.lastReview,
     required this.cardState,
-    this.rating,
   });
 
   Flashcard copyWith({
@@ -58,8 +57,7 @@ class Flashcard extends Equatable {
     int? reps,
     int? lapses,
     DateTime? lastReview,
-    int? cardState,
-    Rating? rating,
+    CardState? cardState,
   }) {
     return Flashcard(
       cardId: cardId ?? this.cardId,
@@ -78,7 +76,6 @@ class Flashcard extends Equatable {
       lapses: lapses ?? this.lapses,
       lastReview: lastReview ?? this.lastReview,
       cardState: cardState ?? this.cardState,
-      rating: rating ?? this.rating,
     );
   }
 
@@ -101,6 +98,5 @@ class Flashcard extends Equatable {
     lapses,
     lastReview,
     cardState,
-    rating,
   ];
 }
