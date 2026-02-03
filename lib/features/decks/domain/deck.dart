@@ -26,5 +26,27 @@ class Deck {
     required this.dueCount,
   });
 
-  copyWith({required String deckName, required DateTime updatedAt, String? parentID}) {}
+  Deck copyWith({
+    String? deckID,
+    String? parentID,
+    String? deckName,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isDeleted,
+    List<Flashcard>? cards,
+    int? cardCount,
+    int? dueCount,
+  }) {
+    return Deck(
+      deckID: deckID ?? this.deckID,
+      parentID: parentID ?? this.parentID,
+      deckName: deckName ?? this.deckName,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      cards: cards ?? this.cards,
+      cardCount: cardCount ?? this.cardCount,
+      dueCount: dueCount ?? this.dueCount,
+    );
+  }
 }

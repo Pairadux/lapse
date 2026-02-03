@@ -1,59 +1,38 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
-import '../../domain/deck.dart';
-import '../../data/deck_repository.dart';
+import 'package:lapse/features/decks/domain/deck.dart';
+import 'deck_repository_provider.dart';
 
-// StateNotifier to manage list of decks
-final deckListProvider = StateNotifierProvider<DeckListNotifier, List<Deck>>(
-  (ref) => DeckListNotifier(ref.read as Reader),
+/*
+  Deck list state powered by a repository.
+*/
+final deckListProvider =
+    AsyncNotifierProvider<DeckListNotifier, List<Deck>>(
+  DeckListNotifier.new,
 );
 
-class DeckListNotifier extends StateNotifier<List<Deck>> {
-  final Reader read;
+class DeckListNotifier extends AsyncNotifier<List<Deck>> {
+  late final _repository = ref.read(deckRepositoryProvider);
 
-  DeckListNotifier(this.read) : super([]) {
-    loadDecks();
+  @override
+  Future<List<Deck>> build() async {
+    return _repository.getAllDecks();
   }
 
-  // Load decks from repository
-  Future<void> loadDecks() async {
-    final decks = await read.getAllDecks();
-    state = decks.where((d) => !d.isDeleted).toList(); // ignore soft-deleted
+  Future<void> createDeck(Deck deck) async {
+    state = const AsyncLoading<List<Deck>>().copyWithPrevious(state);
+    await _repository.createDeck(deck);
+    state = await AsyncValue.guard(_repository.getAllDecks);
   }
 
-  // Refresh decks manually
-  Future<void> refreshDecks() async {
-    await loadDecks();
+  Future<void> updateDeck(Deck updatedDeck) async {
+    state = const AsyncLoading<List<Deck>>().copyWithPrevious(state);
+    await _repository.updateDeck(updatedDeck);
+    state = await AsyncValue.guard(_repository.getAllDecks);
   }
 
-  // Add a new deck
-  Future<void> addDeck(Deck deck) async {
-    await read.createDeck(deck);
-    state = [...state, deck]; // add to current state
-  }
-
-  // Update existing deck
-  Future<void> updateDeck(Deck deck) async {
-    await read.updateDeck(deck);
-    state = [
-      for (final d in state)
-        if (d.deckID == deck.deckID) deck else d,
-    ];
-  }
-
-  // Soft delete deck
   Future<void> deleteDeck(String deckId) async {
-    await read.deleteDeck(deckId);
-    state = state.where((d) => d.deckID != deckId).toList();
+    state = const AsyncLoading<List<Deck>>().copyWithPrevious(state);
+    await _repository.deleteDeck(deckId);
+    state = await AsyncValue.guard(_repository.getAllDecks);
   }
-}
-
-class Reader {
-  Future<void> deleteDeck(String deckId) async {}
-
-  Future<void> updateDeck(Deck deck) async {}
-
-  Future<void> createDeck(Deck deck) async {}
-
-  Future<dynamic> getAllDecks() async {}
 }

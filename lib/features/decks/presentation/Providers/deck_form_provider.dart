@@ -1,98 +1,43 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:lapse/features/decks/presentation/Providers/deck_list_provider.dart';
-import '../../domain/deck.dart';
-import '../../data/deck_repository.dart';
-import 'package:uuid/uuid.dart';
 
-final deckFormProvider = StateNotifierProvider<DeckFormNotifier, DeckFormState>(
-  (ref) => DeckFormNotifier(ref.read as Reader),
+final deckFormProvider =
+    StateNotifierProvider<DeckFormNotifier, DeckFormState>(
+  (ref) => DeckFormNotifier(),
 );
 
 class DeckFormState {
-  final String deckName;
-  final String? parentID;
-  final bool isSubmitting;
-  final String? error;
+  final String name;
+  final String parentID;
 
-  DeckFormState({this.deckName = '', this.parentID, this.isSubmitting = false, this.error});
+  const DeckFormState({
+    this.name = '',
+    this.parentID = '',
+  });
 
-  DeckFormState copyWith({String? deckName, String? parentID, bool? isSubmitting, String? error}) {
+  DeckFormState copyWith({
+    String? name,
+    String? parentID,
+  }) {
     return DeckFormState(
-      deckName: deckName ?? this.deckName,
+      name: name ?? this.name,
       parentID: parentID ?? this.parentID,
-      isSubmitting: isSubmitting ?? this.isSubmitting,
-      error: error,
     );
   }
 }
 
 class DeckFormNotifier extends StateNotifier<DeckFormState> {
-  final Reader read;
+  DeckFormNotifier() : super(const DeckFormState());
 
-  DeckFormNotifier(this.read) : super(DeckFormState());
-
-  void setDeckName(String name) {
-    state = state.copyWith(deckName: name, error: null);
+  void setName(String value) {
+    state = state.copyWith(name: value);
   }
 
-  void setParentID(String? parentID) {
-    state = state.copyWith(parentID: parentID);
+  void setParent(String parentId) {
+    state = state.copyWith(parentID: parentId);
   }
 
-  // Create a new deck
-  Future<bool> submitNewDeck() async {
-    if (state.deckName.trim().isEmpty) {
-      state = state.copyWith(error: 'Deck name cannot be empty');
-      return false;
-    }
-
-    state = state.copyWith(isSubmitting: true, error: null);
-
-    final deck = Deck(
-      deckID: const Uuid().v4(),
-      parentID: state.parentID ?? '',
-      deckName: state.deckName.trim(),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      isDeleted: false,
-      cards: [],
-      cardCount: 0,
-      dueCount: 0,
-    );
-
-    try {
-      await read.createDeck(deck);
-      state = state.copyWith(isSubmitting: false);
-      return true;
-    } catch (e) {
-      state = state.copyWith(isSubmitting: false, error: e.toString());
-      return false;
-    }
-  }
-
-  // Edit existing deck
-  Future<bool> submitEditDeck(Deck existingDeck) async {
-    if (state.deckName.trim().isEmpty) {
-      state = state.copyWith(error: 'Deck name cannot be empty');
-      return false;
-    }
-
-    state = state.copyWith(isSubmitting: true, error: null);
-
-    final updatedDeck = existingDeck.copyWith(
-      deckName: state.deckName.trim(),
-      updatedAt: DateTime.now(),
-      parentID: state.parentID,
-    );
-
-    try {
-      await read.updateDeck(updatedDeck);
-      state = state.copyWith(isSubmitting: false);
-      return true;
-    } catch (e) {
-      state = state.copyWith(isSubmitting: false, error: e.toString());
-      return false;
-    }
+  void reset() {
+    state = const DeckFormState();
   }
 }
