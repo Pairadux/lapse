@@ -25,16 +25,6 @@ class StudySessionService {
     );
   }
 
-  /// Converts enum Rating to a int value
-  int _ratingToInt(Rating rating) {
-    return switch (rating) {
-      Rating.again => 1,
-      Rating.hard => 2,
-      Rating.good => 3,
-      Rating.easy => 4,
-    };
-  }
-
   /// Process card rating, update scheduling with FSRS, and advance session
   StudySession rateCard(StudySession session, Flashcard card, Rating rating) {
     /// Apply FSRS to update card scheduling
@@ -59,9 +49,9 @@ class StudySessionService {
 
     /// Appends Review with updated results
     final review = Review(
-      cardID: card.cardID,
+      cardId: card.cardId,
       reviewedAt: DateTime.now(),
-      rating: _ratingToInt(rating),
+      rating: rating,
       scheduledDays: card.scheduledDays,
       elapsedDays: card.elapsedDays,
       state: card.cardState,
