@@ -342,7 +342,7 @@ List<Flashcard> _generateMockCards(String deckId) {
       scheduledDays: 0,
       reps: 0,
       lapses: 0,
-      cardState: 0,
+      cardState: CardState.newCard,
     );
   }).toList();
 }
