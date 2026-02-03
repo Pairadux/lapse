@@ -3,7 +3,7 @@ import 'package:lapse/features/cards/domain/flashcard.dart';
 
 class Deck extends Equatable {
   final String deckId; // UUID, generated on creation
-  final String parentId; // ID of parent
+  final String? parentId; // ID of parent (optional)
   final String deckName; // Deck title (required)
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -15,18 +15,17 @@ class Deck extends Equatable {
 
   const Deck({
     required this.deckId,
-    required this.parentId,
+    this.parentId, // Defaults to null
     required this.deckName,
     required this.createdAt,
     required this.updatedAt,
-    required this.isDeleted,
+    this.isDeleted = false,
     required this.cards,
     required this.cardCount,
     required this.dueCount,
   });
 
   Deck copyWith({
-    String? deckId,
     String? parentId,
     String? deckName,
     DateTime? createdAt,
@@ -37,7 +36,7 @@ class Deck extends Equatable {
     int? dueCount,
   }) {
     return Deck(
-      deckId: deckId ?? this.deckId,
+      deckId: deckId, // Deck Id cannot be changed
       parentId: parentId ?? this.parentId,
       deckName: deckName ?? this.deckName,
       createdAt: createdAt ?? this.createdAt,
@@ -50,6 +49,5 @@ class Deck extends Equatable {
   }
 
   @override
-  // TODO: implement props
   List<Object?> get props => [deckId, parentId, deckName, createdAt, updatedAt, isDeleted, cards, cardCount, dueCount];
 }

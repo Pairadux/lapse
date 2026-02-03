@@ -10,31 +10,25 @@ class User extends Equatable {
 
   const User({required this.userId, this.email, required this.isAnonymous, required this.createdAt, this.lastSyncAt});
 
-  // Factory for anonymous users
-  factory User.anon() {
+  // Factory for regular users
+  factory User.reg() {
     return User(
       userId: const Uuid().v4(),
-      email: null, // Should be null, not ""
-      isAnonymous: true,
+      email: null,
+      isAnonymous: false,
       createdAt: DateTime.now(),
       lastSyncAt: null,
     );
   }
 
-  // Factory from JSON
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      userId: json['userId'] as String,
-      email: json['email'] as String?,
-      isAnonymous: json['isAnonymous'] as bool,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      lastSyncAt: json['lastSyncAt'] != null ? DateTime.parse(json['lastSyncAt'] as String) : null,
-    );
+  // Factory for anonymous users
+  factory User.anon() {
+    return User(userId: const Uuid().v4(), email: null, isAnonymous: true, createdAt: DateTime.now(), lastSyncAt: null);
   }
 
-  User copyWith({String? userId, String? email, bool? isAnonymous, DateTime? createdAt, DateTime? lastSyncAt}) {
+  User copyWith({String? email, bool? isAnonymous, DateTime? createdAt, DateTime? lastSyncAt}) {
     return User(
-      userId: userId ?? this.userId,
+      userId: userId,
       email: email ?? this.email,
       isAnonymous: isAnonymous ?? this.isAnonymous,
       createdAt: createdAt ?? this.createdAt,
@@ -43,6 +37,5 @@ class User extends Equatable {
   }
 
   @override
-  // TODO: implement props
   List<Object?> get props => [userId, email, isAnonymous, createdAt, lastSyncAt];
 }

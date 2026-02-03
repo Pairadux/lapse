@@ -29,7 +29,7 @@ class Flashcard extends Equatable {
     required this.back,
     required this.createdAt,
     required this.updatedAt,
-    required this.isDeleted,
+    this.isDeleted = false,
     required this.dueDate,
     required this.stability,
     required this.difficulty,
@@ -42,7 +42,6 @@ class Flashcard extends Equatable {
   });
 
   Flashcard copyWith({
-    String? cardId,
     String? deckId,
     String? front,
     String? back,
@@ -60,7 +59,7 @@ class Flashcard extends Equatable {
     CardState? cardState,
   }) {
     return Flashcard(
-      cardId: cardId ?? this.cardId,
+      cardId: cardId, // cardId cannot be changed
       deckId: deckId ?? this.deckId,
       front: front ?? this.front,
       back: back ?? this.back,
@@ -80,7 +79,6 @@ class Flashcard extends Equatable {
   }
 
   @override
-  // TODO: implement props
   List<Object?> get props => [
     cardId,
     deckId,

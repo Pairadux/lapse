@@ -38,6 +38,5 @@ class Review extends Equatable {
   }
 
   @override
-  // TODO: implement props
   List<Object?> get props => [cardId, reviewedAt, rating, scheduledDays, elapsedDays, state];
 }
