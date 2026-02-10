@@ -19,16 +19,9 @@ class Review extends Equatable {
     required this.state,
   });
 
-  Review copyWith({
-    String? cardId,
-    DateTime? reviewedAt,
-    Rating? rating,
-    int? scheduledDays,
-    int? elapsedDays,
-    CardState? state,
-  }) {
+  Review copyWith({DateTime? reviewedAt, Rating? rating, int? scheduledDays, int? elapsedDays, CardState? state}) {
     return Review(
-      cardId: cardId ?? this.cardId,
+      cardId: cardId,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       rating: rating ?? this.rating,
       scheduledDays: scheduledDays ?? this.scheduledDays,

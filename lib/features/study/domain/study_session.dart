@@ -30,7 +30,6 @@ class StudySession extends Equatable {
   });
 
   StudySession copyWith({
-    String? deckId,
     List<Flashcard>? cards,
     int? currentIndex,
     List<Review>? completedReviews,
@@ -41,7 +40,7 @@ class StudySession extends Equatable {
     int? easyCount,
   }) {
     return StudySession(
-      deckId: deckId ?? this.deckId,
+      deckId: deckId,
       cards: cards ?? this.cards,
       currentIndex: currentIndex ?? this.currentIndex,
       completedReviews: completedReviews ?? this.completedReviews,

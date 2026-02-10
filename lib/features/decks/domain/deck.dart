@@ -26,7 +26,7 @@ class Deck extends Equatable {
   });
 
   Deck copyWith({
-    String? parentId,
+    Optional<String?>? parentId,
     String? deckName,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -37,7 +37,9 @@ class Deck extends Equatable {
   }) {
     return Deck(
       deckId: deckId, // Deck Id cannot be changed
-      parentId: parentId ?? this.parentId,
+      parentId: parentId != null && parentId.isSet
+          ? parentId.value
+          : this.parentId, // call using copyWith(parentId: Optional.value(null)) to set parentId to null
       deckName: deckName ?? this.deckName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -50,4 +52,13 @@ class Deck extends Equatable {
 
   @override
   List<Object?> get props => [deckId, parentId, deckName, createdAt, updatedAt, isDeleted, cards, cardCount, dueCount];
+}
+
+class Optional<T> {
+  // allows you to set a field to null explicitly, or leave it unchanged
+  final T? value;
+  final bool isSet;
+
+  const Optional.value(this.value) : isSet = true;
+  const Optional.unset() : value = null, isSet = false;
 }
