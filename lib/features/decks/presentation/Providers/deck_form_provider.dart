@@ -7,20 +7,20 @@ final deckFormProvider =
 
 class DeckFormState {
   final String name;
-  final String parentID;
+  final String parentId;
 
   const DeckFormState({
     this.name = '',
-    this.parentID = '',
+    this.parentId = '',
   });
 
   DeckFormState copyWith({
     String? name,
-    String? parentID,
+    String? parentId,
   }) {
     return DeckFormState(
       name: name ?? this.name,
-      parentID: parentID ?? this.parentID,
+      parentId: parentId ?? this.parentId,
     );
   }
 }
@@ -33,7 +33,7 @@ class DeckFormNotifier extends StateNotifier<DeckFormState> {
   }
 
   void setParent(String parentId) {
-    state = state.copyWith(parentID: parentId);
+    state = state.copyWith(parentId: parentId);
   }
 
   void reset() {

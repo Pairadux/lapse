@@ -1,64 +1,66 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/presentation/Providers/deck_repository_provider.dart';
 
 import 'card_repository_provider.dart';
 
-final cardListProvider =
-    AsyncNotifierProviderFamily<CardListNotifier, List<Flashcard>, String>(
-  CardListNotifier.new,
+final cardListProvider = StateNotifierProvider.family<
+    CardListNotifier, AsyncValue<List<Flashcard>>, String>(
+  (ref, deckId) => CardListNotifier(ref, deckId),
 );
 
-class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
-  late final _cardRepository = ref.read(cardRepositoryProvider);
-  late final _deckRepository = ref.read(deckRepositoryProvider);
-  late final String _deckId;
+class CardListNotifier extends StateNotifier<AsyncValue<List<Flashcard>>> {
+  CardListNotifier(this._ref, this._deckId) : super(const AsyncLoading()) {
+    _loadCards();
+  }
 
-  @override
-  Future<List<Flashcard>> build(String deckId) async {
-    _deckId = deckId;
-    return _cardRepository.getCardsForDeck(deckId);
+  final Ref _ref;
+  final String _deckId;
+
+  Future<void> _loadCards() async {
+    state = await AsyncValue.guard(
+      () => _ref.read(cardRepositoryProvider).getCardsForDeck(_deckId),
+    );
   }
 
   Future<void> createCard(Flashcard card) async {
-    state = const AsyncLoading<List<Flashcard>>().copyWithPrevious(state);
-    await _cardRepository.createCard(card);
+    state = const AsyncLoading();
+    await _ref.read(cardRepositoryProvider).createCard(card);
     await _syncDeckCounts(card.deckId);
-    state = await AsyncValue.guard(() => _cardRepository.getCardsForDeck(_deckId));
+    await _loadCards();
   }
 
   Future<void> updateCard(Flashcard updatedCard) async {
-    state = const AsyncLoading<List<Flashcard>>().copyWithPrevious(state);
-    await _cardRepository.updateCard(updatedCard);
+    state = const AsyncLoading();
+    await _ref.read(cardRepositoryProvider).updateCard(updatedCard);
     await _syncDeckCounts(updatedCard.deckId);
-    state = await AsyncValue.guard(() => _cardRepository.getCardsForDeck(_deckId));
+    await _loadCards();
   }
 
   Future<void> deleteCard(String cardId) async {
-    state = const AsyncLoading<List<Flashcard>>().copyWithPrevious(state);
-    await _cardRepository.deleteCard(cardId);
+    state = const AsyncLoading();
+    await _ref.read(cardRepositoryProvider).deleteCard(cardId);
     await _syncDeckCounts(_deckId);
-    state = await AsyncValue.guard(() => _cardRepository.getCardsForDeck(_deckId));
+    await _loadCards();
   }
 
   Future<void> _syncDeckCounts(String deckId) async {
-    final cards = await _cardRepository.getCardsForDeck(deckId);
-    final deckList = await _deckRepository.getAllDecks();
-    final deckMatches = deckList.where((d) => d.deckID == deckId).toList();
-    if (deckMatches.isEmpty) return;
+    final cards = await _ref.read(cardRepositoryProvider).getCardsForDeck(deckId);
+    final deckList = await _ref.read(deckRepositoryProvider).getAllDecks();
+    final index = deckList.indexWhere((d) => d.deckID == deckId);
+    if (index == -1) return;
 
-    final dueCount = _calculateDueCount(cards);
-    final updated = deckMatches.first.copyWith(
+    final updatedDeck = deckList[index].copyWith(
       cardCount: cards.length,
-      dueCount: dueCount,
+      dueCount: _calculateDueCount(cards),
       updatedAt: DateTime.now(),
     );
-    await _deckRepository.updateDeck(updated);
+    await _ref.read(deckRepositoryProvider).updateDeck(updatedDeck);
   }
 
   int _calculateDueCount(List<Flashcard> cards) {
     final now = DateTime.now();
-    return cards.where((c) => !c.dueDate.isAfter(now)).length;
+    return cards.where((card) => !card.dueDate.isAfter(now)).length;
   }
 }
