@@ -79,3 +79,12 @@ Input Summary: Requested minimal demo flow: open app, select deck, study cards, 
 Output Summary: Created study_session_screen.dart with card flip, rating buttons, session complete stats, and keyboard support. Added "Study All" bar for folder decks that recursively collects cards from descendants. Updated deck cards to show aggregated counts for folders. Added simple README.
 Modifications: Fixed card layout shift by keeping rating buttons always rendered (invisible until answer shown). Removed number labels from rating buttons (looked weird on mobile). Fixed back button crash when nothing to pop. Updated mock data to match actual card counts.
 Files Referenced: lib/features/study/presentation/screens/study_session_screen.dart, lib/features/decks/presentation/screens/deck_list_screen.dart, lib/features/decks/presentation/widgets/deck_card.dart, README.md
+
+Date: 2026-02-11
+User: Austin
+Purpose: Implement SQLite database infrastructure (Issue #34) — foundation for all repository persistence
+Approach: Provided a detailed implementation plan to AI covering schema design, library choice (sqflite over drift), and commit strategy. AI implemented step-by-step, verified with tests and static analysis.
+Input Summary: Gave comprehensive plan specifying 3 tables (decks, cards, reviews), column types mapped to existing Dart models, partial indexes, FK constraints with cascade deletes, and a singleton DatabaseHelper pattern. Specified sqflite to avoid codegen conflicts with existing domain models.
+Output Summary: AI created database_constants.dart (all DDL/column constants), database_helper.dart (singleton with lazy init, FK pragma, batch schema creation, migration loop), and 10 integration tests using sqflite_common_ffi covering table/index existence, FK enforcement, CRUD round-trips, cascade deletes, and soft-delete filtering. All tests pass, flutter analyze clean.
+Modifications: AI initially had a sync call to getDatabasesPath() (returns Future) — caught and fixed to async/await. Tests initially failed due to shared singleton state across tests — added database file deletion in tearDown for proper isolation.
+Files Referenced: lib/core/database/database_constants.dart, lib/core/database/database_helper.dart, test/core/database/database_helper_test.dart, pubspec.yaml
