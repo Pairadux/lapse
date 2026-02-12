@@ -269,16 +269,14 @@ class _BreadcrumbItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        MouseRegion(
-          cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isLast ? AppColors.textPrimary : AppColors.primary,
-                fontWeight: isLast ? FontWeight.w600 : FontWeight.normal,
-              ),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(Spacing.radiusSm),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: isLast ? AppColors.textPrimary : AppColors.primary,
+              fontWeight: isLast ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ),
