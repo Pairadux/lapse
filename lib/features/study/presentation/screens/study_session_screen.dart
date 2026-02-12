@@ -40,17 +40,26 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   }
 
   Future<void> _loadCards() async {
-    final allCards = <Flashcard>[];
-    for (final deckId in widget.deckIds) {
-      // TODO: Replace with state management provider
-      final due = await _cardRepo.getDueCards(deckId);
-      allCards.addAll(due);
-    }
-    if (mounted) {
-      setState(() {
-        _cards = allCards;
-        _isLoading = false;
-      });
+    try {
+      final allCards = <Flashcard>[];
+      for (final deckId in widget.deckIds) {
+        // TODO: Replace with state management provider
+        final due = await _cardRepo.getDueCards(deckId);
+        allCards.addAll(due);
+      }
+      if (mounted) {
+        setState(() {
+          _cards = allCards;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load cards: $e')),
+        );
+      }
     }
   }
 

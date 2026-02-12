@@ -36,24 +36,32 @@ class _DeckListScreenState extends State<DeckListScreen> {
 
   Future<void> _loadDecks() async {
     setState(() => _isLoading = true);
-    // TODO: Replace with state management provider
-    final decks = await _deckRepo.getAll();
-    // Load card counts for each deck
-    final updatedDecks = <Deck>[];
-    for (final deck in decks) {
+    try {
       // TODO: Replace with state management provider
-      final cards = await _cardRepo.getByDeckId(deck.deckId);
-      final dueCards = await _cardRepo.getDueCards(deck.deckId);
-      updatedDecks.add(deck.copyWith(
-        cardCount: cards.length,
-        dueCount: dueCards.length,
-      ));
-    }
-    if (mounted) {
-      setState(() {
-        _allDecks = updatedDecks;
-        _isLoading = false;
-      });
+      final decks = await _deckRepo.getAll();
+      final updatedDecks = <Deck>[];
+      for (final deck in decks) {
+        // TODO: Replace with state management provider
+        final cards = await _cardRepo.getByDeckId(deck.deckId);
+        final dueCards = await _cardRepo.getDueCards(deck.deckId);
+        updatedDecks.add(deck.copyWith(
+          cardCount: cards.length,
+          dueCount: dueCards.length,
+        ));
+      }
+      if (mounted) {
+        setState(() {
+          _allDecks = updatedDecks;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load decks: $e')),
+        );
+      }
     }
   }
 
