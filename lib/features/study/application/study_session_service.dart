@@ -4,6 +4,13 @@ import '../domain/review.dart';
 import '../domain/study_session.dart';
 import '../../cards/domain/flashcard.dart';
 
+class StudySessionResult {
+  final StudySession session;
+  final Flashcard updatedCard;
+
+  const StudySessionResult({required this.session, required this.updatedCard});
+}
+
 /// Manages study session flow and card rating
 class StudySessionService {
   final FsrsService _fsrsService;
@@ -26,11 +33,10 @@ class StudySessionService {
   }
 
   /// Process card rating, update scheduling with FSRS, and advance session
-  StudySession rateCard(StudySession session, Flashcard card, Rating rating) {
-    /// Apply FSRS to update card scheduling
-    _fsrsService.processReview(card, rating);
+  StudySessionResult rateCard(StudySession session, Flashcard card, Rating rating) {
+    final fsrsResult = _fsrsService.processReview(card, rating);
+    final updatedCard = fsrsResult.updatedCard;
 
-    /// Update rating counts
     int againCount = session.againCount;
     int hardCount = session.hardCount;
     int goodCount = session.goodCount;
@@ -47,21 +53,18 @@ class StudySessionService {
         easyCount++;
     }
 
-    /// Appends Review with updated results
     final review = Review(
-      cardId: card.cardId,
+      cardId: updatedCard.cardId,
       reviewedAt: DateTime.now(),
       rating: rating,
-      scheduledDays: card.scheduledDays,
-      elapsedDays: card.elapsedDays,
-      state: card.cardState,
+      scheduledDays: updatedCard.scheduledDays,
+      elapsedDays: updatedCard.elapsedDays,
+      state: updatedCard.cardState,
     );
 
-    /// Creates a new list containing the existing review with the new ones
     final updatedCompletedReviews = List<Review>.from(session.completedReviews)..add(review);
 
-    /// Return session with next card position and updated counts
-    return StudySession(
+    final updatedSession = StudySession(
       deckId: session.deckId,
       cards: session.cards,
       currentIndex: session.currentIndex + 1,
@@ -72,5 +75,7 @@ class StudySessionService {
       goodCount: goodCount,
       easyCount: easyCount,
     );
+
+    return StudySessionResult(session: updatedSession, updatedCard: updatedCard);
   }
 }
