@@ -4,6 +4,9 @@ import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/dev_drawer.dart';
+import 'package:lapse/core/widgets/loading_indicator.dart';
+import 'package:lapse/features/cards/data/card_repository.dart';
+import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 import 'package:lapse/features/decks/presentation/widgets/empty_deck_state.dart';
@@ -16,25 +19,61 @@ class DeckListScreen extends StatefulWidget {
 }
 
 class _DeckListScreenState extends State<DeckListScreen> {
-  // Navigation stack for breadcrumb (list of parent deck IDs)
   final List<Deck> _navigationStack = [];
 
-  // TODO: Replace with provider
-  final List<Deck> _mockDecks = _generateMockDecks();
+  // TODO: Replace with state management provider
+  final _deckRepo = DeckRepository();
+  final _cardRepo = CardRepository();
+
+  List<Deck> _allDecks = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDecks();
+  }
+
+  Future<void> _loadDecks() async {
+    setState(() => _isLoading = true);
+    // TODO: Replace with state management provider
+    final decks = await _deckRepo.getAll();
+    // Load card counts for each deck
+    final updatedDecks = <Deck>[];
+    for (final deck in decks) {
+      // TODO: Replace with state management provider
+      final cards = await _cardRepo.getByDeckId(deck.deckId);
+      final dueCards = await _cardRepo.getDueCards(deck.deckId);
+      updatedDecks.add(deck.copyWith(
+        cardCount: cards.length,
+        dueCount: dueCards.length,
+      ));
+    }
+    if (mounted) {
+      setState(() {
+        _allDecks = updatedDecks;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _refreshDecks() async {
+    await _loadDecks();
+  }
 
   List<Deck> get _currentDecks {
-    final parentId = _navigationStack.isEmpty ? '' : _navigationStack.last.deckId;
-    return _mockDecks.where((d) => d.parentId == parentId).toList();
+    final parentId = _navigationStack.isEmpty ? null : _navigationStack.last.deckId;
+    return _allDecks.where((d) => d.parentId == parentId).toList();
   }
 
   bool _hasChildren(Deck deck) {
-    return _mockDecks.any((d) => d.parentId == deck.deckId);
+    return _allDecks.any((d) => d.parentId == deck.deckId);
   }
 
   /// Recursively get all descendant deck IDs (including the given deck)
   List<String> _getAllDescendantDeckIds(String deckId) {
     final result = <String>[deckId];
-    final children = _mockDecks.where((d) => d.parentId == deckId);
+    final children = _allDecks.where((d) => d.parentId == deckId);
     for (final child in children) {
       result.addAll(_getAllDescendantDeckIds(child.deckId));
     }
@@ -45,7 +84,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
   int _getAggregatedCardCount(String deckId) {
     final deckIds = _getAllDescendantDeckIds(deckId);
     return deckIds.fold(0, (sum, id) {
-      final deck = _mockDecks.firstWhere((d) => d.deckId == id);
+      final deck = _allDecks.firstWhere((d) => d.deckId == id);
       return sum + deck.cardCount;
     });
   }
@@ -54,7 +93,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
   int _getAggregatedDueCount(String deckId) {
     final deckIds = _getAllDescendantDeckIds(deckId);
     return deckIds.fold(0, (sum, id) {
-      final deck = _mockDecks.firstWhere((d) => d.deckId == id);
+      final deck = _allDecks.firstWhere((d) => d.deckId == id);
       return sum + deck.dueCount;
     });
   }
@@ -65,7 +104,6 @@ class _DeckListScreenState extends State<DeckListScreen> {
         _navigationStack.add(deck);
       });
     } else {
-      // Navigate to study session for this deck
       context.go(
         Routes.studyPath(deck.deckId),
         extra: {
@@ -80,7 +118,6 @@ class _DeckListScreenState extends State<DeckListScreen> {
     if (_navigationStack.isEmpty) return;
     final currentDeck = _navigationStack.last;
     final allDeckIds = _getAllDescendantDeckIds(currentDeck.deckId);
-    // TODO: Apply daily limit and due date filtering here when scheduling is implemented
     context.go(Routes.studyPath(currentDeck.deckId), extra: {'name': currentDeck.deckName, 'deckIds': allDeckIds});
   }
 
@@ -112,15 +149,20 @@ class _DeckListScreenState extends State<DeckListScreen> {
         ],
       ),
       drawer: const DevDrawer(),
-      body: Column(
-        children: [
-          if (_navigationStack.isNotEmpty) _buildBreadcrumb(),
-          if (_navigationStack.isNotEmpty) _buildStudyAllBar(),
-          Expanded(child: _buildDeckList()),
-        ],
-      ),
+      body: _isLoading
+          ? const LoadingIndicator()
+          : Column(
+              children: [
+                if (_navigationStack.isNotEmpty) _buildBreadcrumb(),
+                if (_navigationStack.isNotEmpty) _buildStudyAllBar(),
+                Expanded(child: _buildDeckList()),
+              ],
+            ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go(Routes.deckNew),
+        onPressed: () async {
+          await context.push(Routes.deckNew);
+          _refreshDecks();
+        },
         child: const Icon(Icons.add),
       ),
     );
@@ -183,7 +225,10 @@ class _DeckListScreenState extends State<DeckListScreen> {
     final decks = _currentDecks;
 
     if (decks.isEmpty) {
-      return EmptyDeckState(isSubfolder: _navigationStack.isNotEmpty, onCreateDeck: () => context.go(Routes.deckNew));
+      return EmptyDeckState(isSubfolder: _navigationStack.isNotEmpty, onCreateDeck: () async {
+        await context.push(Routes.deckNew);
+        _refreshDecks();
+      });
     }
 
     return ListView.builder(
@@ -238,98 +283,3 @@ class _BreadcrumbItem extends StatelessWidget {
     );
   }
 }
-
-// =============================================================================
-// MOCK DATA - TODO: Remove when providers/state management are ready
-// Card counts match mock cards in study_session_screen.dart
-// =============================================================================
-List<Deck> _generateMockDecks() {
-  final now = DateTime.now();
-  return [
-    // Root-level decks (parentID: '')
-    // Languages is a folder - no direct cards, children have 10 total
-    Deck(
-      deckId: '1',
-      parentId: '',
-      deckName: 'Languages',
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-      cards: [],
-      cardCount: 0,
-      dueCount: 0,
-    ),
-    // Science is a folder - no direct cards, children have 6 total
-    Deck(
-      deckId: '2',
-      parentId: '',
-      deckName: 'Science',
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-      cards: [],
-      cardCount: 0,
-      dueCount: 0,
-    ),
-    // History 101 is a leaf deck with 3 cards
-    Deck(
-      deckId: '3',
-      parentId: '',
-      deckName: 'History 101',
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-      cards: [],
-      cardCount: 3,
-      dueCount: 3,
-    ),
-    // Nested under Languages (parentID: '1')
-    Deck(
-      deckId: '1-1',
-      parentId: '1',
-      deckName: 'Spanish',
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-      cards: [],
-      cardCount: 5,
-      dueCount: 5,
-    ),
-    Deck(
-      deckId: '1-2',
-      parentId: '1',
-      deckName: 'Japanese',
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-      cards: [],
-      cardCount: 5,
-      dueCount: 5,
-    ),
-    // Nested under Science (parentID: '2')
-    Deck(
-      deckId: '2-1',
-      parentId: '2',
-      deckName: 'Biology',
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-      cards: [],
-      cardCount: 3,
-      dueCount: 3,
-    ),
-    Deck(
-      deckId: '2-2',
-      parentId: '2',
-      deckName: 'Chemistry',
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-      cards: [],
-      cardCount: 3,
-      dueCount: 3,
-    ),
-  ];
-}
-
-// =============================================================================
