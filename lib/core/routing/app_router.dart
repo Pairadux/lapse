@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lapse/features/cards/domain/flashcard.dart';
+import 'package:lapse/features/cards/presentation/screens/card_form_screen.dart';
+import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/features/decks/presentation/screens/deck_form_screen.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_list_screen.dart';
 import 'package:lapse/features/study/presentation/screens/study_session_screen.dart';
 import '../widgets/app_scaffold.dart';
@@ -23,7 +27,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: Routes.deckNew,
-      builder: (context, state) => const _PlaceholderScreen(title: 'New Deck'),
+      builder: (context, state) => const DeckFormScreen(),
     ),
     GoRoute(
       path: Routes.deck,
@@ -34,21 +38,21 @@ final appRouter = GoRouter(
       routes: [
         GoRoute(
           path: 'edit',
-          builder: (context, state) {
-            final deckId = state.pathParameters['deckId']!;
-            return _PlaceholderScreen(title: 'Edit Deck: $deckId');
-          },
+          builder: (context, state) =>
+              DeckFormScreen(deck: state.extra as Deck?),
         ),
         GoRoute(
           path: 'card/new',
-          builder: (context, state) => const _PlaceholderScreen(title: 'New Card'),
+          builder: (context, state) => CardFormScreen(
+            deckId: state.pathParameters['deckId']!,
+          ),
         ),
         GoRoute(
           path: 'card/:cardId',
-          builder: (context, state) {
-            final cardId = state.pathParameters['cardId']!;
-            return _PlaceholderScreen(title: 'Edit Card: $cardId');
-          },
+          builder: (context, state) => CardFormScreen(
+            deckId: state.pathParameters['deckId']!,
+            card: state.extra as Flashcard?,
+          ),
         ),
         GoRoute(
           path: 'study',
