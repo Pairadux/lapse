@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:lapse/core/database/database_constants.dart';
 
 enum CardState { newCard, learning, review, relearning }
 
@@ -41,6 +42,32 @@ class Flashcard extends Equatable {
     required this.cardState,
   });
 
+  /// Creates a new card with sensible FSRS defaults.
+  factory Flashcard.newCard({
+    required String cardId,
+    required String deckId,
+    required String front,
+    required String back,
+  }) {
+    final now = DateTime.now();
+    return Flashcard(
+      cardId: cardId,
+      deckId: deckId,
+      front: front,
+      back: back,
+      dueDate: now,
+      stability: 0.0,
+      difficulty: 0.0,
+      elapsedDays: 0,
+      scheduledDays: 0,
+      reps: 0,
+      lapses: 0,
+      cardState: CardState.newCard,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
   Flashcard copyWith({
     String? deckId,
     String? front,
@@ -75,6 +102,51 @@ class Flashcard extends Equatable {
       lapses: lapses ?? this.lapses,
       lastReview: lastReview ?? this.lastReview,
       cardState: cardState ?? this.cardState,
+    );
+  }
+
+  /// Serializes to a DB-ready column map.
+  Map<String, dynamic> toMap() {
+    return {
+      DatabaseConstants.colCardId: cardId,
+      DatabaseConstants.colDeckId: deckId,
+      DatabaseConstants.colFront: front,
+      DatabaseConstants.colBack: back,
+      DatabaseConstants.colCreatedAt: createdAt.toUtc().toIso8601String(),
+      DatabaseConstants.colUpdatedAt: updatedAt.toUtc().toIso8601String(),
+      DatabaseConstants.colIsDeleted: isDeleted ? 1 : 0,
+      DatabaseConstants.colDueDate: dueDate.toUtc().toIso8601String(),
+      DatabaseConstants.colStability: stability,
+      DatabaseConstants.colDifficulty: difficulty,
+      DatabaseConstants.colElapsedDays: elapsedDays,
+      DatabaseConstants.colScheduledDays: scheduledDays,
+      DatabaseConstants.colReps: reps,
+      DatabaseConstants.colLapses: lapses,
+      DatabaseConstants.colLastReview: lastReview?.toUtc().toIso8601String(),
+      DatabaseConstants.colCardState: cardState.index,
+    };
+  }
+
+  /// Deserializes from a DB column map.
+  factory Flashcard.fromMap(Map<String, dynamic> map) {
+    final lastReviewStr = map[DatabaseConstants.colLastReview] as String?;
+    return Flashcard(
+      cardId: map[DatabaseConstants.colCardId] as String,
+      deckId: map[DatabaseConstants.colDeckId] as String,
+      front: map[DatabaseConstants.colFront] as String,
+      back: map[DatabaseConstants.colBack] as String,
+      createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
+      updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),
+      isDeleted: map[DatabaseConstants.colIsDeleted] == 1,
+      dueDate: DateTime.parse(map[DatabaseConstants.colDueDate] as String),
+      stability: (map[DatabaseConstants.colStability] as num).toDouble(),
+      difficulty: (map[DatabaseConstants.colDifficulty] as num).toDouble(),
+      elapsedDays: map[DatabaseConstants.colElapsedDays] as int,
+      scheduledDays: map[DatabaseConstants.colScheduledDays] as int,
+      reps: map[DatabaseConstants.colReps] as int,
+      lapses: map[DatabaseConstants.colLapses] as int,
+      lastReview: lastReviewStr != null ? DateTime.parse(lastReviewStr) : null,
+      cardState: CardState.values[map[DatabaseConstants.colCardState] as int],
     );
   }
 

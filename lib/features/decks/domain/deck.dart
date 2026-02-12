@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
 class Deck extends Equatable {
@@ -47,6 +48,35 @@ class Deck extends Equatable {
       cards: cards ?? this.cards,
       cardCount: cardCount ?? this.cardCount,
       dueCount: dueCount ?? this.dueCount,
+    );
+  }
+
+  /// Serializes to a DB-ready column map.
+  /// Excludes runtime-only fields: cards, cardCount, dueCount.
+  Map<String, dynamic> toMap() {
+    return {
+      DatabaseConstants.colDeckId: deckId,
+      DatabaseConstants.colParentId: parentId,
+      DatabaseConstants.colDeckName: deckName,
+      DatabaseConstants.colUserId: '', // placeholder until auth
+      DatabaseConstants.colCreatedAt: createdAt.toUtc().toIso8601String(),
+      DatabaseConstants.colUpdatedAt: updatedAt.toUtc().toIso8601String(),
+      DatabaseConstants.colIsDeleted: isDeleted ? 1 : 0,
+    };
+  }
+
+  /// Deserializes from a DB column map.
+  factory Deck.fromMap(Map<String, dynamic> map) {
+    return Deck(
+      deckId: map[DatabaseConstants.colDeckId] as String,
+      parentId: map[DatabaseConstants.colParentId] as String?,
+      deckName: map[DatabaseConstants.colDeckName] as String,
+      createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
+      updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),
+      isDeleted: map[DatabaseConstants.colIsDeleted] == 1,
+      cards: [],
+      cardCount: 0,
+      dueCount: 0,
     );
   }
 
