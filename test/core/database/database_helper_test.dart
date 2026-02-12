@@ -12,13 +12,13 @@ void main() {
   late DatabaseHelper helper;
 
   setUp(() {
-    helper = DatabaseHelper.instance;
+    helper = DatabaseHelper.forTesting(dbName: 'test_db_helper.db');
   });
 
   tearDown(() async {
     await helper.close();
     final dbPath = await getDatabasesPath();
-    await deleteDatabase(join(dbPath, DatabaseConstants.databaseName));
+    await deleteDatabase(join(dbPath, 'test_db_helper.db'));
   });
 
   test('database opens successfully', () async {

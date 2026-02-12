@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -5,8 +6,15 @@ import 'database_constants.dart';
 
 /// Singleton helper that owns the app's SQLite [Database] connection.
 class DatabaseHelper {
-  DatabaseHelper._();
+  final String _dbName;
+
+  DatabaseHelper._({String? dbName})
+      : _dbName = dbName ?? DatabaseConstants.databaseName;
   static final DatabaseHelper instance = DatabaseHelper._();
+
+  /// Creates an independent instance with its own DB file for testing.
+  @visibleForTesting
+  DatabaseHelper.forTesting({String dbName = 'test.db'}) : _dbName = dbName;
 
   Database? _database;
 
@@ -19,7 +27,7 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, DatabaseConstants.databaseName);
+    final path = join(dbPath, _dbName);
     return openDatabase(
       path,
       version: DatabaseConstants.databaseVersion,
