@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
-import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
+import 'package:lapse/features/study/presentation/Providers/study_session_provider.dart';
 
-class StudySessionScreen extends StatefulWidget {
+class StudySessionScreen extends ConsumerStatefulWidget {
   final String deckName;
   final List<String> deckIds;
 
@@ -17,47 +18,31 @@ class StudySessionScreen extends StatefulWidget {
   });
 
   @override
-  State<StudySessionScreen> createState() => _StudySessionScreenState();
+  ConsumerState<StudySessionScreen> createState() => _StudySessionScreenState();
 }
 
-class _StudySessionScreenState extends State<StudySessionScreen> {
-  // =============================================================================
-  // MOCK DATA - TODO: Replace with provider/state management
-  // =============================================================================
-  late final List<Flashcard> _cards = _generateMockCardsForDecks(widget.deckIds);
-  // TODO: Apply daily limit here when implemented (e.g., _cards.take(dailyLimit))
-  // TODO: Filter by due date when FSRS scheduling is implemented
-  // =============================================================================
+class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
+  late final FocusNode _focusNode;
 
-  int _currentIndex = 0;
-  bool _showingAnswer = false;
-  final Map<Rating, int> _ratingCounts = {
-    Rating.again: 0,
-    Rating.hard: 0,
-    Rating.good: 0,
-    Rating.easy: 0,
-  };
-
-  Flashcard get _currentCard => _cards[_currentIndex];
-  bool get _isSessionComplete => _currentIndex >= _cards.length;
-  double get _progress => _cards.isEmpty ? 0 : (_currentIndex / _cards.length);
-
-  void _flipCard() {
-    setState(() {
-      _showingAnswer = true;
-    });
-  }
-
-  void _rateCard(Rating rating) {
-    setState(() {
-      _ratingCounts[rating] = _ratingCounts[rating]! + 1;
-      _currentIndex++;
-      _showingAnswer = false;
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    Future<void>.microtask(() {
+      ref.read(studySessionProvider.notifier).startSession(widget.deckIds);
     });
   }
 
   @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final sessionState = ref.watch(studySessionProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -67,29 +52,53 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
         ),
         title: Text(widget.deckName),
         centerTitle: true,
-        // TODO: Add edit button here to quickly edit current card
       ),
-      body: Column(
-        children: [
-          _buildProgressBar(),
-          Expanded(
-            child: _isSessionComplete
-                ? _buildSessionComplete()
-                : _buildStudyCard(),
-          ),
-        ],
+      body: sessionState.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stackTrace) => _buildErrorState(),
+        data: (session) => Column(
+          children: [
+            _buildProgressBar(session.progress),
+            Expanded(
+              child: session.isComplete
+                  ? _buildSessionComplete(session)
+                  : _buildStudyCard(session),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildProgressBar() {
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Failed to load study cards'),
+            const SizedBox(height: Spacing.md),
+            ElevatedButton(
+              onPressed: () {
+                ref.read(studySessionProvider.notifier).startSession(widget.deckIds);
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar(double progress) {
     return Container(
       height: Spacing.xs,
       width: double.infinity,
       color: AppColors.surfaceElevated,
       child: FractionallySizedBox(
         alignment: Alignment.centerLeft,
-        widthFactor: _progress,
+        widthFactor: progress,
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -104,26 +113,32 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   void _handleKeyPress(KeyEvent event) {
     if (event is! KeyDownEvent) return;
 
-    if (!_showingAnswer) {
+    final session = ref.read(studySessionProvider).asData?.value;
+    if (session == null || session.isComplete) return;
+
+    final notifier = ref.read(studySessionProvider.notifier);
+    if (!session.showingAnswer) {
       if (event.logicalKey == LogicalKeyboardKey.space) {
-        _flipCard();
+        notifier.revealAnswer();
       }
-    } else {
-      if (event.logicalKey == LogicalKeyboardKey.digit1) {
-        _rateCard(Rating.again);
-      } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
-        _rateCard(Rating.hard);
-      } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
-        _rateCard(Rating.good);
-      } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
-        _rateCard(Rating.easy);
-      }
+      return;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.digit1) {
+      notifier.rateCurrentCard(Rating.again);
+    } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
+      notifier.rateCurrentCard(Rating.hard);
+    } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
+      notifier.rateCurrentCard(Rating.good);
+    } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
+      notifier.rateCurrentCard(Rating.easy);
     }
   }
 
-  Widget _buildStudyCard() {
+  Widget _buildStudyCard(StudySessionState session) {
+    final card = session.currentCard!;
     return KeyboardListener(
-      focusNode: FocusNode()..requestFocus(),
+      focusNode: _focusNode..requestFocus(),
       autofocus: true,
       onKeyEvent: _handleKeyPress,
       child: Padding(
@@ -132,7 +147,9 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
           children: [
             Expanded(
               child: GestureDetector(
-                onTap: _showingAnswer ? null : _flipCard,
+                onTap: session.showingAnswer
+                    ? null
+                    : () => ref.read(studySessionProvider.notifier).revealAnswer(),
                 child: Card(
                   child: Container(
                     width: double.infinity,
@@ -141,13 +158,13 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          _showingAnswer ? _currentCard.back : _currentCard.front,
+                          session.showingAnswer ? card.back : card.front,
                           style: Theme.of(context).textTheme.headlineSmall,
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: Spacing.xl),
                         Text(
-                          _showingAnswer ? '' : 'Tap or press Space to reveal',
+                          session.showingAnswer ? '' : 'Tap or press Space to reveal',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: AppColors.textTertiary,
                               ),
@@ -159,42 +176,50 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
               ),
             ),
             const SizedBox(height: Spacing.lg),
-            _buildRatingButtons(),
+            _buildRatingButtons(session.showingAnswer),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRatingButtons() {
+  Widget _buildRatingButtons(bool showingAnswer) {
     return Opacity(
-      opacity: _showingAnswer ? 1.0 : 0.3,
+      opacity: showingAnswer ? 1.0 : 0.3,
       child: IgnorePointer(
-        ignoring: !_showingAnswer,
+        ignoring: !showingAnswer,
         child: Row(
           children: [
             _RatingButton(
               label: 'Again',
               color: AppColors.ratingAgain,
-              onPressed: () => _rateCard(Rating.again),
+              onPressed: () => ref
+                  .read(studySessionProvider.notifier)
+                  .rateCurrentCard(Rating.again),
             ),
             const SizedBox(width: Spacing.sm),
             _RatingButton(
               label: 'Hard',
               color: AppColors.ratingHard,
-              onPressed: () => _rateCard(Rating.hard),
+              onPressed: () => ref
+                  .read(studySessionProvider.notifier)
+                  .rateCurrentCard(Rating.hard),
             ),
             const SizedBox(width: Spacing.sm),
             _RatingButton(
               label: 'Good',
               color: AppColors.ratingGood,
-              onPressed: () => _rateCard(Rating.good),
+              onPressed: () => ref
+                  .read(studySessionProvider.notifier)
+                  .rateCurrentCard(Rating.good),
             ),
             const SizedBox(width: Spacing.sm),
             _RatingButton(
               label: 'Easy',
               color: AppColors.ratingEasy,
-              onPressed: () => _rateCard(Rating.easy),
+              onPressed: () => ref
+                  .read(studySessionProvider.notifier)
+                  .rateCurrentCard(Rating.easy),
             ),
           ],
         ),
@@ -202,9 +227,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     );
   }
 
-  Widget _buildSessionComplete() {
-    final totalReviewed = _ratingCounts.values.reduce((a, b) => a + b);
-
+  Widget _buildSessionComplete(StudySessionState session) {
     return Padding(
       padding: const EdgeInsets.all(Spacing.xl),
       child: Column(
@@ -222,18 +245,21 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
           ),
           const SizedBox(height: Spacing.sm),
           Text(
-            'You reviewed $totalReviewed cards',
+            'You reviewed ${session.totalReviewed} cards',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: AppColors.textSecondary,
                 ),
           ),
           const SizedBox(height: Spacing.xxl),
-          _buildStatsGrid(),
+          _buildStatsGrid(session),
           const SizedBox(height: Spacing.xxl),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => context.go('/'),
+              onPressed: () {
+                ref.read(studySessionProvider.notifier).endSession();
+                context.go('/');
+              },
               child: const Text('Done'),
             ),
           ),
@@ -242,14 +268,30 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(StudySessionState session) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _StatItem(label: 'Again', count: _ratingCounts[Rating.again]!, color: AppColors.ratingAgain),
-        _StatItem(label: 'Hard', count: _ratingCounts[Rating.hard]!, color: AppColors.ratingHard),
-        _StatItem(label: 'Good', count: _ratingCounts[Rating.good]!, color: AppColors.ratingGood),
-        _StatItem(label: 'Easy', count: _ratingCounts[Rating.easy]!, color: AppColors.ratingEasy),
+        _StatItem(
+          label: 'Again',
+          count: session.ratingCounts[Rating.again] ?? 0,
+          color: AppColors.ratingAgain,
+        ),
+        _StatItem(
+          label: 'Hard',
+          count: session.ratingCounts[Rating.hard] ?? 0,
+          color: AppColors.ratingHard,
+        ),
+        _StatItem(
+          label: 'Good',
+          count: session.ratingCounts[Rating.good] ?? 0,
+          color: AppColors.ratingGood,
+        ),
+        _StatItem(
+          label: 'Easy',
+          count: session.ratingCounts[Rating.easy] ?? 0,
+          color: AppColors.ratingEasy,
+        ),
       ],
     );
   }
@@ -273,6 +315,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       ),
     );
     if (shouldExit == true && context.mounted) {
+      ref.read(studySessionProvider.notifier).endSession();
       context.go('/');
     }
   }
@@ -341,76 +384,3 @@ class _StatItem extends StatelessWidget {
     );
   }
 }
-
-// =============================================================================
-// MOCK DATA - TODO: Remove when providers/state management are ready
-// =============================================================================
-List<Flashcard> _generateMockCardsForDecks(List<String> deckIds) {
-  final allCards = <Flashcard>[];
-  for (final deckId in deckIds) {
-    allCards.addAll(_generateMockCards(deckId));
-  }
-  return allCards;
-}
-
-List<Flashcard> _generateMockCards(String deckId) {
-  final now = DateTime.now();
-
-  // Different mock cards based on deck for variety
-  final mockCardSets = {
-    '1-1': [ // Spanish
-      ('Hola', 'Hello'),
-      ('Gracias', 'Thank you'),
-      ('Por favor', 'Please'),
-      ('Buenos días', 'Good morning'),
-      ('Adiós', 'Goodbye'),
-    ],
-    '1-2': [ // Japanese
-      ('こんにちは', 'Hello'),
-      ('ありがとう', 'Thank you'),
-      ('さようなら', 'Goodbye'),
-      ('おはよう', 'Good morning'),
-      ('すみません', 'Excuse me'),
-    ],
-    '2-1': [ // Biology
-      ('What is the powerhouse of the cell?', 'Mitochondria'),
-      ('What is DNA?', 'Deoxyribonucleic acid - carries genetic information'),
-      ('What is photosynthesis?', 'Process plants use to convert sunlight to energy'),
-    ],
-    '2-2': [ // Chemistry
-      ('What is H2O?', 'Water'),
-      ('What is NaCl?', 'Sodium Chloride (table salt)'),
-      ('What is the atomic number of Carbon?', '6'),
-    ],
-    '3': [ // History 101
-      ('When did WW2 end?', '1945'),
-      ('Who was the first US President?', 'George Washington'),
-      ('When was the Declaration of Independence signed?', '1776'),
-    ],
-  };
-
-  final cards = mockCardSets[deckId] ?? [];
-
-  return cards.asMap().entries.map((entry) {
-    final i = entry.key;
-    final card = entry.value;
-    return Flashcard(
-      cardID: '$deckId-card-$i',
-      deckId: deckId,
-      front: card.$1,
-      back: card.$2,
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-      dueDate: now,
-      stability: 1.0,
-      difficulty: 5.0,
-      elapsedDays: 0,
-      scheduledDays: 0,
-      reps: 0,
-      lapses: 0,
-      cardState: CardState.newCard,
-    );
-  }).toList();
-}
-// =============================================================================
