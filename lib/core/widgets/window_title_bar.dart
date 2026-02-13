@@ -7,46 +7,63 @@ import 'package:lapse/core/theme/spacing.dart';
 class WindowTitleBar extends StatelessWidget {
   const WindowTitleBar({super.key});
 
+  Future<void> _toggleMaximize() async {
+    if (await windowManager.isMaximized()) {
+      debugPrint('[titlebar] unmaximize');
+      await windowManager.unmaximize();
+    } else {
+      debugPrint('[titlebar] maximize');
+      await windowManager.maximize();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onPanStart: (_) => windowManager.startDragging(),
-      onDoubleTap: () async {
-        if (await windowManager.isMaximized()) {
-          await windowManager.unmaximize();
-        } else {
-          await windowManager.maximize();
-        }
-      },
-      child: Container(
+    return Material(
+      color: AppColors.surface,
+      child: SizedBox(
         height: 36,
-        color: AppColors.surface,
         child: Row(
           children: [
-            const SizedBox(width: Spacing.md),
-            Text(
-              'Lapse',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+            // Draggable title area
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onPanStart: (_) => windowManager.startDragging(),
+                onDoubleTap: _toggleMaximize,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: Spacing.md),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Lapse',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ),
+                ),
               ),
             ),
-            const Spacer(),
+            // Window controls — outside the drag GestureDetector
             DecoratedMinimizeButton(
-              onPressed: () => windowManager.minimize(),
+              onPressed: () {
+                debugPrint('[titlebar] minimize');
+                windowManager.minimize();
+              },
             ),
             DecoratedMaximizeButton(
-              onPressed: () async {
-                if (await windowManager.isMaximized()) {
-                  await windowManager.unmaximize();
-                } else {
-                  await windowManager.maximize();
-                }
+              onPressed: () {
+                debugPrint('[titlebar] maximize/restore');
+                _toggleMaximize();
               },
             ),
             DecoratedCloseButton(
-              onPressed: () => windowManager.close(),
+              onPressed: () {
+                debugPrint('[titlebar] close');
+                windowManager.close();
+              },
             ),
             const SizedBox(width: Spacing.xs),
           ],
