@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
+import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
@@ -23,9 +24,11 @@ class _CardFormScreenState extends State<CardFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _frontController;
   late final TextEditingController _backController;
+  final _frontFocus = FocusNode();
   // TODO: Replace with state management provider
   final _repo = CardRepository();
   bool _saving = false;
+  int _createdCount = 0;
 
   @override
   void initState() {
@@ -38,6 +41,7 @@ class _CardFormScreenState extends State<CardFormScreen> {
   void dispose() {
     _frontController.dispose();
     _backController.dispose();
+    _frontFocus.dispose();
     super.dispose();
   }
 
@@ -51,7 +55,6 @@ class _CardFormScreenState extends State<CardFormScreen> {
           front: _frontController.text.trim(),
           back: _backController.text.trim(),
         );
-        // TODO: Replace with state management provider
         await _repo.update(updated);
       } else {
         final card = Flashcard.newCard(
@@ -60,10 +63,40 @@ class _CardFormScreenState extends State<CardFormScreen> {
           front: _frontController.text.trim(),
           back: _backController.text.trim(),
         );
-        // TODO: Replace with state management provider
         await _repo.create(card);
       }
       if (mounted) context.pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _saveAndAddAnother() async {
+    if (!_formKey.currentState!.validate() || _saving) return;
+    setState(() => _saving = true);
+
+    try {
+      final card = Flashcard.newCard(
+        cardId: const Uuid().v4(),
+        deckId: widget.deckId,
+        front: _frontController.text.trim(),
+        back: _backController.text.trim(),
+      );
+      await _repo.create(card);
+
+      if (mounted) {
+        _frontController.clear();
+        _backController.clear();
+        _formKey.currentState!.reset();
+        setState(() => _createdCount++);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Card saved'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+        _frontFocus.requestFocus();
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -79,7 +112,6 @@ class _CardFormScreenState extends State<CardFormScreen> {
     );
     if (!confirmed || !mounted) return;
 
-    // TODO: Replace with state management provider
     await _repo.delete(widget.card!.cardId);
     if (mounted) context.pop();
   }
@@ -102,8 +134,20 @@ class _CardFormScreenState extends State<CardFormScreen> {
           key: _formKey,
           child: ListView(
             children: [
+              if (_createdCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Spacing.lg),
+                  child: Text(
+                    '$_createdCount card${_createdCount == 1 ? '' : 's'} added',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                ),
               TextFormField(
                 controller: _frontController,
+                focusNode: _frontFocus,
                 autofocus: true,
                 maxLines: 4,
                 decoration: const InputDecoration(
@@ -127,6 +171,13 @@ class _CardFormScreenState extends State<CardFormScreen> {
                     (value == null || value.trim().isEmpty) ? 'Back is required' : null,
               ),
               const SizedBox(height: Spacing.xl),
+              if (!widget.isEditing) ...[
+                OutlinedButton(
+                  onPressed: _saving ? null : _saveAndAddAnother,
+                  child: const Text('Save & Add Another'),
+                ),
+                const SizedBox(height: Spacing.md),
+              ],
               ElevatedButton(
                 onPressed: _saving ? null : _save,
                 child: Text(widget.isEditing ? 'Save' : 'Create'),
