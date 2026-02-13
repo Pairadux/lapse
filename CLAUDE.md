@@ -128,6 +128,13 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ---
 
+### Known Bugs (Low Priority)
+
+- **Card count aggregation sometimes off:** Aggregated card/due counts on parent decks occasionally show stale or incorrect numbers. Likely a timing issue with parallel Future.wait queries or stale state after mutations. Needs investigation.
+- **Card form text not clearing on rapid input:** When spamming "Save & Add Another" quickly, the front/back fields sometimes don't clear. Likely a race condition between the async save completing and the setState that clears the controllers.
+
+---
+
 ### Page Transition Performance on Desktop
 
 **Status:** Known limitation, not yet addressed.

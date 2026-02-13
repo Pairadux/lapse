@@ -62,6 +62,14 @@ class DatabaseHelper {
     }
   }
 
+  /// Deletes all rows from every table, preserving the schema.
+  Future<void> clearAllData() async {
+    final db = await database;
+    await db.delete(DatabaseConstants.tableReviews);
+    await db.delete(DatabaseConstants.tableCards);
+    await db.delete(DatabaseConstants.tableDecks);
+  }
+
   /// Closes the database and resets the cached reference.
   /// Primarily used for test teardown.
   Future<void> close() async {
