@@ -251,7 +251,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       ),
     );
     if (shouldExit == true && context.mounted) {
-      context.go('/');
+      context.pop();
     }
   }
 }
