@@ -33,7 +33,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   List<Flashcard> _cards = [];
   int _totalCardCount = 0;
   int _totalDueCount = 0;
-  bool _isLoading = true;
+  bool _initialLoad = true;
 
   @override
   void initState() {
@@ -43,9 +43,16 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
     try {
-      final deck = await _deckRepo.getById(widget.deckId);
+      // Run independent queries in parallel
+      final results = await Future.wait([
+        _deckRepo.getById(widget.deckId),
+        _deckRepo.getAncestors(widget.deckId),
+        _deckRepo.getChildren(widget.deckId),
+        _cardRepo.getByDeckId(widget.deckId),
+      ]);
+
+      final deck = results[0] as Deck?;
       if (deck == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -56,22 +63,30 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
         return;
       }
 
-      final ancestors = await _deckRepo.getAncestors(widget.deckId);
-      final children = await _deckRepo.getChildren(widget.deckId);
-      final cards = await _cardRepo.getByDeckId(widget.deckId);
+      final ancestors = results[1] as List<Deck>;
+      final children = results[2] as List<Deck>;
+      final cards = results[3] as List<Flashcard>;
 
-      // Hydrate children with aggregated counts (including descendants)
+      // Hydrate children with aggregated counts in parallel
+      final childCountFutures = children.map(
+        (child) => _getAggregatedCounts(child.deckId),
+      );
+      final totalCountsFuture = _getAggregatedCounts(widget.deckId);
+      final allCounts = await Future.wait([
+        Future.wait(childCountFutures.toList()),
+        totalCountsFuture,
+      ]);
+
+      final childCounts = allCounts[0] as List<(int, int)>;
+      final totalCounts = allCounts[1] as (int, int);
+
       final hydratedChildren = <Deck>[];
-      for (final child in children) {
-        final counts = await _getAggregatedCounts(child.deckId);
-        hydratedChildren.add(child.copyWith(
-          cardCount: counts.$1,
-          dueCount: counts.$2,
+      for (var i = 0; i < children.length; i++) {
+        hydratedChildren.add(children[i].copyWith(
+          cardCount: childCounts[i].$1,
+          dueCount: childCounts[i].$2,
         ));
       }
-
-      // Compute aggregated counts eagerly (includes descendants)
-      final totalCounts = await _getAggregatedCounts(widget.deckId);
 
       if (mounted) {
         setState(() {
@@ -85,12 +100,12 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           _cards = cards;
           _totalCardCount = totalCounts.$1;
           _totalDueCount = totalCounts.$2;
-          _isLoading = false;
+          _initialLoad = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => _initialLoad = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load deck: $e')),
         );
@@ -104,10 +119,12 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     var cards = 0;
     var due = 0;
     for (final id in allIds) {
-      final c = await _cardRepo.getByDeckId(id);
-      final d = await _cardRepo.getDueCards(id);
-      cards += c.length;
-      due += d.length;
+      final results = await Future.wait([
+        _cardRepo.getByDeckId(id),
+        _cardRepo.getDueCards(id),
+      ]);
+      cards += (results[0] as List).length;
+      due += (results[1] as List).length;
     }
     return (cards, due);
   }
@@ -182,29 +199,30 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           ),
         ],
       ),
-      body: _isLoading ? const LoadingIndicator() : _buildBody(),
-      floatingActionButton: _isLoading
-          ? null
-          : SpeedDialFab(
-              actions: [
-                SpeedDialAction(
-                  icon: Icons.style_outlined,
-                  label: 'New Card',
-                  onPressed: () async {
-                    await context.push(Routes.cardNewPath(widget.deckId));
-                    _loadData();
-                  },
-                ),
-                SpeedDialAction(
-                  icon: Icons.folder_outlined,
-                  label: 'New Deck',
-                  onPressed: () async {
-                    await context.push(Routes.deckNew, extra: widget.deckId);
-                    _loadData();
-                  },
-                ),
-              ],
-            ),
+      // Only show spinner on very first load with no data at all
+      body: (_initialLoad && _deck == null)
+          ? const LoadingIndicator()
+          : _buildBody(),
+      floatingActionButton: SpeedDialFab(
+        actions: [
+          SpeedDialAction(
+            icon: Icons.style_outlined,
+            label: 'New Card',
+            onPressed: () async {
+              await context.push(Routes.cardNewPath(widget.deckId));
+              _loadData();
+            },
+          ),
+          SpeedDialAction(
+            icon: Icons.folder_outlined,
+            label: 'New Deck',
+            onPressed: () async {
+              await context.push(Routes.deckNew, extra: widget.deckId);
+              _loadData();
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -217,12 +235,14 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       return Column(
         children: [
           _buildHeader(),
-          const Expanded(
-            child: EmptyStateWidget(
-              icon: Icons.style_outlined,
-              title: 'No cards yet',
-              subtitle: 'Tap + to add your first card',
-            ),
+          Expanded(
+            child: _initialLoad
+                ? const LoadingIndicator()
+                : const EmptyStateWidget(
+                    icon: Icons.style_outlined,
+                    title: 'No cards yet',
+                    subtitle: 'Tap + to add your first card',
+                  ),
           ),
         ],
       );

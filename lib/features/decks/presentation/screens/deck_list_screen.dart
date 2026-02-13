@@ -23,7 +23,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
   final _cardRepo = CardRepository();
 
   List<Deck> _rootDecks = [];
-  bool _isLoading = true;
+  bool _initialLoad = true;
 
   @override
   void initState() {
@@ -32,35 +32,37 @@ class _DeckListScreenState extends State<DeckListScreen> {
   }
 
   Future<void> _loadDecks() async {
-    setState(() => _isLoading = true);
     try {
       final decks = await _deckRepo.getAll();
       final rootDecks = decks.where((d) => d.parentId == null).toList();
-      final hydrated = <Deck>[];
-      for (final deck in rootDecks) {
+
+      // Hydrate all root decks with aggregated counts in parallel
+      final countFutures = rootDecks.map((deck) async {
         final allIds = await _deckRepo.getDescendantIds(deck.deckId);
         var totalCards = 0;
         var totalDue = 0;
         for (final id in allIds) {
-          final c = await _cardRepo.getByDeckId(id);
-          final d = await _cardRepo.getDueCards(id);
-          totalCards += c.length;
-          totalDue += d.length;
+          final results = await Future.wait([
+            _cardRepo.getByDeckId(id),
+            _cardRepo.getDueCards(id),
+          ]);
+          totalCards += (results[0] as List).length;
+          totalDue += (results[1] as List).length;
         }
-        hydrated.add(deck.copyWith(
-          cardCount: totalCards,
-          dueCount: totalDue,
-        ));
-      }
+        return deck.copyWith(cardCount: totalCards, dueCount: totalDue);
+      });
+
+      final hydrated = await Future.wait(countFutures);
+
       if (mounted) {
         setState(() {
           _rootDecks = hydrated;
-          _isLoading = false;
+          _initialLoad = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => _initialLoad = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load decks: $e')),
         );
@@ -81,7 +83,9 @@ class _DeckListScreenState extends State<DeckListScreen> {
         ],
       ),
       drawer: const DevDrawer(),
-      body: _isLoading ? const LoadingIndicator() : _buildDeckList(),
+      body: (_initialLoad && _rootDecks.isEmpty)
+          ? const LoadingIndicator()
+          : _buildDeckList(),
       floatingActionButton: FloatingActionButton(
         heroTag: 'deck_list_fab',
         onPressed: () async {
