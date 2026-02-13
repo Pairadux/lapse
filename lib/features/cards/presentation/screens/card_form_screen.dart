@@ -45,8 +45,42 @@ class _CardFormScreenState extends State<CardFormScreen> {
     super.dispose();
   }
 
+  /// Returns true if the user confirms saving despite a duplicate, or if
+  /// no duplicate exists.
+  Future<bool> _checkDuplicate() async {
+    final front = _frontController.text.trim();
+    if (front.isEmpty) return true;
+    final exists = await _repo.frontExistsInDeck(
+      front: front,
+      deckId: widget.deckId,
+      excludeCardId: widget.card?.cardId,
+    );
+    if (!exists || !mounted) return true;
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Duplicate card'),
+        content: const Text(
+          'A card with this front already exists in this deck. Save anyway?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save anyway'),
+          ),
+        ],
+      ),
+    );
+    return proceed == true;
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate() || _saving) return;
+    if (!await _checkDuplicate()) return;
     setState(() => _saving = true);
 
     try {
@@ -73,6 +107,7 @@ class _CardFormScreenState extends State<CardFormScreen> {
 
   Future<void> _saveAndAddAnother() async {
     if (!_formKey.currentState!.validate() || _saving) return;
+    if (!await _checkDuplicate()) return;
     setState(() => _saving = true);
 
     try {
@@ -85,16 +120,12 @@ class _CardFormScreenState extends State<CardFormScreen> {
       await _repo.create(card);
 
       if (mounted) {
-        _frontController.clear();
-        _backController.clear();
-        _formKey.currentState!.reset();
-        setState(() => _createdCount++);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Card saved'),
-            duration: Duration(seconds: 1),
-          ),
-        );
+        setState(() {
+          _createdCount++;
+          _frontController.clear();
+          _backController.clear();
+          _formKey.currentState!.reset();
+        });
         _frontFocus.requestFocus();
       }
     } finally {

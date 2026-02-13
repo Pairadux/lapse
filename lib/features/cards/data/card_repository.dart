@@ -52,6 +52,35 @@ class CardRepository {
     return rows.map(Flashcard.fromMap).toList();
   }
 
+  /// Returns true if a non-deleted card with [front] text exists in [deckId].
+  /// Use [excludeCardId] to skip self when editing.
+  Future<bool> frontExistsInDeck({
+    required String front,
+    required String deckId,
+    String? excludeCardId,
+  }) async {
+    final db = await _dbHelper.database;
+    final whereParts = <String>[
+      '${DatabaseConstants.colIsDeleted} = 0',
+      '${DatabaseConstants.colDeckId} = ?',
+      'LOWER(${DatabaseConstants.colFront}) = LOWER(?)',
+    ];
+    final whereArgs = <Object>[deckId, front.trim()];
+
+    if (excludeCardId != null) {
+      whereParts.add('${DatabaseConstants.colCardId} != ?');
+      whereArgs.add(excludeCardId);
+    }
+
+    final rows = await db.query(
+      DatabaseConstants.tableCards,
+      where: whereParts.join(' AND '),
+      whereArgs: whereArgs,
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
   Future<Flashcard> update(Flashcard card) async {
     final db = await _dbHelper.database;
     final updated = card.copyWith(updatedAt: DateTime.now());
