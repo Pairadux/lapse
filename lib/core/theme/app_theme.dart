@@ -17,6 +17,9 @@ abstract class AppTheme {
         useMaterial3: true,
         brightness: Brightness.dark,
         pageTransitionsTheme: _pageTransitions,
+        tooltipTheme: const TooltipThemeData(
+          waitDuration: Duration(days: 365),
+        ),
         colorScheme: ColorScheme.dark(
           primary: AppColors.primary,
           onPrimary: AppColors.textOnPrimary,

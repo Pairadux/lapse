@@ -128,6 +128,14 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ---
 
+### Tooltips (Future Setting)
+
+**Status:** Globally suppressed via `TooltipThemeData(waitDuration: Duration(days: 365))` in `app_theme.dart`.
+
+**Future plan:** Add a user setting to toggle tooltips on/off. When enabled, remove the `waitDuration` override so Flutter's default tooltip behavior applies. Useful for accessibility but distracting for experienced users.
+
+---
+
 ### Known Bugs (Low Priority)
 
 - **Card count aggregation sometimes off:** Aggregated card/due counts on parent decks occasionally show stale or incorrect numbers. Likely a timing issue with parallel Future.wait queries or stale state after mutations. Needs investigation.
