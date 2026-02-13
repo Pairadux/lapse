@@ -1,7 +1,6 @@
 abstract class Routes {
   static const home = '/';
   static const debug = '/debug';
-  static const headerTest = '/header-test';
   static const settings = '/settings';
   static const deckNew = '/deck/new';
   static const deck = '/deck/:deckId';

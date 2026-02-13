@@ -9,7 +9,6 @@ import 'package:lapse/features/decks/presentation/screens/deck_list_screen.dart'
 import 'package:lapse/features/study/presentation/screens/study_session_screen.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/debug_widget_screen.dart';
-import '../widgets/header_comparison_screen.dart';
 import 'routes.dart';
 
 final appRouter = GoRouter(
@@ -22,10 +21,6 @@ final appRouter = GoRouter(
     GoRoute(
       path: Routes.debug,
       builder: (context, state) => const DebugWidgetScreen(),
-    ),
-    GoRoute(
-      path: Routes.headerTest,
-      builder: (context, state) => const HeaderComparisonScreen(),
     ),
     GoRoute(
       path: Routes.settings,

@@ -12,8 +12,6 @@ import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 
-enum _DetailTab { subDecks, cards }
-
 class DeckDetailScreen extends StatefulWidget {
   final String deckId;
   final Deck? deck;
@@ -32,8 +30,8 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   List<Deck> _ancestors = [];
   List<Deck> _children = [];
   List<Flashcard> _cards = [];
+  int _totalDueCount = 0;
   bool _isLoading = true;
-  _DetailTab _activeTab = _DetailTab.subDecks;
 
   @override
   void initState() {
@@ -71,15 +69,20 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
         ));
       }
 
+      // Compute total due count eagerly (includes descendants)
+      final totalDue = await _computeTotalDueCount();
+
       if (mounted) {
         setState(() {
           _deck = deck.copyWith(
             cardCount: cards.length,
-            dueCount: cards.where((c) => c.dueDate.isBefore(DateTime.now())).length,
+            dueCount:
+                cards.where((c) => c.dueDate.isBefore(DateTime.now())).length,
           );
           _ancestors = ancestors;
           _children = hydratedChildren;
           _cards = cards;
+          _totalDueCount = totalDue;
           _isLoading = false;
         });
       }
@@ -93,7 +96,6 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     }
   }
 
-  /// Recursively collects all descendant deck IDs (including this deck).
   Future<List<String>> _getAllDescendantDeckIds(String deckId) async {
     final result = <String>[deckId];
     final children = await _deckRepo.getChildren(deckId);
@@ -103,7 +105,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     return result;
   }
 
-  Future<int> _getTotalDueCount() async {
+  Future<int> _computeTotalDueCount() async {
     final allIds = await _getAllDescendantDeckIds(widget.deckId);
     var total = 0;
     for (final id in allIds) {
@@ -114,8 +116,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   }
 
   Future<void> _study() async {
-    final totalDue = await _getTotalDueCount();
-    if (totalDue == 0) {
+    if (_totalDueCount == 0) {
       if (mounted) {
         showDialog(
           context: context,
@@ -148,7 +149,8 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     final confirmed = await ConfirmDialog.show(
       context: context,
       title: 'Delete deck?',
-      message: 'This will permanently remove "${_deck!.deckName}" and all its cards.',
+      message:
+          'This will permanently remove "${_deck!.deckName}" and all its cards.',
       confirmLabel: 'Delete',
       isDestructive: true,
     );
@@ -183,33 +185,109 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const LoadingIndicator()
-          : Column(
-              children: [
-                _buildBreadcrumb(),
-                _buildSegmentedButton(),
-                _buildStudyButton(),
-                Expanded(
-                  child: _activeTab == _DetailTab.subDecks
-                      ? _buildSubDecks()
-                      : _buildCards(),
-                ),
-              ],
-            ),
+      body: _isLoading ? const LoadingIndicator() : _buildBody(),
       floatingActionButton: _isLoading
           ? null
           : FloatingActionButton(
               onPressed: () async {
-                if (_activeTab == _DetailTab.subDecks) {
-                  await context.push(Routes.deckNew, extra: widget.deckId);
-                } else {
-                  await context.push(Routes.cardNewPath(widget.deckId));
-                }
+                await context.push(Routes.cardNewPath(widget.deckId));
                 _loadData();
               },
               child: const Icon(Icons.add),
             ),
+    );
+  }
+
+  Widget _buildBody() {
+    final hasChildren = _children.isNotEmpty;
+    final hasCards = _cards.isNotEmpty;
+    final isEmpty = !hasChildren && !hasCards;
+
+    if (isEmpty) {
+      return Column(
+        children: [
+          _buildHeader(),
+          const Expanded(
+            child: EmptyStateWidget(
+              icon: Icons.style_outlined,
+              title: 'No cards yet',
+              subtitle: 'Tap + to add your first card',
+            ),
+          ),
+        ],
+      );
+    }
+
+    return CustomScrollView(
+      slivers: [
+        // Header (breadcrumb + stats)
+        SliverToBoxAdapter(child: _buildHeader()),
+        // Sub-decks section
+        if (hasChildren) ...[
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final child = _children[index];
+                  return DeckCard(
+                    deck: child,
+                    onTap: () async {
+                      await context.push(
+                        Routes.deckPath(child.deckId),
+                        extra: child,
+                      );
+                      _loadData();
+                    },
+                  );
+                },
+                childCount: _children.length,
+              ),
+            ),
+          ),
+          // Divider between sub-decks and cards
+          if (hasCards)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                child: Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: Spacing.md),
+                      child: Text(
+                        'Cards',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+              ),
+            ),
+        ],
+        // Cards section
+        if (hasCards)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildCardItem(_cards[index]),
+                childCount: _cards.length,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        _buildBreadcrumb(),
+        _buildStatsRow(),
+      ],
     );
   }
 
@@ -227,25 +305,13 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           children: [
             _BreadcrumbItem(
               label: 'Home',
-              onTap: () {
-                // Pop all the way back to home
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
+              onTap: () => context.go(Routes.home),
             ),
-            ..._ancestors.asMap().entries.map((entry) {
-              final depth = entry.key;
+            ..._ancestors.map((ancestor) {
               return _BreadcrumbItem(
-                label: entry.value.deckName,
-                onTap: () {
-                  // Pop back to this ancestor's depth
-                  // We need to pop (ancestors.length - depth) times
-                  final popCount = _ancestors.length - depth;
-                  for (var i = 0; i < popCount; i++) {
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    }
-                  }
-                },
+                label: ancestor.deckName,
+                onTap: () =>
+                    context.go(Routes.deckPath(ancestor.deckId)),
               );
             }),
             _BreadcrumbItem(
@@ -258,180 +324,103 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     );
   }
 
-  Widget _buildSegmentedButton() {
+  Widget _buildStatsRow() {
+    final dueLabel = _children.isNotEmpty
+        ? '$_totalDueCount due'
+        : '${_deck?.dueCount ?? 0} due';
+
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: Spacing.lg,
         vertical: Spacing.sm,
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: SegmentedButton<_DetailTab>(
-          segments: [
-            ButtonSegment(
-              value: _DetailTab.subDecks,
-              label: Text('Sub-decks (${_children.length})'),
-              icon: const Icon(Icons.folder_outlined, size: 18),
+      child: Row(
+        children: [
+          Text(
+            '${_deck?.cardCount ?? 0} cards',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+            child: Text(
+              '·',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: AppColors.textTertiary),
             ),
-            ButtonSegment(
-              value: _DetailTab.cards,
-              label: Text('Cards (${_cards.length})'),
-              icon: const Icon(Icons.style_outlined, size: 18),
-            ),
-          ],
-          selected: {_activeTab},
-          onSelectionChanged: (selected) {
-            setState(() => _activeTab = selected.first);
-          },
-        ),
+          ),
+          Text(
+            dueLabel,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const Spacer(),
+          FilledButton.tonalIcon(
+            onPressed: _study,
+            icon: const Icon(Icons.play_arrow, size: 18),
+            label: const Text('Study'),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildStudyButton() {
-    return FutureBuilder<int>(
-      future: _getTotalDueCount(),
-      builder: (context, snapshot) {
-        final totalDue = snapshot.data ?? 0;
-        final label = _children.isNotEmpty
-            ? 'Study All ($totalDue due)'
-            : 'Study ($totalDue due)';
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.lg,
-            vertical: Spacing.xs,
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _study,
-              icon: const Icon(Icons.play_arrow),
-              label: Text(label),
-            ),
-          ),
+  Widget _buildCardItem(Flashcard card) {
+    return InkWell(
+      onTap: () async {
+        await context.push(
+          Routes.cardPath(widget.deckId, card.cardId),
+          extra: card,
         );
+        _loadData();
       },
-    );
-  }
-
-  Widget _buildSubDecks() {
-    if (_children.isEmpty) {
-      return EmptyStateWidget(
-        icon: Icons.folder_open,
-        title: 'No sub-decks yet',
-        subtitle: 'Create a sub-deck to organize your cards',
-        actionLabel: 'Create Deck',
-        onAction: () async {
-          await context.push(Routes.deckNew, extra: widget.deckId);
-          _loadData();
-        },
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-      itemCount: _children.length,
-      itemBuilder: (context, index) {
-        final child = _children[index];
-        return DeckCard(
-          deck: child,
-          hasChildren: false, // Will be updated on detail load
-          onTap: () async {
-            await context.push(
-              Routes.deckPath(child.deckId),
-              extra: child,
-            );
-            _loadData();
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildCards() {
-    if (_cards.isEmpty) {
-      return EmptyStateWidget(
-        icon: Icons.style_outlined,
-        title: 'No cards yet',
-        subtitle: 'Add cards to start studying',
-        actionLabel: 'Add Card',
-        onAction: () async {
-          await context.push(Routes.cardNewPath(widget.deckId));
-          _loadData();
-        },
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-      itemCount: _cards.length,
-      itemBuilder: (context, index) {
-        final card = _cards[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(
-            horizontal: Spacing.cardMarginH,
-            vertical: Spacing.cardMarginV,
-          ),
-          child: InkWell(
-            onTap: () async {
-              await context.push(
-                Routes.cardPath(widget.deckId, card.cardId),
-                extra: card,
-              );
-              _loadData();
-            },
-            borderRadius: BorderRadius.circular(Spacing.radiusLg),
-            child: Padding(
-              padding: const EdgeInsets.all(Spacing.cardPadding),
-              child: Row(
-                children: [
-                  Container(
-                    width: Spacing.iconContainerSize,
-                    height: Spacing.iconContainerSize,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(Spacing.radiusMd),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.md,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: card.front,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    child: const Icon(
-                      Icons.style,
-                      color: AppColors.textSecondary,
-                      size: Spacing.iconSize,
+                    TextSpan(
+                      text: '  →  ',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: AppColors.textTertiary),
                     ),
-                  ),
-                  const SizedBox(width: Spacing.lg),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          card.front,
-                          style: Theme.of(context).textTheme.titleMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: Spacing.xs),
-                        Text(
-                          card.back,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    TextSpan(
+                      text: card.back,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: AppColors.textSecondary),
                     ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right,
-                    color: AppColors.textTertiary,
-                  ),
-                ],
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-        );
-      },
+            const SizedBox(width: Spacing.sm),
+            const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: AppColors.textTertiary,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

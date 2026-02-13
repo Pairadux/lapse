@@ -36,11 +36,6 @@ class DevDrawer extends StatelessWidget {
             label: 'Widget Preview',
             route: Routes.debug,
           ),
-          _DrawerItem(
-            icon: Icons.compare,
-            label: 'Header Comparison',
-            route: Routes.headerTest,
-          ),
           const Divider(),
           _DrawerItem(
             icon: Icons.home,
