@@ -10,6 +10,7 @@ import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/core/widgets/speed_dial_fab.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 
 class DeckDetailScreen extends StatefulWidget {
@@ -188,12 +189,25 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       body: _isLoading ? const LoadingIndicator() : _buildBody(),
       floatingActionButton: _isLoading
           ? null
-          : FloatingActionButton(
-              onPressed: () async {
-                await context.push(Routes.cardNewPath(widget.deckId));
-                _loadData();
-              },
-              child: const Icon(Icons.add),
+          : SpeedDialFab(
+              actions: [
+                SpeedDialAction(
+                  icon: Icons.style_outlined,
+                  label: 'New Card',
+                  onPressed: () async {
+                    await context.push(Routes.cardNewPath(widget.deckId));
+                    _loadData();
+                  },
+                ),
+                SpeedDialAction(
+                  icon: Icons.folder_outlined,
+                  label: 'New Deck',
+                  onPressed: () async {
+                    await context.push(Routes.deckNew, extra: widget.deckId);
+                    _loadData();
+                  },
+                ),
+              ],
             ),
     );
   }
