@@ -76,6 +76,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
       drawer: const DevDrawer(),
       body: _isLoading ? const LoadingIndicator() : _buildDeckList(),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'deck_list_fab',
         onPressed: () async {
           await context.push(Routes.deckNew);
           _loadDecks();
