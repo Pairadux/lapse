@@ -59,6 +59,16 @@ class DeckRepository {
     return updated;
   }
 
+  /// Returns [deckId] plus all descendant deck IDs (recursive).
+  Future<List<String>> getDescendantIds(String deckId) async {
+    final result = <String>[deckId];
+    final children = await getChildren(deckId);
+    for (final child in children) {
+      result.addAll(await getDescendantIds(child.deckId));
+    }
+    return result;
+  }
+
   /// Walks parentId chain from [deckId] up to root, returns list ordered root-first.
   Future<List<Deck>> getAncestors(String deckId) async {
     final ancestors = <Deck>[];

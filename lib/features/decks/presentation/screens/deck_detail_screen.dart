@@ -59,14 +59,13 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       final children = await _deckRepo.getChildren(widget.deckId);
       final cards = await _cardRepo.getByDeckId(widget.deckId);
 
-      // Hydrate children with card/due counts
+      // Hydrate children with aggregated counts (including descendants)
       final hydratedChildren = <Deck>[];
       for (final child in children) {
-        final childCards = await _cardRepo.getByDeckId(child.deckId);
-        final childDue = await _cardRepo.getDueCards(child.deckId);
+        final counts = await _getAggregatedCounts(child.deckId);
         hydratedChildren.add(child.copyWith(
-          cardCount: childCards.length,
-          dueCount: childDue.length,
+          cardCount: counts.$1,
+          dueCount: counts.$2,
         ));
       }
 
@@ -97,23 +96,23 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     }
   }
 
-  Future<List<String>> _getAllDescendantDeckIds(String deckId) async {
-    final result = <String>[deckId];
-    final children = await _deckRepo.getChildren(deckId);
-    for (final child in children) {
-      result.addAll(await _getAllDescendantDeckIds(child.deckId));
+  /// Returns (totalCards, totalDue) across a deck and all descendants.
+  Future<(int, int)> _getAggregatedCounts(String deckId) async {
+    final allIds = await _deckRepo.getDescendantIds(deckId);
+    var cards = 0;
+    var due = 0;
+    for (final id in allIds) {
+      final c = await _cardRepo.getByDeckId(id);
+      final d = await _cardRepo.getDueCards(id);
+      cards += c.length;
+      due += d.length;
     }
-    return result;
+    return (cards, due);
   }
 
   Future<int> _computeTotalDueCount() async {
-    final allIds = await _getAllDescendantDeckIds(widget.deckId);
-    var total = 0;
-    for (final id in allIds) {
-      final due = await _cardRepo.getDueCards(id);
-      total += due.length;
-    }
-    return total;
+    final counts = await _getAggregatedCounts(widget.deckId);
+    return counts.$2;
   }
 
   Future<void> _study() async {
@@ -136,7 +135,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       return;
     }
 
-    final allIds = await _getAllDescendantDeckIds(widget.deckId);
+    final allIds = await _deckRepo.getDescendantIds(widget.deckId);
     if (mounted) {
       await context.push(
         Routes.studyPath(widget.deckId),

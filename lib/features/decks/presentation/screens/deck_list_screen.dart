@@ -38,11 +38,18 @@ class _DeckListScreenState extends State<DeckListScreen> {
       final rootDecks = decks.where((d) => d.parentId == null).toList();
       final hydrated = <Deck>[];
       for (final deck in rootDecks) {
-        final cards = await _cardRepo.getByDeckId(deck.deckId);
-        final dueCards = await _cardRepo.getDueCards(deck.deckId);
+        final allIds = await _deckRepo.getDescendantIds(deck.deckId);
+        var totalCards = 0;
+        var totalDue = 0;
+        for (final id in allIds) {
+          final c = await _cardRepo.getByDeckId(id);
+          final d = await _cardRepo.getDueCards(id);
+          totalCards += c.length;
+          totalDue += d.length;
+        }
         hydrated.add(deck.copyWith(
-          cardCount: cards.length,
-          dueCount: dueCards.length,
+          cardCount: totalCards,
+          dueCount: totalDue,
         ));
       }
       if (mounted) {
