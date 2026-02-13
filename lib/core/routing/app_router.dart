@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/cards/presentation/screens/card_form_screen.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/features/decks/presentation/screens/deck_detail_screen.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_form_screen.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_list_screen.dart';
 import 'package:lapse/features/study/presentation/screens/study_session_screen.dart';
@@ -27,13 +28,17 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: Routes.deckNew,
-      builder: (context, state) => const DeckFormScreen(),
+      builder: (context, state) =>
+          DeckFormScreen(parentId: state.extra as String?),
     ),
     GoRoute(
       path: Routes.deck,
       builder: (context, state) {
         final deckId = state.pathParameters['deckId']!;
-        return _PlaceholderScreen(title: 'Deck: $deckId');
+        return DeckDetailScreen(
+          deckId: deckId,
+          deck: state.extra as Deck?,
+        );
       },
       routes: [
         GoRoute(
@@ -68,34 +73,6 @@ final appRouter = GoRouter(
     ),
   ],
 );
-
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-
-  const _PlaceholderScreen({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      title: title,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 16),
-            const Text('Screen not implemented yet'),
-            const SizedBox(height: 8),
-            Text(
-              'Swipe right or tap ☰ for navigation',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _SettingsPlaceholder extends StatelessWidget {
   const _SettingsPlaceholder();

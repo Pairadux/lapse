@@ -10,8 +10,9 @@ import 'package:lapse/features/decks/domain/deck.dart';
 
 class DeckFormScreen extends StatefulWidget {
   final Deck? deck;
+  final String? parentId;
 
-  const DeckFormScreen({super.key, this.deck});
+  const DeckFormScreen({super.key, this.deck, this.parentId});
 
   bool get isEditing => deck != null;
 
@@ -51,6 +52,7 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
         final now = DateTime.now();
         final deck = Deck(
           deckId: const Uuid().v4(),
+          parentId: widget.parentId,
           deckName: _nameController.text.trim(),
           createdAt: now,
           updatedAt: now,
