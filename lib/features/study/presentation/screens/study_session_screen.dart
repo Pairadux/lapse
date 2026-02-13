@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
+import 'package:lapse/core/widgets/loading_indicator.dart';
+import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 
@@ -17,21 +19,49 @@ class StudySessionScreen extends StatefulWidget {
 }
 
 class _StudySessionScreenState extends State<StudySessionScreen> {
-  // =============================================================================
-  // MOCK DATA - TODO: Replace with provider/state management
-  // =============================================================================
-  late final List<Flashcard> _cards = _generateMockCardsForDecks(widget.deckIds);
-  // TODO: Apply daily limit here when implemented (e.g., _cards.take(dailyLimit))
-  // TODO: Filter by due date when FSRS scheduling is implemented
-  // =============================================================================
+  // TODO: Replace with state management provider
+  final _cardRepo = CardRepository();
+
+  List<Flashcard> _cards = [];
+  bool _isLoading = true;
 
   int _currentIndex = 0;
   bool _showingAnswer = false;
   final Map<Rating, int> _ratingCounts = {Rating.again: 0, Rating.hard: 0, Rating.good: 0, Rating.easy: 0};
 
   Flashcard get _currentCard => _cards[_currentIndex];
-  bool get _isSessionComplete => _currentIndex >= _cards.length;
+  bool get _isSessionComplete => _cards.isEmpty || _currentIndex >= _cards.length;
   double get _progress => _cards.isEmpty ? 0 : (_currentIndex / _cards.length);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCards();
+  }
+
+  Future<void> _loadCards() async {
+    try {
+      final allCards = <Flashcard>[];
+      for (final deckId in widget.deckIds) {
+        // TODO: Replace with state management provider
+        final due = await _cardRepo.getDueCards(deckId);
+        allCards.addAll(due);
+      }
+      if (mounted) {
+        setState(() {
+          _cards = allCards;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load cards: $e')),
+        );
+      }
+    }
+  }
 
   void _flipCard() {
     setState(() {
@@ -55,14 +85,15 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
         leading: IconButton(icon: const Icon(Icons.close), onPressed: () => _showExitConfirmation(context)),
         title: Text(widget.deckName),
         centerTitle: true,
-        // TODO: Add edit button here to quickly edit current card
       ),
-      body: Column(
-        children: [
-          _buildProgressBar(),
-          Expanded(child: _isSessionComplete ? _buildSessionComplete() : _buildStudyCard()),
-        ],
-      ),
+      body: _isLoading
+          ? const LoadingIndicator()
+          : Column(
+              children: [
+                _buildProgressBar(),
+                Expanded(child: _isSessionComplete ? _buildSessionComplete() : _buildStudyCard()),
+              ],
+            ),
     );
   }
 
@@ -111,26 +142,29 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
         child: Column(
           children: [
             Expanded(
-              child: GestureDetector(
-                onTap: _showingAnswer ? null : _flipCard,
-                child: Card(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(Spacing.xl),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          _showingAnswer ? _currentCard.back : _currentCard.front,
-                          style: Theme.of(context).textTheme.headlineSmall,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: Spacing.xl),
-                        Text(
-                          _showingAnswer ? '' : 'Tap or press Space to reveal',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
-                        ),
-                      ],
+              child: MouseRegion(
+                cursor: _showingAnswer ? SystemMouseCursors.basic : SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: _showingAnswer ? null : _flipCard,
+                  child: Card(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(Spacing.xl),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _showingAnswer ? _currentCard.back : _currentCard.front,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: Spacing.xl),
+                          Text(
+                            _showingAnswer ? '' : 'Tap or press Space to reveal',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -185,7 +219,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
           const SizedBox(height: Spacing.xxl),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(onPressed: () => context.go('/'), child: const Text('Done')),
+            child: ElevatedButton(onPressed: () => context.pop(), child: const Text('Done')),
           ),
         ],
       ),
@@ -217,7 +251,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       ),
     );
     if (shouldExit == true && context.mounted) {
-      context.go('/');
+      context.pop();
     }
   }
 }
@@ -269,82 +303,3 @@ class _StatItem extends StatelessWidget {
     );
   }
 }
-
-// =============================================================================
-// MOCK DATA - TODO: Remove when providers/state management are ready
-// =============================================================================
-List<Flashcard> _generateMockCardsForDecks(List<String> deckIds) {
-  final allCards = <Flashcard>[];
-  for (final deckId in deckIds) {
-    allCards.addAll(_generateMockCards(deckId));
-  }
-  return allCards;
-}
-
-List<Flashcard> _generateMockCards(String deckId) {
-  final now = DateTime.now();
-
-  // Different mock cards based on deck for variety
-  final mockCardSets = {
-    '1-1': [
-      // Spanish
-      ('Hola', 'Hello'),
-      ('Gracias', 'Thank you'),
-      ('Por favor', 'Please'),
-      ('Buenos días', 'Good morning'),
-      ('Adiós', 'Goodbye'),
-    ],
-    '1-2': [
-      // Japanese
-      ('こんにちは', 'Hello'),
-      ('ありがとう', 'Thank you'),
-      ('さようなら', 'Goodbye'),
-      ('おはよう', 'Good morning'),
-      ('すみません', 'Excuse me'),
-    ],
-    '2-1': [
-      // Biology
-      ('What is the powerhouse of the cell?', 'Mitochondria'),
-      ('What is DNA?', 'Deoxyribonucleic acid - carries genetic information'),
-      ('What is photosynthesis?', 'Process plants use to convert sunlight to energy'),
-    ],
-    '2-2': [
-      // Chemistry
-      ('What is H2O?', 'Water'),
-      ('What is NaCl?', 'Sodium Chloride (table salt)'),
-      ('What is the atomic number of Carbon?', '6'),
-    ],
-    '3': [
-      // History 101
-      ('When did WW2 end?', '1945'),
-      ('Who was the first US President?', 'George Washington'),
-      ('When was the Declaration of Independence signed?', '1776'),
-    ],
-  };
-
-  final cards = mockCardSets[deckId] ?? [];
-
-  return cards.asMap().entries.map((entry) {
-    final i = entry.key;
-    final card = entry.value;
-    return Flashcard(
-      cardId: '$deckId-card-$i',
-      deckId: deckId,
-      front: card.$1,
-      back: card.$2,
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-      dueDate: now,
-      stability: 1.0,
-      difficulty: 5.0,
-      elapsedDays: 0,
-      scheduledDays: 0,
-      reps: 0,
-      lapses: 0,
-      cardState: CardState.newCard,
-    );
-  }).toList();
-}
-
-// =============================================================================

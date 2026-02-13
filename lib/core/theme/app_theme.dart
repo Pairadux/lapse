@@ -3,9 +3,23 @@ import 'app_colors.dart';
 import 'spacing.dart';
 
 abstract class AppTheme {
+  static const _pageTransitions = PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: ZoomPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+    },
+  );
+
   static ThemeData get dark => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+        pageTransitionsTheme: _pageTransitions,
+        tooltipTheme: const TooltipThemeData(
+          waitDuration: Duration(days: 365),
+        ),
         colorScheme: ColorScheme.dark(
           primary: AppColors.primary,
           onPrimary: AppColors.textOnPrimary,
@@ -155,6 +169,7 @@ abstract class AppTheme {
   static ThemeData get light => ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
+        pageTransitionsTheme: _pageTransitions,
         colorScheme: ColorScheme.light(
           primary: AppColors.primaryDark,
           onPrimary: AppColors.textOnPrimary,
