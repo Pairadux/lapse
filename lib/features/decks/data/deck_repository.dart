@@ -59,6 +59,19 @@ class DeckRepository {
     return updated;
   }
 
+  /// Walks parentId chain from [deckId] up to root, returns list ordered root-first.
+  Future<List<Deck>> getAncestors(String deckId) async {
+    final ancestors = <Deck>[];
+    var current = await getById(deckId);
+    while (current != null && current.parentId != null) {
+      final parent = await getById(current.parentId!);
+      if (parent == null) break;
+      ancestors.insert(0, parent);
+      current = parent;
+    }
+    return ancestors;
+  }
+
   Future<void> delete(String deckId) async {
     final db = await _dbHelper.database;
     final now = DateTime.now().toUtc().toIso8601String();
