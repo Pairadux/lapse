@@ -128,6 +128,22 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ---
 
+### Page Transition Performance on Desktop
+
+**Status:** Known limitation, not yet addressed.
+
+**Issue:** CupertinoPageTransitionsBuilder causes a brief stutter on desktop (Linux/Wayland) because it animates two full-screen widget trees simultaneously. This is noticeable even on empty screens — it's the animation engine, not data loading.
+
+**Options to explore:**
+- `FadeUpwardsPageTransitionsBuilder` — lighter, less visual weight
+- `ZoomPageTransitionsBuilder` — Material 3 default, may perform better
+- Custom transition with shorter duration or simpler curve
+- Platform-conditional transitions (Cupertino on mobile, lighter on desktop)
+
+**Configured in:** `lib/core/theme/app_theme.dart` → `_pageTransitions`
+
+---
+
 ### DeckDetailScreen Layout Decision
 
 **Chosen approach:** Unified list (folders-first), no tabs or toggles.
