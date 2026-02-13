@@ -1,0 +1,92 @@
+# Lapse — Project Instructions
+
+## Architecture
+
+- Flutter app using GoRouter (flat routes), Material 3 dark theme, SQLite (sqflite)
+- Repository pattern for data access, Riverpod for state management (migration in progress)
+- Cupertino page transitions on all platforms
+- Features: decks (nested), flashcards, study sessions with FSRS scheduling
+
+## Code Style
+
+- Follow existing patterns: `AppScaffold`, `DeckCard`, `EmptyStateWidget`, `LoadingIndicator`, `ConfirmDialog`
+- Theme constants in `core/theme/` — use `AppColors`, `Spacing` everywhere
+- Database constants in `DatabaseConstants` — never use raw column name strings
+- Repositories accept optional `DatabaseHelper` for testability
+
+---
+
+## Future Work & Design Decisions
+
+### Card Management — Multi-Select & Bulk Operations
+
+**Status:** Planned, not yet implemented.
+
+**Design:** Long-press a card to enter selection mode. Checkboxes appear on all items. A bottom action bar slides up with actions:
+- **Move** — pick a destination deck from a tree picker dialog
+- **Delete** — bulk soft-delete with confirmation
+- **Select All / Deselect** — in the action bar
+
+**Why:** Users need to consolidate sub-decks, reorganize cards, and batch-edit. Moving cards one at a time is unacceptable UX.
+
+**Data layer needed:**
+- `CardRepository.moveCards(List<String> cardIds, String targetDeckId)` — bulk update deckId
+- `CardRepository.bulkDelete(List<String> cardIds)` — bulk soft-delete
+- A deck tree picker widget for selecting the destination
+
+### Unified Card Manager (Anki-style Card Browser)
+
+**Status:** Planned, not yet implemented.
+
+**Design:** A top-level screen (accessible from home or settings) showing ALL cards across ALL decks in a flat, searchable, sortable list. Think Anki's card browser.
+
+**Features to include:**
+- Search/filter by front text, back text, deck name, card state (new, learning, review)
+- Sort by due date, created date, difficulty, deck
+- Inline deck label on each row showing which deck the card belongs to
+- Tap to edit, long-press for multi-select (same pattern as deck detail)
+- Bulk move, delete, reschedule
+
+**Route:** `/cards` or `/card-browser`
+
+### Search & Filter on DeckDetailScreen
+
+**Status:** Planned, not yet implemented.
+
+**Design:** A search icon in the header/AppBar that expands a text field. Filters the visible card list by matching front or back text (case-insensitive contains). Could later support advanced filters (state, due date range).
+
+### Advanced Card Types
+
+**Status:** Planning phase. Currently only basic front/back cards exist.
+
+**Future card types to support:**
+- **Cloze deletion** — text with blanked-out portions (e.g., "The capital of France is {{c1::Paris}}")
+- **Image cards** — front or back can be an image (stored locally or by reference)
+- **Image occlusion** — an image with masked regions that are revealed on flip
+- **Audio cards** — pronunciation/listening practice
+- **Rich text** — markdown or HTML formatting on front/back
+
+**Implementation considerations:**
+- The `Flashcard` model will need a `cardType` enum field (basic, cloze, imageOcclusion, etc.)
+- Front/back fields may need to support structured content (JSON or markdown) rather than plain text
+- The study screen's card rendering must dispatch to type-specific widgets
+- The card form screen needs type-specific editors
+- The compact card list item in DeckDetailScreen must render a sensible preview regardless of type:
+  - Basic: `front → back` (truncated)
+  - Cloze: show the full text with blanks indicated (e.g., "The capital of France is [...]")
+  - Image: show a thumbnail or "Image card" label
+  - The list item design should not assume text-only content
+
+**Truncation strategy for card previews:**
+- Use `maxLines: 1` with `overflow: TextOverflow.ellipsis` for text content
+- For very long cards, the single-line preview shows the beginning — users tap to see full content
+- Future: could show a 2-line preview for cards with long content (user preference)
+
+### DeckDetailScreen Layout Decision
+
+**Chosen approach:** Unified list (folders-first), no tabs or toggles.
+- Sub-decks appear at the top of the list with folder styling
+- A section divider with "Cards" label separates sub-decks from cards
+- Leaf decks (no children) show cards directly with no divider
+- Header: breadcrumb line + stats/study row (Option C style with readable text size)
+- This mirrors the universal file-manager pattern (folders then files)
