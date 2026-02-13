@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/dev_drawer.dart';
-import 'package:lapse/core/widgets/loading_indicator.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
@@ -23,7 +22,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
   final _cardRepo = CardRepository();
 
   List<Deck> _rootDecks = [];
-  bool _initialLoad = true;
+  bool _hasLoaded = false;
 
   @override
   void initState() {
@@ -57,12 +56,12 @@ class _DeckListScreenState extends State<DeckListScreen> {
       if (mounted) {
         setState(() {
           _rootDecks = hydrated;
-          _initialLoad = false;
+          _hasLoaded = true;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _initialLoad = false);
+        setState(() => _hasLoaded = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load decks: $e')),
         );
@@ -83,8 +82,8 @@ class _DeckListScreenState extends State<DeckListScreen> {
         ],
       ),
       drawer: const DevDrawer(),
-      body: (_initialLoad && _rootDecks.isEmpty)
-          ? const LoadingIndicator()
+      body: (!_hasLoaded && _rootDecks.isEmpty)
+          ? const SizedBox.shrink()
           : _buildDeckList(),
       floatingActionButton: FloatingActionButton(
         heroTag: 'deck_list_fab',

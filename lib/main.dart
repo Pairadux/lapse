@@ -1,15 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/routing/app_router.dart';
+import 'core/routing/page_transitions.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/window_title_bar.dart';
-
-bool get isDesktop =>
-    Platform.isLinux || Platform.isWindows || Platform.isMacOS;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

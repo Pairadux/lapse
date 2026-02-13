@@ -5,11 +5,11 @@ import 'spacing.dart';
 abstract class AppTheme {
   static const _pageTransitions = PageTransitionsTheme(
     builders: {
-      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.android: ZoomPageTransitionsBuilder(),
       TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-      TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
-      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-      TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
+      TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
     },
   );
 

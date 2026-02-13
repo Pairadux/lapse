@@ -9,6 +9,7 @@ import 'package:lapse/features/decks/presentation/screens/deck_list_screen.dart'
 import 'package:lapse/features/study/presentation/screens/study_session_screen.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/debug_widget_screen.dart';
+import 'page_transitions.dart';
 import 'routes.dart';
 
 final appRouter = GoRouter(
@@ -16,57 +17,67 @@ final appRouter = GoRouter(
   routes: [
     GoRoute(
       path: Routes.home,
-      builder: (context, state) => const DeckListScreen(),
+      pageBuilder: (context, state) =>
+          buildPage(state, const DeckListScreen()),
     ),
     GoRoute(
       path: Routes.debug,
-      builder: (context, state) => const DebugWidgetScreen(),
+      pageBuilder: (context, state) =>
+          buildPage(state, const DebugWidgetScreen()),
     ),
     GoRoute(
       path: Routes.settings,
-      builder: (context, state) => const _SettingsPlaceholder(),
+      pageBuilder: (context, state) =>
+          buildPage(state, const _SettingsPlaceholder()),
     ),
     GoRoute(
       path: Routes.deckNew,
-      builder: (context, state) =>
-          DeckFormScreen(parentId: state.extra as String?),
+      pageBuilder: (context, state) =>
+          buildPage(state, DeckFormScreen(parentId: state.extra as String?)),
     ),
     GoRoute(
       path: Routes.deck,
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final deckId = state.pathParameters['deckId']!;
-        return DeckDetailScreen(
-          deckId: deckId,
-          deck: state.extra as Deck?,
+        return buildPage(
+          state,
+          DeckDetailScreen(deckId: deckId, deck: state.extra as Deck?),
         );
       },
       routes: [
         GoRoute(
           path: 'edit',
-          builder: (context, state) =>
-              DeckFormScreen(deck: state.extra as Deck?),
+          pageBuilder: (context, state) =>
+              buildPage(state, DeckFormScreen(deck: state.extra as Deck?)),
         ),
         GoRoute(
           path: 'card/new',
-          builder: (context, state) => CardFormScreen(
-            deckId: state.pathParameters['deckId']!,
+          pageBuilder: (context, state) => buildPage(
+            state,
+            CardFormScreen(deckId: state.pathParameters['deckId']!),
           ),
         ),
         GoRoute(
           path: 'card/:cardId',
-          builder: (context, state) => CardFormScreen(
-            deckId: state.pathParameters['deckId']!,
-            card: state.extra as Flashcard?,
+          pageBuilder: (context, state) => buildPage(
+            state,
+            CardFormScreen(
+              deckId: state.pathParameters['deckId']!,
+              card: state.extra as Flashcard?,
+            ),
           ),
         ),
         GoRoute(
           path: 'study',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final deckId = state.pathParameters['deckId']!;
             final extra = state.extra as Map<String, dynamic>?;
             final deckName = extra?['name'] as String? ?? 'Study';
             final deckIds = extra?['deckIds'] as List<String>? ?? [deckId];
-            return StudySessionScreen(deckName: deckName, deckIds: deckIds);
+            return buildPage(
+              state,
+              StudySessionScreen(deckName: deckName, deckIds: deckIds),
+            );
           },
         ),
       ],

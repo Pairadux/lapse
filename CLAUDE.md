@@ -4,7 +4,7 @@
 
 - Flutter app using GoRouter (flat routes), Material 3 dark theme, SQLite (sqflite)
 - Repository pattern for data access, Riverpod for state management (migration in progress)
-- Cupertino page transitions on all platforms
+- Platform-aware page transitions: 150ms crossfade on desktop (via `buildPage` in GoRouter), Cupertino on iOS, Zoom on Android
 - Features: decks (nested), flashcards, study sessions with FSRS scheduling
 
 ## Code Style
@@ -145,17 +145,15 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ### Page Transition Performance on Desktop
 
-**Status:** Known limitation, not yet addressed.
+**Status:** Resolved.
 
-**Issue:** CupertinoPageTransitionsBuilder causes a brief stutter on desktop (Linux/Wayland) because it animates two full-screen widget trees simultaneously. This is noticeable even on empty screens — it's the animation engine, not data loading.
+**Solution:** Platform-conditional transitions. All GoRouter routes use `buildPage()` from `lib/core/routing/page_transitions.dart`:
+- **Desktop** (Linux/macOS/Windows): `CustomTransitionPage` with 150ms crossfade, `Curves.easeOut`
+- **Mobile** (iOS/Android): default `MaterialPage` (inherits theme transitions)
 
-**Options to explore:**
-- `FadeUpwardsPageTransitionsBuilder` — lighter, less visual weight
-- `ZoomPageTransitionsBuilder` — Material 3 default, may perform better
-- Custom transition with shorter duration or simpler curve
-- Platform-conditional transitions (Cupertino on mobile, lighter on desktop)
+Theme-level fallbacks in `app_theme.dart`: `FadeUpwardsPageTransitionsBuilder` on desktop, `CupertinoPageTransitionsBuilder` on iOS, `ZoomPageTransitionsBuilder` on Android.
 
-**Configured in:** `lib/core/theme/app_theme.dart` → `_pageTransitions`
+The `isDesktop` getter lives in `page_transitions.dart` and is also imported by `main.dart`.
 
 ---
 

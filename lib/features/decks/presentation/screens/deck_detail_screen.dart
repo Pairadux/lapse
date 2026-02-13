@@ -33,7 +33,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   List<Flashcard> _cards = [];
   int _totalCardCount = 0;
   int _totalDueCount = 0;
-  bool _initialLoad = true;
+  bool _hasLoaded = false;
 
   @override
   void initState() {
@@ -100,12 +100,12 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           _cards = cards;
           _totalCardCount = totalCounts.$1;
           _totalDueCount = totalCounts.$2;
-          _initialLoad = false;
+          _hasLoaded = true;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _initialLoad = false);
+        setState(() => _hasLoaded = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to load deck: $e')),
         );
@@ -199,8 +199,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           ),
         ],
       ),
-      // Only show spinner on very first load with no data at all
-      body: (_initialLoad && _deck == null)
+      body: _deck == null
           ? const LoadingIndicator()
           : _buildBody(),
       floatingActionButton: SpeedDialFab(
@@ -235,15 +234,14 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       return Column(
         children: [
           _buildHeader(),
-          Expanded(
-            child: _initialLoad
-                ? const LoadingIndicator()
-                : const EmptyStateWidget(
-                    icon: Icons.style_outlined,
-                    title: 'No cards yet',
-                    subtitle: 'Tap + to add your first card',
-                  ),
-          ),
+          if (_hasLoaded)
+            const Expanded(
+              child: EmptyStateWidget(
+                icon: Icons.style_outlined,
+                title: 'No cards yet',
+                subtitle: 'Tap + to add your first card',
+              ),
+            ),
         ],
       );
     }
@@ -340,8 +338,10 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
             ..._ancestors.map((ancestor) {
               return _BreadcrumbItem(
                 label: ancestor.deckName,
-                onTap: () =>
-                    context.go(Routes.deckPath(ancestor.deckId)),
+                onTap: () => context.push(
+                  Routes.deckPath(ancestor.deckId),
+                  extra: ancestor,
+                ),
               );
             }),
             _BreadcrumbItem(
