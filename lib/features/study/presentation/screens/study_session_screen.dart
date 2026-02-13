@@ -219,7 +219,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
           const SizedBox(height: Spacing.xxl),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(onPressed: () => context.go('/'), child: const Text('Done')),
+            child: ElevatedButton(onPressed: () => context.pop(), child: const Text('Done')),
           ),
         ],
       ),
