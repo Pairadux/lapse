@@ -31,6 +31,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   List<Deck> _ancestors = [];
   List<Deck> _children = [];
   List<Flashcard> _cards = [];
+  int _totalCardCount = 0;
   int _totalDueCount = 0;
   bool _isLoading = true;
 
@@ -69,8 +70,8 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
         ));
       }
 
-      // Compute total due count eagerly (includes descendants)
-      final totalDue = await _computeTotalDueCount();
+      // Compute aggregated counts eagerly (includes descendants)
+      final totalCounts = await _getAggregatedCounts(widget.deckId);
 
       if (mounted) {
         setState(() {
@@ -82,7 +83,8 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           _ancestors = ancestors;
           _children = hydratedChildren;
           _cards = cards;
-          _totalDueCount = totalDue;
+          _totalCardCount = totalCounts.$1;
+          _totalDueCount = totalCounts.$2;
           _isLoading = false;
         });
       }
@@ -108,11 +110,6 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       due += d.length;
     }
     return (cards, due);
-  }
-
-  Future<int> _computeTotalDueCount() async {
-    final counts = await _getAggregatedCounts(widget.deckId);
-    return counts.$2;
   }
 
   Future<void> _study() async {
@@ -338,6 +335,9 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   }
 
   Widget _buildStatsRow() {
+    final cardLabel = _children.isNotEmpty
+        ? '$_totalCardCount cards'
+        : '${_deck?.cardCount ?? 0} cards';
     final dueLabel = _children.isNotEmpty
         ? '$_totalDueCount due'
         : '${_deck?.dueCount ?? 0} due';
@@ -350,7 +350,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       child: Row(
         children: [
           Text(
-            '${_deck?.cardCount ?? 0} cards',
+            cardLabel,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           Padding(
