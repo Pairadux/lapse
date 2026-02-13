@@ -72,6 +72,41 @@ class DeckRepository {
     return ancestors;
   }
 
+  /// Returns true if a non-deleted deck with [name] exists at the same
+  /// parent level. Use [excludeDeckId] to skip self when editing.
+  Future<bool> nameExistsAtLevel({
+    required String name,
+    String? parentId,
+    String? excludeDeckId,
+  }) async {
+    final db = await _dbHelper.database;
+    final whereParts = <String>[
+      '${DatabaseConstants.colIsDeleted} = 0',
+      'LOWER(${DatabaseConstants.colDeckName}) = LOWER(?)',
+    ];
+    final whereArgs = <Object>[name];
+
+    if (parentId != null) {
+      whereParts.add('${DatabaseConstants.colParentId} = ?');
+      whereArgs.add(parentId);
+    } else {
+      whereParts.add('${DatabaseConstants.colParentId} IS NULL');
+    }
+
+    if (excludeDeckId != null) {
+      whereParts.add('${DatabaseConstants.colDeckId} != ?');
+      whereArgs.add(excludeDeckId);
+    }
+
+    final rows = await db.query(
+      DatabaseConstants.tableDecks,
+      where: whereParts.join(' AND '),
+      whereArgs: whereArgs,
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
   Future<void> delete(String deckId) async {
     final db = await _dbHelper.database;
     final now = DateTime.now().toUtc().toIso8601String();

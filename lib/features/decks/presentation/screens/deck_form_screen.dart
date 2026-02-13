@@ -44,8 +44,25 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
     setState(() => _saving = true);
 
     try {
+      final name = _nameController.text.trim();
+      final parentId = widget.isEditing ? widget.deck!.parentId : widget.parentId;
+      final duplicate = await _repo.nameExistsAtLevel(
+        name: name,
+        parentId: parentId,
+        excludeDeckId: widget.deck?.deckId,
+      );
+      if (duplicate) {
+        if (mounted) {
+          setState(() => _saving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('A deck with this name already exists here')),
+          );
+        }
+        return;
+      }
+
       if (widget.isEditing) {
-        final updated = widget.deck!.copyWith(deckName: _nameController.text.trim());
+        final updated = widget.deck!.copyWith(deckName: name);
         // TODO: Replace with state management provider
         await _repo.update(updated);
       } else {
@@ -53,7 +70,7 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
         final deck = Deck(
           deckId: const Uuid().v4(),
           parentId: widget.parentId,
-          deckName: _nameController.text.trim(),
+          deckName: name,
           createdAt: now,
           updatedAt: now,
           cards: [],
