@@ -2,72 +2,66 @@
 
 A cross-platform flashcard app with spaced repetition, built with Flutter.
 
+> **This is a school project and is not accepting outside contributions.**
+> Pull requests, issues, and comments from non-team members will be closed without review.
+
 ## Features
 
-- **Spaced Repetition**: Uses the FSRS algorithm for optimal review scheduling
-- **Nested Decks**: Organize cards into hierarchical deck structures
-- **Offline-First**: Study anywhere, sync when connected
-- **Cross-Platform**: Runs on iOS, Android, macOS, Windows, Linux, and web
+- **Spaced Repetition** — FSRS algorithm for optimal review scheduling
+- **Nested Decks** — Organize cards into hierarchical deck structures
+- **Offline-First** — Local SQLite storage, study anywhere
+- **Cross-Platform** — Linux, macOS, Windows, Android, iOS
+- **Custom Desktop UI** — Frameless window with native-themed titlebar buttons
 
 ## Tech Stack
 
-- **Framework**: Flutter 3.10+
-- **State Management**: Riverpod
-- **Routing**: GoRouter
-- **Local Storage**: SQLite (planned)
-
-## Getting Started
-
-### Prerequisites
-
-- Flutter SDK ^3.10.7
-- Dart SDK
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/Pairadux/lapse.git
-cd lapse
-
-# Install dependencies
-flutter pub get
-
-# Run the app
-flutter run
-```
+| Layer | Technology |
+|-------|-----------|
+| Framework | Flutter |
+| State Management | Riverpod |
+| Routing | GoRouter (flat routes, platform-aware transitions) |
+| Database | SQLite via sqflite |
+| Scheduling | FSRS (Free Spaced Repetition Scheduler) |
+| Desktop Titlebar | window_manager + modern_titlebar_buttons |
 
 ## Project Structure
 
 ```
 lib/
 ├── core/
-│   ├── routing/      # GoRouter configuration
-│   ├── theme/        # Colors, spacing, theme data
-│   └── widgets/      # Shared UI components
+│   ├── database/       # DatabaseHelper, constants
+│   ├── routing/        # GoRouter config, page transitions
+│   ├── theme/          # Material 3 dark theme, colors, spacing
+│   └── widgets/        # Shared components (AppScaffold, dialogs, etc.)
 ├── features/
-│   └── decks/        # Deck management feature
-│       ├── domain/   # Models
-│       └── presentation/
+│   ├── cards/          # Flashcard CRUD
+│   ├── decks/          # Deck management (nested hierarchy)
+│   └── study/          # Study sessions, FSRS scheduling
 └── main.dart
 ```
 
-## Development
+## Getting Started
 
-This project is currently in active MVP development.
+### Prerequisites
 
-### Running in Debug Mode
+- Flutter SDK
+- Dart SDK
+
+### Build & Run
 
 ```bash
+git clone https://github.com/Pairadux/lapse.git
+cd lapse
+flutter pub get
 flutter run
 ```
 
-The app includes a dev drawer (swipe from left) for navigating between screens during development.
+A dev drawer (swipe from left edge) is available in debug builds for navigating screens and loading mock data.
 
-## Team
+## Status
 
-Built as a collaborative project with AI-assisted development. See `docs/AI-Usage-*.md` for usage logs.
+This project is in active development as a school project. See `docs/` for AI usage logs and design documentation.
 
 ## License
 
-TBD
+All rights reserved. This source code is provided for viewing purposes only. No permission is granted to use, copy, modify, or distribute this software.
