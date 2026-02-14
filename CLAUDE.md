@@ -136,10 +136,36 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ---
 
-### Known Bugs (Low Priority)
+### Known Bugs
 
-- **Card count aggregation sometimes off:** Aggregated card/due counts on parent decks occasionally show stale or incorrect numbers. Likely a timing issue with parallel Future.wait queries or stale state after mutations. Needs investigation.
-- **Card form text not clearing on rapid input:** When spamming "Save & Add Another" quickly, the front/back fields sometimes don't clear. Likely a race condition between the async save completing and the setState that clears the controllers.
+- **Card count aggregation sometimes off (#44):** Aggregated card/due counts on parent decks occasionally show stale or incorrect numbers. Likely a timing issue with parallel Future.wait queries or stale state after mutations. Needs investigation.
+
+- **"Save & Add Another" not clearing fields (#45):** Does not consistently clear front/back text after saving. Detailed repro from tester:
+  - **Top-level deck (empty, no cards):** First use does NOT clear fields. Close and reopen the form — now it clears, but only for the first card. Subsequent saves stop clearing again.
+  - **Nested deck (empty, no cards):** Does NOT clear fields. Closing and reopening does NOT fix it either.
+  - **Nested deck (already has at least one card):** Works correctly, fields clear as expected.
+  - **Root cause theory:** The bug appears tied to whether the deck already contains cards, not just input speed. The previous "race condition on rapid input" theory may be a secondary issue or a red herring. Investigate the save callback — it may depend on a successful state refresh that behaves differently for empty vs. populated decks.
+
+- **Cascade soft-delete missing on nested decks and their cards (#46):** Deleting a parent deck sets `is_deleted=true` on the parent only. Nested sub-decks are removed from the UI but their `is_deleted` field is NOT updated in the database. Cards within deleted decks are also not cascade-deleted. This will cause orphaned records and sync issues with future Supabase integration.
+  - **Fix:** When soft-deleting a deck, recursively soft-delete all descendant decks AND all cards belonging to the target deck and its descendants. Should be a single transaction.
+
+- **Dev menu buttons don't refresh UI (#47):** "Load mock data" and "Clear database" buttons in the dev menu do not trigger a state refresh on the decks screen. The user has to navigate away and back to see changes.
+  - **Fix:** After these operations complete, invalidate/refresh the deck list state.
+
+- **Empty deck study shows misleading message (#48):** Clicking "Study" on a deck with zero cards shows "All caught up!" instead of a message indicating there are no cards to study. User expects something like "No cards in this deck."
+  - **Fix:** Check card count before/alongside due-card check. If total cards == 0, show "No cards in this deck" (or similar). Only show "All caught up" when cards exist but none are due.
+
+---
+
+### UX Improvements (from tester feedback)
+
+- **Keyboard submit for deck/card creation (#49):** Pressing Enter in the deck name field should submit the form. Shift+Enter to save cards (plain Enter for newline since card content may be multi-line).
+
+- **Character limit on card text fields (#50):** Add a reasonable max character limit (e.g., 5000–10000 chars) to front/back fields to prevent performance issues with extremely long content. Fields should be scrollable.
+
+- **Right-click context menu on decks/cards (#51):** Already planned (see Multi-Select section). Should include Delete, and eventually Move, Edit, etc.
+
+- **Full keyboard navigation (#52):** App is not fully usable with keyboard alone. Low priority but worth addressing eventually for accessibility.
 
 ---
 
@@ -154,6 +180,19 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 Theme-level fallbacks in `app_theme.dart`: `FadeUpwardsPageTransitionsBuilder` on desktop, `CupertinoPageTransitionsBuilder` on iOS, `ZoomPageTransitionsBuilder` on Android.
 
 The `isDesktop` getter lives in `page_transitions.dart` and is also imported by `main.dart`.
+
+---
+
+### Tester-Verified Behavior (2026-02-13)
+
+The following were confirmed working correctly by an external tester:
+- Deck creation with normal names, leading/trailing spaces, emoji, non-Latin/accented characters (é, ñ), Unicode
+- Duplicate deck names: warns but allows (intentional — uniqueness is by UUID)
+- Card creation with emoji/Unicode in front/back fields
+- Empty front/back validation (blocks creation correctly, including whitespace-only)
+- Nested deck study pulls cards from all descendant decks (intentional behavior, confirmed noticed by tester)
+- Individual card soft-delete sets `is_deleted=true` correctly
+- Clear database fully removes all records
 
 ---
 
