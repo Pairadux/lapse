@@ -12,7 +12,11 @@ class StudySessionScreen extends StatefulWidget {
   final String deckName;
   final List<String> deckIds;
 
-  const StudySessionScreen({super.key, required this.deckName, required this.deckIds});
+  const StudySessionScreen({
+    super.key,
+    required this.deckName,
+    required this.deckIds,
+  });
 
   @override
   State<StudySessionScreen> createState() => _StudySessionScreenState();
@@ -22,31 +26,56 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   // TODO: Replace with state management provider
   final _cardRepo = CardRepository();
 
+  late final FocusNode _studyCardFocusNode;
+
   List<Flashcard> _cards = [];
   bool _isLoading = true;
 
   int _currentIndex = 0;
   bool _showingAnswer = false;
-  final Map<Rating, int> _ratingCounts = {Rating.again: 0, Rating.hard: 0, Rating.good: 0, Rating.easy: 0};
+  final Map<Rating, int> _ratingCounts = {
+    Rating.again: 0,
+    Rating.hard: 0,
+    Rating.good: 0,
+    Rating.easy: 0,
+  };
 
   Flashcard get _currentCard => _cards[_currentIndex];
-  bool get _isSessionComplete => _cards.isEmpty || _currentIndex >= _cards.length;
-  double get _progress => _cards.isEmpty ? 0 : (_currentIndex / _cards.length);
+  bool get _isSessionComplete =>
+      _cards.isEmpty || _currentIndex >= _cards.length;
+  double get _progress =>
+      _cards.isEmpty ? 0 : (_currentIndex / _cards.length);
 
   @override
   void initState() {
     super.initState();
+
+    _studyCardFocusNode = FocusNode();
+
+    // Request focus after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _studyCardFocusNode.requestFocus();
+      }
+    });
+
     _loadCards();
+  }
+
+  @override
+  void dispose() {
+    _studyCardFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCards() async {
     try {
       final allCards = <Flashcard>[];
       for (final deckId in widget.deckIds) {
-        // TODO: Replace with state management provider
         final due = await _cardRepo.getDueCards(deckId);
         allCards.addAll(due);
       }
+
       if (mounted) {
         setState(() {
           _cards = allCards;
@@ -77,41 +106,6 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => _showExitConfirmation(context)),
-        title: Text(widget.deckName),
-        centerTitle: true,
-      ),
-      body: _isLoading
-          ? const LoadingIndicator()
-          : Column(
-              children: [
-                _buildProgressBar(),
-                Expanded(child: _isSessionComplete ? _buildSessionComplete() : _buildStudyCard()),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildProgressBar() {
-    return Container(
-      height: Spacing.xs,
-      width: double.infinity,
-      color: AppColors.surfaceElevated,
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: _progress,
-        child: Container(
-          decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.secondary])),
-        ),
-      ),
-    );
-  }
-
   void _handleKeyPress(KeyEvent event) {
     if (event is! KeyDownEvent) return;
 
@@ -132,10 +126,55 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     }
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => _showExitConfirmation(context),
+        ),
+        title: Text(widget.deckName),
+        centerTitle: true,
+      ),
+      body: _isLoading
+          ? const LoadingIndicator()
+          : Column(
+              children: [
+                _buildProgressBar(),
+                Expanded(
+                  child: _isSessionComplete
+                      ? _buildSessionComplete()
+                      : _buildStudyCard(),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildProgressBar() {
+    return Container(
+      height: Spacing.xs,
+      width: double.infinity,
+      color: AppColors.surfaceElevated,
+      child: FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: _progress,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStudyCard() {
     return KeyboardListener(
-      focusNode: FocusNode()..requestFocus(),
-      autofocus: true,
+      focusNode: _studyCardFocusNode,
       onKeyEvent: _handleKeyPress,
       child: Padding(
         padding: const EdgeInsets.all(Spacing.lg),
@@ -143,7 +182,9 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
           children: [
             Expanded(
               child: MouseRegion(
-                cursor: _showingAnswer ? SystemMouseCursors.basic : SystemMouseCursors.click,
+                cursor: _showingAnswer
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: _showingAnswer ? null : _flipCard,
                   child: Card(
@@ -154,14 +195,25 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            _showingAnswer ? _currentCard.back : _currentCard.front,
-                            style: Theme.of(context).textTheme.headlineSmall,
+                            _showingAnswer
+                                ? _currentCard.back
+                                : _currentCard.front,
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall,
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: Spacing.xl),
                           Text(
-                            _showingAnswer ? '' : 'Tap or press Space to reveal',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+                            _showingAnswer
+                                ? ''
+                                : 'Tap or press Space to reveal',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: AppColors.textTertiary,
+                                ),
                           ),
                         ],
                       ),
@@ -185,13 +237,29 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
         ignoring: !_showingAnswer,
         child: Row(
           children: [
-            _RatingButton(label: 'Again', color: AppColors.ratingAgain, onPressed: () => _rateCard(Rating.again)),
+            _RatingButton(
+              label: 'Again',
+              color: AppColors.ratingAgain,
+              onPressed: () => _rateCard(Rating.again),
+            ),
             const SizedBox(width: Spacing.sm),
-            _RatingButton(label: 'Hard', color: AppColors.ratingHard, onPressed: () => _rateCard(Rating.hard)),
+            _RatingButton(
+              label: 'Hard',
+              color: AppColors.ratingHard,
+              onPressed: () => _rateCard(Rating.hard),
+            ),
             const SizedBox(width: Spacing.sm),
-            _RatingButton(label: 'Good', color: AppColors.ratingGood, onPressed: () => _rateCard(Rating.good)),
+            _RatingButton(
+              label: 'Good',
+              color: AppColors.ratingGood,
+              onPressed: () => _rateCard(Rating.good),
+            ),
             const SizedBox(width: Spacing.sm),
-            _RatingButton(label: 'Easy', color: AppColors.ratingEasy, onPressed: () => _rateCard(Rating.easy)),
+            _RatingButton(
+              label: 'Easy',
+              color: AppColors.ratingEasy,
+              onPressed: () => _rateCard(Rating.easy),
+            ),
           ],
         ),
       ),
@@ -199,27 +267,41 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   }
 
   Widget _buildSessionComplete() {
-    final totalReviewed = _ratingCounts.values.reduce((a, b) => a + b);
+    final totalReviewed =
+        _ratingCounts.values.reduce((a, b) => a + b);
 
     return Padding(
       padding: const EdgeInsets.all(Spacing.xl),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.celebration_outlined, size: 64, color: AppColors.primary),
+          Icon(
+            Icons.celebration_outlined,
+            size: 64,
+            color: AppColors.primary,
+          ),
           const SizedBox(height: Spacing.lg),
-          Text('Session Complete!', style: Theme.of(context).textTheme.headlineMedium),
+          Text(
+            'Session Complete!',
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
           const SizedBox(height: Spacing.sm),
           Text(
             'You reviewed $totalReviewed cards',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary),
+            style: Theme.of(context)
+                .textTheme
+                .bodyLarge
+                ?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: Spacing.xxl),
           _buildStatsGrid(),
           const SizedBox(height: Spacing.xxl),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(onPressed: () => context.pop(), child: const Text('Done')),
+            child: ElevatedButton(
+              onPressed: () => context.pop(),
+              child: const Text('Done'),
+            ),
           ),
         ],
       ),
@@ -230,10 +312,26 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _StatItem(label: 'Again', count: _ratingCounts[Rating.again]!, color: AppColors.ratingAgain),
-        _StatItem(label: 'Hard', count: _ratingCounts[Rating.hard]!, color: AppColors.ratingHard),
-        _StatItem(label: 'Good', count: _ratingCounts[Rating.good]!, color: AppColors.ratingGood),
-        _StatItem(label: 'Easy', count: _ratingCounts[Rating.easy]!, color: AppColors.ratingEasy),
+        _StatItem(
+          label: 'Again',
+          count: _ratingCounts[Rating.again]!,
+          color: AppColors.ratingAgain,
+        ),
+        _StatItem(
+          label: 'Hard',
+          count: _ratingCounts[Rating.hard]!,
+          color: AppColors.ratingHard,
+        ),
+        _StatItem(
+          label: 'Good',
+          count: _ratingCounts[Rating.good]!,
+          color: AppColors.ratingGood,
+        ),
+        _StatItem(
+          label: 'Easy',
+          count: _ratingCounts[Rating.easy]!,
+          color: AppColors.ratingEasy,
+        ),
       ],
     );
   }
@@ -243,13 +341,22 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('End session?'),
-        content: const Text('Your progress in this session will be lost.'),
+        content: const Text(
+          'Your progress in this session will be lost.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('End')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('End'),
+          ),
         ],
       ),
     );
+
     if (shouldExit == true && context.mounted) {
       context.pop();
     }
@@ -261,7 +368,11 @@ class _RatingButton extends StatelessWidget {
   final Color color;
   final VoidCallback onPressed;
 
-  const _RatingButton({required this.label, required this.color, required this.onPressed});
+  const _RatingButton({
+    required this.label,
+    required this.color,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +398,11 @@ class _StatItem extends StatelessWidget {
   final int count;
   final Color color;
 
-  const _StatItem({required this.label, required this.count, required this.color});
+  const _StatItem({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -295,10 +410,22 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           '$count',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: color, fontWeight: FontWeight.bold),
+          style: Theme.of(context)
+              .textTheme
+              .headlineSmall
+              ?.copyWith(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
         ),
         const SizedBox(height: Spacing.xs),
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+        Text(
+          label,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: AppColors.textSecondary),
+        ),
       ],
     );
   }
