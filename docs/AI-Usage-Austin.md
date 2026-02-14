@@ -151,3 +151,21 @@ Input Summary: Provided full Discord conversation between Austin and tester cove
 Output Summary: Updated CLAUDE.md Known Bugs section with detailed repro steps (replacing vague race condition theory with tester's empty-deck-dependent findings), added new bugs (cascade soft-delete, dev menu refresh, empty deck study message), added UX Improvements section, and added Tester-Verified Behavior section documenting what passed. Created 9 GitHub issues (#44–#52) with appropriate labels (bug, enhancement, UI/UX, ORM/database, etc.) and assignees. Added issue reference numbers inline in CLAUDE.md for quick lookup.
 Modifications: Replaced the original "Save & Add Another" bug description — tester's repro proved the root cause is tied to empty vs. populated decks, not input speed. Combined the two cascade soft-delete issues (nested decks + their cards) into a single issue (#46) since the fix is one recursive transaction.
 Files Referenced: CLAUDE.md
+
+Date: 2026-02-14
+User: Austin
+Purpose: Comprehensive performance audit of codebase — database, repositories, UI, and packages
+Approach: AI explored the full codebase (every file in lib/) and performed a deep audit of database query patterns, repository methods, presentation layer data loading, widget lifecycle issues, and dependency configuration. Ranked findings by impact.
+Input Summary: Requested a thorough performance review with emphasis on database usage and repositories. Asked for findings ranked by impact with difficulty ratings and brief solution descriptions.
+Output Summary: Identified 14 performance issues. Top findings: N+1 query explosion from fetching full Flashcard objects just to count them (#53), recursive Dart-side tree walk for descendant IDs instead of SQL CTE (#54), client-side filtering of all decks (#55), double-fetch of cards in DeckDetailScreen (#56), FocusNode leak in study screen (#57), sequential card loading (#58), _dbName field ignored in DatabaseHelper (#59), and several lower-impact items (missing transactions, dead model fields, animation object leaks, unbatched inserts, no pagination, duplicate dep).
+Modifications: None — audit only, no code changes.
+Files Referenced: All files in lib/ reviewed. Findings documented in CLAUDE.md under "Performance Bottlenecks" section.
+
+Date: 2026-02-14
+User: Austin
+Purpose: Create GitHub issues from audit, update project board, and trim verbose older issues
+Approach: AI created 14 GitHub issues (#53–#66) from the audit findings with concise descriptions, proper labels (created new "performance" label), and assignees based on team ownership rules. Added all to project board with Priority (P0/P1/P2) and Size (XS–L). Also trimmed verbose issue bodies on #44–#52 from prior session.
+Input Summary: Provided team assignment rules: Pairadux (DB, repos, UI, PM), GADudley (models), djanderson26 (study session/services). Requested issues be concise, not include full solutions.
+Output Summary: Created 14 issues: 10 assigned to Pairadux, 2 to djanderson26 (#57, #58), 1 to GADudley (#62). Set project board fields — P0: #46, #53, #54; P1: #44, #45, #49, #51, #55–#59; P2: #47, #48, #50, #52, #60–#66. Trimmed #44–#52 bodies to match concise style. Updated CLAUDE.md with performance section referencing all issue numbers.
+Modifications: First issue (#53) was too verbose with full code solutions — user requested concise style, subsequent issues followed that pattern. Trimmed all 9 older issues (#44–#52) to match.
+Files Referenced: CLAUDE.md

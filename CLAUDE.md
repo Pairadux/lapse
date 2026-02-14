@@ -169,6 +169,30 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ---
 
+### Performance Bottlenecks (from audit 2026-02-14)
+
+**HIGH impact:**
+- **N+1 COUNT via full-object fetch (#53):** Card/due count aggregation deserializes full Flashcard objects just to call `.length`. Should use `COUNT(*)` queries. — `card_repository.dart`, `deck_list_screen.dart`, `deck_detail_screen.dart`
+- **Recursive Dart-side tree walk (#54):** `getDescendantIds()` does one DB round-trip per tree level sequentially. Should use a `WITH RECURSIVE` CTE. — `deck_repository.dart`
+
+**MEDIUM impact:**
+- **getAll() filtered client-side (#55):** `DeckListScreen` fetches all decks then filters to root in Dart. Needs a `getRootDecks()` query. — `deck_repository.dart`, `deck_list_screen.dart`
+- **Double card fetch in DeckDetailScreen (#56):** `_loadData()` fetches cards, then `_getAggregatedCounts()` fetches the same cards again for counting. — `deck_detail_screen.dart`
+- **FocusNode leak in study screen (#57):** FocusNode created inline in `build()` every rebuild, never disposed. — `study_session_screen.dart`
+- **Sequential card loading in study session (#58):** Due cards fetched per deck ID in a sequential loop instead of parallel/batched. — `study_session_screen.dart`
+- **`_dbName` ignored in DatabaseHelper (#59):** `_initDatabase()` hardcodes `DatabaseConstants.databaseName` instead of using the `_dbName` field — breaks `forTesting`. — `database_helper.dart`
+
+**LOW impact:**
+- **clearAllData() not transactional (#60):** Three deletes without a transaction wrapper. — `database_helper.dart`
+- **Redundant getDescendantIds() in _study() (#61):** Already computed during `_loadData()`, not cached. — `deck_detail_screen.dart`
+- **Dead Deck.cards field in Equatable props (#62):** Always `[]` from DB, adds unnecessary list comparison on every equality check. — `deck.dart`
+- **CurvedAnimation created in build() (#63):** SpeedDialFab creates new CurvedAnimation objects per rebuild, leaking listeners. — `speed_dial_fab.dart`
+- **Mock data insertion not batched (#64):** 17 sequential individual inserts instead of a batch. — `dev_drawer.dart`
+- **No pagination on card queries (#65):** All lists loaded fully into memory. Low impact now, high at scale. — `card_repository.dart`
+- **Duplicate sqflite_common_ffi in pubspec (#66):** Listed in both dependencies and dev_dependencies. — `pubspec.yaml`
+
+---
+
 ### Page Transition Performance on Desktop
 
 **Status:** Resolved.
