@@ -35,3 +35,39 @@ Input Summary: Provided the prompt and error message types.
 Output Summary: Recieved a simplified response on what the errors were and what was the problem in the code.
 Modifications: Fixed some small things, such as what types were being returned and what fields were needed to match the ones the cards had and what scheduling data was needed.
 Files Referenced: fsrs_service.dart, study_session_service.dart
+
+Date: 2026-02-08
+User: Darius Anderson
+Purpose: Task completion planning and requirement scoping
+Approach: Provided the project manager's Sprint 2 instructions and asked for guidelines and a dependency analysis
+Input Summary: Provided the list of requirements and asked which parts can be built before the UI or state management were completed
+Output Summary: Recieved information that the repository and models could be built and tested using SQLite instance using a bottom-up approach, where the Database, Repository, and Service are tackled sequentially.
+Modifications: I decided to fix focus on the Review models and Repository first
+Files Referenced: review.dart, review_repository.dart, study_session_service.dart, review_repository_test.dart
+
+Date: 2026-02-10
+User: Darius Anderson
+Purpose: Architecture scaffolding and database integration
+Approach: Requested skeletons to ensure things aligned with DatabaseHelper
+Input Summary: I asked for a ReviewRepository skeleton without the logic (so that I could complete it) and an explanation on the DatabaseHelper pattern. Also asked for TODOs to ensure FSRS persistence
+Output Summary: Recieved a class skeleton with empty Future methods for CRUD, an explanation on how DatabaseHelper manages the connection, and logic flow for saving cards after FSRS processing
+Modifications: Added helper methods for Enum to Int conversion
+Files Referenced: review_repository.dart, database_helper.dart
+
+Date: 2026-02-13
+User: Darius Anderson
+Purpose: Unit test implementation and debugging
+Approach: Provided failing test logs and requested boilerplate for a comprehensive test suite
+Input Summary: I asked for a skeleton for the ReviewRepository test and shared console errors when "Actual" row count exceeded "Expected" row count
+Output Summary: Recieved a test suite containing sqflite_common_ffi, and an explanation on why the test file showed a "State Pollution" error where test data was being stored for each run instead of being wiped. Suggested solving it using a setUp or :memory: database
+Modifications: Implemented the db.delete(table) and turned foreign keys off to allow the tests to run without needing valid Card Ids
+Files Referenced: review_repository_test.dart
+
+Date: 2026-02-14
+User: Darius Anderson
+Purpose: UI Performance Optimization and Memory Leak Fix
+Approach: Provided StudySessionScreen and requested fixes for FocusNode fixes
+Input Summary: Provided the widget code creating FocusNode in build() and fetching data in a for loop
+Output Summary: Recieved init/disposed managed FocusNode and refactoed data fetching logic to use Future.wait for parallel execution
+Modifications: Added a call to ensure the focus request does not interfere with build phase
+Files Referenced: study_session_screen.dart
