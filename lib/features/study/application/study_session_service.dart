@@ -1,14 +1,24 @@
 import 'fsrs_service.dart';
-import '../domain/rating.dart';
-import '../domain/review.dart';
-import '../domain/study_session.dart';
-import '../../cards/domain/flashcard.dart';
+import 'package:lapse/features/study/domain/rating.dart';
+import 'package:lapse/features/study/domain/review.dart';
+import 'package:lapse/features/study/domain/study_session.dart';
+import 'package:lapse/features/cards/domain/flashcard.dart';
+import 'package:lapse/features/cards/data/card_repository.dart';
+import 'package:lapse/features/study/data/review_repository.dart';
 
 /// Manages study session flow and card rating
 class StudySessionService {
   final FsrsService _fsrsService;
+  final ReviewRepository _reviewRepository;
+  final CardRepository _cardRepository;
 
-  StudySessionService({FsrsService? fsrsService}) : _fsrsService = fsrsService ?? FsrsService();
+  StudySessionService({
+    FsrsService? fsrsService,
+    required ReviewRepository reviewRepository,
+    required CardRepository cardRepository,
+  }) : _fsrsService = fsrsService ?? FsrsService(),
+       _reviewRepository = reviewRepository,
+       _cardRepository = cardRepository;
 
   /// Initialize a new study session
   StudySession startSession(String deckId, List<Flashcard> cards) {
@@ -26,11 +36,32 @@ class StudySessionService {
   }
 
   /// Process card rating, update scheduling with FSRS, and advance session
-  StudySession rateCard(StudySession session, Flashcard card, Rating rating) {
-    /// Apply FSRS to update card scheduling
-    _fsrsService.processReview(card, rating);
+  Future<StudySession> rateCard(StudySession session, Flashcard card, Rating rating) async {
+    try {
+      /// Apply FSRS to update card scheduling
+      final result = _fsrsService.processReview(card, rating);
 
-    /// Update rating counts
+      /// Appends Review with updated results
+      final review = Review(
+        cardId: card.cardId,
+        reviewedAt: DateTime.now(),
+        rating: rating,
+        scheduledDays: result.updatedCard.scheduledDays,
+        elapsedDays: result.updatedCard.elapsedDays,
+        state: result.updatedCard.cardState,
+      );
+
+      // Saves history and card updates
+      await Future.wait([_reviewRepository.addReview(review), _cardRepository.update(result.updatedCard)]);
+
+      return _buildUpdatedSession(session, review, rating);
+    } catch (e) {
+      throw Exception('Review failed to process and save: $e');
+    }
+  }
+
+  // Helper to construct the new StudySession state
+  StudySession _buildUpdatedSession(StudySession session, Review review, Rating rating) {
     int againCount = session.againCount;
     int hardCount = session.hardCount;
     int goodCount = session.goodCount;
@@ -46,16 +77,6 @@ class StudySessionService {
       case Rating.easy:
         easyCount++;
     }
-
-    /// Appends Review with updated results
-    final review = Review(
-      cardId: card.cardId,
-      reviewedAt: DateTime.now(),
-      rating: rating,
-      scheduledDays: card.scheduledDays,
-      elapsedDays: card.elapsedDays,
-      state: card.cardState,
-    );
 
     /// Creates a new list containing the existing review with the new ones
     final updatedCompletedReviews = List<Review>.from(session.completedReviews)..add(review);
