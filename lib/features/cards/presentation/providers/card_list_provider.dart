@@ -8,21 +8,18 @@ final cardListProvider = AsyncNotifierProvider.family<
   CardListNotifier.new,
 );
 
-class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
-  CardListNotifier(this._deckId);
-
-  final String _deckId;
+class CardListNotifier extends FamilyAsyncNotifier<List<Flashcard>, String> {
 
   @override
-  Future<List<Flashcard>> build() {
-    return ref.read(cardRepositoryProvider).getByDeckId(_deckId);
+  Future<List<Flashcard>> build(String deckId) {
+    return ref.read(cardRepositoryProvider).getByDeckId(deckId);
   }
 
   Future<void> createCard(Flashcard card) async {
     state = await AsyncValue.guard<List<Flashcard>>(() async {
       await ref.read(cardRepositoryProvider).create(card);
       ref.invalidate(deckListProvider);
-      return ref.read(cardRepositoryProvider).getByDeckId(_deckId);
+      return ref.read(cardRepositoryProvider).getByDeckId(arg);
     });
   }
 
@@ -30,7 +27,7 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
     state = await AsyncValue.guard<List<Flashcard>>(() async {
       await ref.read(cardRepositoryProvider).update(card);
       ref.invalidate(deckListProvider);
-      return ref.read(cardRepositoryProvider).getByDeckId(_deckId);
+      return ref.read(cardRepositoryProvider).getByDeckId(arg);
     });
   }
 
@@ -38,7 +35,7 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
     state = await AsyncValue.guard<List<Flashcard>>(() async {
       await ref.read(cardRepositoryProvider).delete(cardId);
       ref.invalidate(deckListProvider);
-      return ref.read(cardRepositoryProvider).getByDeckId(_deckId);
+      return ref.read(cardRepositoryProvider).getByDeckId(arg);
     });
   }
 }
