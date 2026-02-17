@@ -124,7 +124,6 @@ class _CardFormScreenState extends State<CardFormScreen> {
           _createdCount++;
           _frontController.clear();
           _backController.clear();
-          _formKey.currentState!.reset();
         });
         _frontFocus.requestFocus();
       }
