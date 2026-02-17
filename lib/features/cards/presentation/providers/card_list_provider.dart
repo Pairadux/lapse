@@ -19,7 +19,6 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
   }
 
   Future<void> createCard(Flashcard card) async {
-    state = const AsyncLoading<List<Flashcard>>();
     state = await AsyncValue.guard<List<Flashcard>>(() async {
       await ref.read(cardRepositoryProvider).create(card);
       ref.invalidate(deckListProvider);
@@ -28,7 +27,6 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
   }
 
   Future<void> updateCard(Flashcard card) async {
-    state = const AsyncLoading<List<Flashcard>>();
     state = await AsyncValue.guard<List<Flashcard>>(() async {
       await ref.read(cardRepositoryProvider).update(card);
       ref.invalidate(deckListProvider);
@@ -37,7 +35,6 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
   }
 
   Future<void> deleteCard(String cardId) async {
-    state = const AsyncLoading<List<Flashcard>>();
     state = await AsyncValue.guard<List<Flashcard>>(() async {
       await ref.read(cardRepositoryProvider).delete(cardId);
       ref.invalidate(deckListProvider);

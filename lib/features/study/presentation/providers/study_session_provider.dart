@@ -49,7 +49,6 @@ class StudySessionNotifier extends AsyncNotifier<StudySession?> {
     final card = session?.currentCard;
     if (session == null || card == null) return;
 
-    state = const AsyncLoading<StudySession?>();
     state = await AsyncValue.guard<StudySession?>(() async {
       final result = _service.rateCard(session, card, rating);
       await ref.read(cardRepositoryProvider).update(result.updatedCard);

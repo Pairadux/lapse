@@ -13,7 +13,6 @@ class DeckListNotifier extends AsyncNotifier<List<Deck>> {
   }
 
   Future<void> createDeck(Deck deck) async {
-    state = const AsyncLoading<List<Deck>>();
     state = await AsyncValue.guard<List<Deck>>(() async {
       await ref.read(deckRepositoryProvider).create(deck);
       return ref.read(deckRepositoryProvider).getAll();
@@ -21,7 +20,6 @@ class DeckListNotifier extends AsyncNotifier<List<Deck>> {
   }
 
   Future<void> updateDeck(Deck deck) async {
-    state = const AsyncLoading<List<Deck>>();
     state = await AsyncValue.guard<List<Deck>>(() async {
       await ref.read(deckRepositoryProvider).update(deck);
       return ref.read(deckRepositoryProvider).getAll();
@@ -29,7 +27,6 @@ class DeckListNotifier extends AsyncNotifier<List<Deck>> {
   }
 
   Future<void> deleteDeck(String deckId) async {
-    state = const AsyncLoading<List<Deck>>();
     state = await AsyncValue.guard<List<Deck>>(() async {
       await ref.read(deckRepositoryProvider).delete(deckId);
       return ref.read(deckRepositoryProvider).getAll();
