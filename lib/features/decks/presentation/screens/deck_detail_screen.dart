@@ -91,9 +91,8 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       if (mounted) {
         setState(() {
           _deck = deck.copyWith(
-            cardCount: cards.length,
-            dueCount:
-                cards.where((c) => c.dueDate.isBefore(DateTime.now())).length,
+            cardCount: totalCounts.$1,
+            dueCount: totalCounts.$2,
           );
           _ancestors = ancestors;
           _children = hydratedChildren;
@@ -119,12 +118,12 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     var cards = 0;
     var due = 0;
     for (final id in allIds) {
-      final results = await Future.wait([
-        _cardRepo.getByDeckId(id),
-        _cardRepo.getDueCards(id),
+      final counts = await Future.wait([
+        _cardRepo.countByDeckId(id),
+        _cardRepo.countDueByDeckId(id),
       ]);
-      cards += (results[0] as List).length;
-      due += (results[1] as List).length;
+      cards += counts[0];
+      due += counts[1];
     }
     return (cards, due);
   }
