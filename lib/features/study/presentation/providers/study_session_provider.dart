@@ -39,7 +39,10 @@ class StudySessionNotifier extends AsyncNotifier<StudySession?> {
         allCards.addAll(cards);
       }
 
-      final session = _service.startSession(deckIds.first, allCards);
+      final sessionDeckId = deckIds.length == 1
+          ? deckIds.first
+          : 'multi:${deckIds.join(",")}';
+      final session = _service.startSession(sessionDeckId, allCards);
       return session;
     });
   }
