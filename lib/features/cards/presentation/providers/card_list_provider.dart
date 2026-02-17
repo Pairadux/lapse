@@ -5,7 +5,7 @@ import 'package:lapse/features/decks/presentation/providers/deck_list_provider.d
 
 final cardListProvider = AsyncNotifierProvider.family<
     CardListNotifier, List<Flashcard>, String>(
-  (deckId) => CardListNotifier(deckId),
+  CardListNotifier.new,
 );
 
 class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
