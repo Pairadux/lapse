@@ -40,7 +40,10 @@ dependencies:
   go_router: ^17.0.1
   fsrs: ^2.0.1
   sqflite: ^2.4.2
+  sqflite_common_ffi: ^2.3.4+4
   path: ^1.9.1
+  window_manager: ^0.5.1
+  modern_titlebar_buttons: ^1.1.2
 
 dev_dependencies:
   flutter_test:

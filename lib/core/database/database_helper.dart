@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -5,8 +6,15 @@ import 'database_constants.dart';
 
 /// Singleton helper that owns the app's SQLite [Database] connection.
 class DatabaseHelper {
-  DatabaseHelper._();
+  final String _dbName;
+
+  DatabaseHelper._({String? dbName})
+      : _dbName = dbName ?? DatabaseConstants.databaseName;
   static final DatabaseHelper instance = DatabaseHelper._();
+
+  /// Creates an independent instance with its own DB file for testing.
+  @visibleForTesting
+  DatabaseHelper.forTesting({String dbName = 'test.db'}) : _dbName = dbName;
 
   Database? _database;
 
@@ -52,6 +60,14 @@ class DatabaseHelper {
           break;
       }
     }
+  }
+
+  /// Deletes all rows from every table, preserving the schema.
+  Future<void> clearAllData() async {
+    final db = await database;
+    await db.delete(DatabaseConstants.tableReviews);
+    await db.delete(DatabaseConstants.tableCards);
+    await db.delete(DatabaseConstants.tableDecks);
   }
 
   /// Closes the database and resets the cached reference.

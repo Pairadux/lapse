@@ -1,9 +1,113 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
+import 'package:lapse/core/database/database_helper.dart';
+import 'package:lapse/core/widgets/confirm_dialog.dart';
+import 'package:lapse/features/cards/data/card_repository.dart';
+import 'package:lapse/features/cards/domain/flashcard.dart';
+import 'package:lapse/features/decks/data/deck_repository.dart';
+import 'package:lapse/features/decks/domain/deck.dart';
 import '../routing/routes.dart';
 
 class DevDrawer extends StatelessWidget {
   const DevDrawer({super.key});
+
+  Future<void> _clearDatabase(BuildContext context) async {
+    final confirmed = await ConfirmDialog.show(
+      context: context,
+      title: 'Clear database?',
+      message: 'This will permanently delete all decks, cards, and reviews.',
+      confirmLabel: 'Clear',
+      isDestructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    await DatabaseHelper.instance.clearAllData();
+    if (context.mounted) {
+      Navigator.pop(context);
+      context.go(Routes.home);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Database cleared')),
+      );
+    }
+  }
+
+  Future<void> _loadMockData(BuildContext context) async {
+    final confirmed = await ConfirmDialog.show(
+      context: context,
+      title: 'Load mock data?',
+      message:
+          'This will add sample decks and cards. Existing data is kept.',
+      confirmLabel: 'Load',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    await _insertMockData();
+    if (context.mounted) {
+      Navigator.pop(context);
+      context.go(Routes.home);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mock data loaded')),
+      );
+    }
+  }
+
+  Future<void> _insertMockData() async {
+    const uuid = Uuid();
+    final deckRepo = DeckRepository();
+    final cardRepo = CardRepository();
+    final now = DateTime.now();
+
+    // Root decks
+    final spanish = Deck(
+      deckId: uuid.v4(), deckName: 'Spanish',
+      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
+    );
+    final programming = Deck(
+      deckId: uuid.v4(), deckName: 'Programming',
+      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
+    );
+
+    // Sub-decks
+    final vocab = Deck(
+      deckId: uuid.v4(), parentId: spanish.deckId, deckName: 'Vocabulary',
+      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
+    );
+    final grammar = Deck(
+      deckId: uuid.v4(), parentId: spanish.deckId, deckName: 'Grammar',
+      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
+    );
+    final dart = Deck(
+      deckId: uuid.v4(), parentId: programming.deckId, deckName: 'Dart',
+      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
+    );
+
+    for (final deck in [spanish, programming, vocab, grammar, dart]) {
+      await deckRepo.create(deck);
+    }
+
+    // Cards
+    final mockCards = <(String, String, String)>[
+      (vocab.deckId, 'Hola', 'Hello'),
+      (vocab.deckId, 'Adiós', 'Goodbye'),
+      (vocab.deckId, 'Gracias', 'Thank you'),
+      (vocab.deckId, 'Por favor', 'Please'),
+      (vocab.deckId, 'Buenos días', 'Good morning'),
+      (grammar.deckId, 'Ser vs Estar', 'Ser = permanent, Estar = temporary'),
+      (grammar.deckId, 'Preterite vs Imperfect', 'Preterite = completed, Imperfect = ongoing/habitual'),
+      (dart.deckId, 'final vs const', 'final = runtime constant, const = compile-time constant'),
+      (dart.deckId, 'Null safety operator', 'Use ? for nullable, ! for assertion, ?? for fallback'),
+      (dart.deckId, 'async/await', 'async marks a function as returning a Future, await pauses until it completes'),
+      (programming.deckId, 'Big O of binary search', 'O(log n)'),
+      (programming.deckId, 'SOLID - S', 'Single Responsibility Principle'),
+    ];
+
+    for (final (deckId, front, back) in mockCards) {
+      await cardRepo.create(Flashcard.newCard(
+        cardId: uuid.v4(), deckId: deckId, front: front, back: back,
+      ));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,47 +141,15 @@ class DevDrawer extends StatelessWidget {
             route: Routes.debug,
           ),
           const Divider(),
-          _DrawerItem(
-            icon: Icons.home,
-            label: 'Home (Deck List)',
-            route: Routes.home,
+          ListTile(
+            leading: const Icon(Icons.dataset_outlined),
+            title: const Text('Load Mock Data'),
+            onTap: () => _loadMockData(context),
           ),
-          _DrawerItem(
-            icon: Icons.settings,
-            label: 'Settings',
-            route: Routes.settings,
-          ),
-          _DrawerItem(
-            icon: Icons.add,
-            label: 'New Deck',
-            route: Routes.deckNew,
-          ),
-          _DrawerItem(
-            icon: Icons.folder,
-            label: 'Deck Detail (mock)',
-            route: Routes.deckPath('demo'),
-          ),
-          _DrawerItem(
-            icon: Icons.edit,
-            label: 'Edit Deck (mock)',
-            route: Routes.deckEditPath('demo'),
-          ),
-          const Divider(),
-          _DrawerItem(
-            icon: Icons.note_add,
-            label: 'New Card (mock)',
-            route: Routes.cardNewPath('demo'),
-          ),
-          _DrawerItem(
-            icon: Icons.credit_card,
-            label: 'Edit Card (mock)',
-            route: Routes.cardPath('demo', 'card1'),
-          ),
-          const Divider(),
-          _DrawerItem(
-            icon: Icons.play_arrow,
-            label: 'Study Session (mock)',
-            route: Routes.studyPath('demo'),
+          ListTile(
+            leading: const Icon(Icons.delete_forever),
+            title: const Text('Clear Database'),
+            onTap: () => _clearDatabase(context),
           ),
         ],
       ),

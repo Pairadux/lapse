@@ -13,6 +13,7 @@ class DebugWidgetScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Widget Preview',
+      showBackButton: true,
       body: ListView(
         padding: const EdgeInsets.all(Spacing.lg),
         children: [
