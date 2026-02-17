@@ -142,17 +142,31 @@ class DeckRepository {
     return rows.isNotEmpty;
   }
 
+  /// Soft-deletes [deckId], all descendant decks, and all their cards
+  /// in a single transaction.
   Future<void> delete(String deckId) async {
+    final allIds = await getDescendantIds(deckId);
     final db = await _dbHelper.database;
     final now = DateTime.now().toUtc().toIso8601String();
-    await db.update(
-      DatabaseConstants.tableDecks,
-      {
-        DatabaseConstants.colIsDeleted: 1,
-        DatabaseConstants.colUpdatedAt: now,
-      },
-      where: '${DatabaseConstants.colDeckId} = ?',
-      whereArgs: [deckId],
-    );
+    final deletedFields = {
+      DatabaseConstants.colIsDeleted: 1,
+      DatabaseConstants.colUpdatedAt: now,
+    };
+    final placeholders = List.filled(allIds.length, '?').join(', ');
+
+    await db.transaction((txn) async {
+      await txn.update(
+        DatabaseConstants.tableDecks,
+        deletedFields,
+        where: '${DatabaseConstants.colDeckId} IN ($placeholders)',
+        whereArgs: allIds,
+      );
+      await txn.update(
+        DatabaseConstants.tableCards,
+        deletedFields,
+        where: '${DatabaseConstants.colDeckId} IN ($placeholders)',
+        whereArgs: allIds,
+      );
+    });
   }
 }
