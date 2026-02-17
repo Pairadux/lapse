@@ -129,13 +129,16 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   }
 
   Future<void> _study() async {
-    if (_totalDueCount == 0) {
+    if (_totalCardCount == 0 || _totalDueCount == 0) {
       if (mounted) {
+        final empty = _totalCardCount == 0;
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('All caught up!'),
-            content: const Text('No cards are due right now.'),
+            title: Text(empty ? 'No cards yet' : 'All caught up!'),
+            content: Text(empty
+                ? 'Add some cards before studying.'
+                : 'No cards are due right now.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
