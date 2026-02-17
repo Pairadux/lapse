@@ -10,7 +10,9 @@ import 'package:lapse/features/decks/domain/deck.dart';
 import '../routing/routes.dart';
 
 class DevDrawer extends StatelessWidget {
-  const DevDrawer({super.key});
+  final VoidCallback? onDataChanged;
+
+  const DevDrawer({super.key, this.onDataChanged});
 
   Future<void> _clearDatabase(BuildContext context) async {
     final confirmed = await ConfirmDialog.show(
@@ -25,7 +27,7 @@ class DevDrawer extends StatelessWidget {
     await DatabaseHelper.instance.clearAllData();
     if (context.mounted) {
       Navigator.pop(context);
-      context.go(Routes.home);
+      onDataChanged?.call();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Database cleared')),
       );
@@ -45,7 +47,7 @@ class DevDrawer extends StatelessWidget {
     await _insertMockData();
     if (context.mounted) {
       Navigator.pop(context);
-      context.go(Routes.home);
+      onDataChanged?.call();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mock data loaded')),
       );

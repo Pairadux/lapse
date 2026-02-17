@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -16,10 +18,11 @@ void main() async {
 
     await windowManager.ensureInitialized();
     await windowManager.waitUntilReadyToShow(
-      const WindowOptions(
-        size: Size(1280, 720),
-        minimumSize: Size(400, 500),
-        titleBarStyle: TitleBarStyle.hidden,
+      WindowOptions(
+        size: const Size(1280, 720),
+        minimumSize: const Size(400, 500),
+        titleBarStyle:
+            Platform.isMacOS ? TitleBarStyle.normal : TitleBarStyle.hidden,
       ),
       () async {
         await windowManager.show();
@@ -44,7 +47,7 @@ class LapseApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       routerConfig: appRouter,
       builder: (context, child) {
-        if (isDesktop) {
+        if (isDesktop && !Platform.isMacOS) {
           return Column(
             children: [
               const WindowTitleBar(),

@@ -32,8 +32,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
 
   Future<void> _loadDecks() async {
     try {
-      final decks = await _deckRepo.getAll();
-      final rootDecks = decks.where((d) => d.parentId == null).toList();
+      final rootDecks = await _deckRepo.getRootDecks();
 
       // Hydrate all root decks with aggregated counts in parallel
       final countFutures = rootDecks.map((deck) async {
@@ -41,12 +40,12 @@ class _DeckListScreenState extends State<DeckListScreen> {
         var totalCards = 0;
         var totalDue = 0;
         for (final id in allIds) {
-          final results = await Future.wait([
-            _cardRepo.getByDeckId(id),
-            _cardRepo.getDueCards(id),
+          final counts = await Future.wait([
+            _cardRepo.countByDeckId(id),
+            _cardRepo.countDueByDeckId(id),
           ]);
-          totalCards += (results[0] as List).length;
-          totalDue += (results[1] as List).length;
+          totalCards += counts[0];
+          totalDue += counts[1];
         }
         return deck.copyWith(cardCount: totalCards, dueCount: totalDue);
       });
@@ -81,7 +80,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
           ),
         ],
       ),
-      drawer: const DevDrawer(),
+      drawer: DevDrawer(onDataChanged: _loadDecks),
       body: (!_hasLoaded && _rootDecks.isEmpty)
           ? const SizedBox.shrink()
           : _buildDeckList(),
