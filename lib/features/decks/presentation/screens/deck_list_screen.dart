@@ -80,7 +80,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
           ),
         ],
       ),
-      drawer: const DevDrawer(),
+      drawer: DevDrawer(onDataChanged: _loadDecks),
       body: (!_hasLoaded && _rootDecks.isEmpty)
           ? const SizedBox.shrink()
           : _buildDeckList(),
