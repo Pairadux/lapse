@@ -35,7 +35,7 @@ class StudySessionNotifier extends AsyncNotifier<StudySession?> {
     state = await AsyncValue.guard<StudySession?>(() async {
       final allCards = <Flashcard>[];
       for (final deckId in deckIds) {
-        final cards = await ref.read(cardRepositoryProvider).getCardsForDeck(deckId);
+        final cards = await ref.read(cardRepositoryProvider).getDueCards(deckId);
         allCards.addAll(cards);
       }
 
@@ -52,7 +52,7 @@ class StudySessionNotifier extends AsyncNotifier<StudySession?> {
     state = const AsyncLoading<StudySession?>();
     state = await AsyncValue.guard<StudySession?>(() async {
       final result = _service.rateCard(session, card, rating);
-      await ref.read(cardRepositoryProvider).updateFsrsState(result.updatedCard);
+      await ref.read(cardRepositoryProvider).update(result.updatedCard);
       ref.invalidate(deckListProvider);
       return result.session;
     });
