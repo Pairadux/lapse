@@ -1,4 +1,6 @@
-# Lapse
+<div align="center">
+  <img src="./assets/LapseLogo.png" alt="Lapse - Forget Less. Remember More">
+</div>
 
 A cross-platform flashcard app with spaced repetition, built with Flutter.
 
