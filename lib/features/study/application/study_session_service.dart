@@ -1,8 +1,8 @@
-import 'fsrs_service.dart';
-import '../domain/rating.dart';
-import '../domain/review.dart';
-import '../domain/study_session.dart';
-import '../../cards/domain/flashcard.dart';
+import 'package:lapse/features/study/application/fsrs_service.dart';
+import 'package:lapse/features/study/domain/rating.dart';
+import 'package:lapse/features/study/domain/review.dart';
+import 'package:lapse/features/study/domain/study_session.dart';
+import 'package:lapse/features/cards/domain/flashcard.dart';
 
 class StudySessionResult {
   final StudySession session;
@@ -34,9 +34,21 @@ class StudySessionService {
 
   /// Process card rating, update scheduling with FSRS, and advance session
   StudySessionResult rateCard(StudySession session, Flashcard card, Rating rating) {
-    final fsrsResult = _fsrsService.processReview(card, rating);
-    final updatedCard = fsrsResult.updatedCard;
+    try {
+      final result = _fsrsService.processReview(card, rating);
 
+      return StudySessionResult(
+        updatedSession: _buildUpdatedSession(session, result.review, rating),
+        updatedCard: result.updatedCard,
+        review: result.review,
+      );
+    } catch (e) {
+      throw Exception('Review failed to process: $e');
+    }
+  }
+
+  // Helper to construct the new StudySession state
+  StudySession _buildUpdatedSession(StudySession session, Review review, Rating rating) {
     int againCount = session.againCount;
     int hardCount = session.hardCount;
     int goodCount = session.goodCount;
@@ -45,26 +57,21 @@ class StudySessionService {
     switch (rating) {
       case Rating.again:
         againCount++;
+        break;
       case Rating.hard:
         hardCount++;
+        break;
       case Rating.good:
         goodCount++;
+        break;
       case Rating.easy:
         easyCount++;
+        break;
     }
-
-    final review = Review(
-      cardId: updatedCard.cardId,
-      reviewedAt: DateTime.now(),
-      rating: rating,
-      scheduledDays: updatedCard.scheduledDays,
-      elapsedDays: updatedCard.elapsedDays,
-      state: updatedCard.cardState,
-    );
 
     final updatedCompletedReviews = List<Review>.from(session.completedReviews)..add(review);
 
-    final updatedSession = StudySession(
+    return StudySession(
       deckId: session.deckId,
       cards: session.cards,
       currentIndex: session.currentIndex + 1,
@@ -78,4 +85,12 @@ class StudySessionService {
 
     return StudySessionResult(session: updatedSession, updatedCard: updatedCard);
   }
+}
+
+class StudySessionResult {
+  final StudySession updatedSession;
+  final Flashcard updatedCard;
+  final Review review;
+
+  StudySessionResult({required this.updatedSession, required this.updatedCard, required this.review});
 }

@@ -1,12 +1,14 @@
 import 'package:fsrs/fsrs.dart' as fsrs;
 import '../domain/rating.dart';
+import '../domain/review.dart';
 import '../../cards/domain/flashcard.dart';
 
 /// Result of processing a review with FSRS
 class FsrsResult {
   final Flashcard updatedCard;
+  final Review review;
 
-  FsrsResult({required this.updatedCard});
+  FsrsResult({required this.updatedCard, required this.review});
 }
 
 class FsrsService {
@@ -31,8 +33,7 @@ class FsrsService {
       scheduledDays = updatedFsrsCard.due.difference(DateTime.now()).inDays;
 
       // Update card with FSRS results and tracking info
-
-      Flashcard updatedCard = card.copyWith(
+      final updatedCard = card.copyWith(
         dueDate: updatedFsrsCard.due,
         stability: updatedFsrsCard.stability ?? 0,
         difficulty: updatedFsrsCard.difficulty ?? 0,
@@ -44,7 +45,16 @@ class FsrsService {
         lastReview: DateTime.now(),
       );
 
-      return FsrsResult(updatedCard: updatedCard);
+      final review = Review(
+        cardId: card.cardId,
+        rating: rating,
+        reviewedAt: DateTime.now(),
+        elapsedDays: elapsedDays,
+        scheduledDays: scheduledDays,
+        state: _updateCardState(rating),
+      );
+
+      return FsrsResult(updatedCard: updatedCard, review: review);
     } catch (e) {
       throw Exception('Failed to process review: $e');
     }

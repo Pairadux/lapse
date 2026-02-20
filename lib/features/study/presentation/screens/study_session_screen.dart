@@ -22,6 +22,9 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   // TODO: Replace with state management provider
   final _cardRepo = CardRepository();
 
+  // Fix: FocusNode leak, stores it as a state variable
+  late final FocusNode _focusNode;
+
   List<Flashcard> _cards = [];
   bool _isLoading = true;
 
@@ -36,17 +39,36 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode();
     _loadCards();
+  }
+
+  // Fix: Memory managements, clears the node
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCards() async {
     try {
-      final allCards = <Flashcard>[];
+      /* final allCards = <Flashcard>[];
       for (final deckId in widget.deckIds) {
         // TODO: Replace with state management provider
         final due = await _cardRepo.getDueCards(deckId);
         allCards.addAll(due);
-      }
+      } */
+
+      // Perf: Parallelize card loading
+      // Create a list of Futures instead of awaiting in a for loop
+      final futures = widget.deckIds.map((id) => _cardRepo.getDueCards(id));
+
+      // Waits on complete result
+      final results = await Future.wait(futures);
+
+      //Flattens List<List<Flashcard>> into List<Flashcard>
+      final allCards = results.expand((cards) => cards).toList();
+
       if (mounted) {
         setState(() {
           _cards = allCards;
@@ -56,9 +78,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load cards: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load cards: $e')));
       }
     }
   }
@@ -133,8 +153,13 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   }
 
   Widget _buildStudyCard() {
+    // Fix: Requests focus after build finishes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_focusNode.canRequestFocus) _focusNode.requestFocus();
+    });
+
     return KeyboardListener(
-      focusNode: FocusNode()..requestFocus(),
+      focusNode: _focusNode, //Fix: Uses the persisted node, not a new one
       autofocus: true,
       onKeyEvent: _handleKeyPress,
       child: Padding(
