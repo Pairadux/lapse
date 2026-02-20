@@ -59,14 +59,39 @@ class DeckRepository {
     return updated;
   }
 
-  /// Returns [deckId] plus all descendant deck IDs (recursive).
+  /// Returns [deckId] plus all descendant deck IDs via a single recursive CTE.
   Future<List<String>> getDescendantIds(String deckId) async {
-    final result = <String>[deckId];
-    final children = await getChildren(deckId);
-    for (final child in children) {
-      result.addAll(await getDescendantIds(child.deckId));
-    }
-    return result;
+    final db = await _dbHelper.database;
+    final rows = await db.rawQuery('''
+      WITH RECURSIVE descendants(${DatabaseConstants.colDeckId}) AS (
+        SELECT ${DatabaseConstants.colDeckId}
+          FROM ${DatabaseConstants.tableDecks}
+         WHERE ${DatabaseConstants.colDeckId} = ?
+           AND ${DatabaseConstants.colIsDeleted} = 0
+        UNION ALL
+        SELECT d.${DatabaseConstants.colDeckId}
+          FROM ${DatabaseConstants.tableDecks} d
+         INNER JOIN descendants dt
+            ON d.${DatabaseConstants.colParentId} = dt.${DatabaseConstants.colDeckId}
+         WHERE d.${DatabaseConstants.colIsDeleted} = 0
+      )
+      SELECT ${DatabaseConstants.colDeckId} FROM descendants
+    ''', [deckId]);
+    return rows
+        .map((r) => r[DatabaseConstants.colDeckId] as String)
+        .toList();
+  }
+
+  /// Returns only root-level (no parent) decks, ordered by creation date.
+  Future<List<Deck>> getRootDecks() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      DatabaseConstants.tableDecks,
+      where:
+          '${DatabaseConstants.colParentId} IS NULL AND ${DatabaseConstants.colIsDeleted} = 0',
+      orderBy: DatabaseConstants.colCreatedAt,
+    );
+    return rows.map(Deck.fromMap).toList();
   }
 
   /// Walks parentId chain from [deckId] up to root, returns list ordered root-first.
@@ -117,17 +142,31 @@ class DeckRepository {
     return rows.isNotEmpty;
   }
 
+  /// Soft-deletes [deckId], all descendant decks, and all their cards
+  /// in a single transaction.
   Future<void> delete(String deckId) async {
+    final allIds = await getDescendantIds(deckId);
     final db = await _dbHelper.database;
     final now = DateTime.now().toUtc().toIso8601String();
-    await db.update(
-      DatabaseConstants.tableDecks,
-      {
-        DatabaseConstants.colIsDeleted: 1,
-        DatabaseConstants.colUpdatedAt: now,
-      },
-      where: '${DatabaseConstants.colDeckId} = ?',
-      whereArgs: [deckId],
-    );
+    final deletedFields = {
+      DatabaseConstants.colIsDeleted: 1,
+      DatabaseConstants.colUpdatedAt: now,
+    };
+    final placeholders = List.filled(allIds.length, '?').join(', ');
+
+    await db.transaction((txn) async {
+      await txn.update(
+        DatabaseConstants.tableDecks,
+        deletedFields,
+        where: '${DatabaseConstants.colDeckId} IN ($placeholders)',
+        whereArgs: allIds,
+      );
+      await txn.update(
+        DatabaseConstants.tableCards,
+        deletedFields,
+        where: '${DatabaseConstants.colDeckId} IN ($placeholders)',
+        whereArgs: allIds,
+      );
+    });
   }
 }

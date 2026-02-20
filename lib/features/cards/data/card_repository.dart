@@ -52,6 +52,30 @@ class CardRepository {
     return rows.map(Flashcard.fromMap).toList();
   }
 
+  /// Returns the number of non-deleted cards in [deckId].
+  Future<int> countByDeckId(String deckId) async {
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM ${DatabaseConstants.tableCards} '
+      'WHERE ${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
+      [deckId],
+    );
+    return result.first['c'] as int;
+  }
+
+  /// Returns the number of non-deleted cards due on or before now in [deckId].
+  Future<int> countDueByDeckId(String deckId) async {
+    final db = await _dbHelper.database;
+    final cutoff = DateTime.now().toUtc().toIso8601String();
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM ${DatabaseConstants.tableCards} '
+      'WHERE ${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colIsDeleted} = 0 '
+      'AND ${DatabaseConstants.colDueDate} <= ?',
+      [deckId, cutoff],
+    );
+    return result.first['c'] as int;
+  }
+
   /// Returns true if a non-deleted card with [front] text exists in [deckId].
   /// Use [excludeCardId] to skip self when editing.
   Future<bool> frontExistsInDeck({

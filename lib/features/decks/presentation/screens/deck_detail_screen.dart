@@ -91,9 +91,8 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       if (mounted) {
         setState(() {
           _deck = deck.copyWith(
-            cardCount: cards.length,
-            dueCount:
-                cards.where((c) => c.dueDate.isBefore(DateTime.now())).length,
+            cardCount: totalCounts.$1,
+            dueCount: totalCounts.$2,
           );
           _ancestors = ancestors;
           _children = hydratedChildren;
@@ -119,24 +118,27 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     var cards = 0;
     var due = 0;
     for (final id in allIds) {
-      final results = await Future.wait([
-        _cardRepo.getByDeckId(id),
-        _cardRepo.getDueCards(id),
+      final counts = await Future.wait([
+        _cardRepo.countByDeckId(id),
+        _cardRepo.countDueByDeckId(id),
       ]);
-      cards += (results[0] as List).length;
-      due += (results[1] as List).length;
+      cards += counts[0];
+      due += counts[1];
     }
     return (cards, due);
   }
 
   Future<void> _study() async {
-    if (_totalDueCount == 0) {
+    if (_totalCardCount == 0 || _totalDueCount == 0) {
       if (mounted) {
+        final empty = _totalCardCount == 0;
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('All caught up!'),
-            content: const Text('No cards are due right now.'),
+            title: Text(empty ? 'No cards yet' : 'All caught up!'),
+            content: Text(empty
+                ? 'Add some cards before studying.'
+                : 'No cards are due right now.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),

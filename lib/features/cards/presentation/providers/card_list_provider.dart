@@ -1,0 +1,41 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lapse/features/cards/data/card_repository_provider.dart';
+import 'package:lapse/features/cards/domain/flashcard.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
+
+final cardListProvider = AsyncNotifierProvider.family<
+    CardListNotifier, List<Flashcard>, String>(
+  CardListNotifier.new,
+);
+
+class CardListNotifier extends FamilyAsyncNotifier<List<Flashcard>, String> {
+
+  @override
+  Future<List<Flashcard>> build(String deckId) {
+    return ref.read(cardRepositoryProvider).getByDeckId(deckId);
+  }
+
+  Future<void> createCard(Flashcard card) async {
+    state = await AsyncValue.guard<List<Flashcard>>(() async {
+      await ref.read(cardRepositoryProvider).create(card);
+      ref.invalidate(deckListProvider);
+      return ref.read(cardRepositoryProvider).getByDeckId(arg);
+    });
+  }
+
+  Future<void> updateCard(Flashcard card) async {
+    state = await AsyncValue.guard<List<Flashcard>>(() async {
+      await ref.read(cardRepositoryProvider).update(card);
+      ref.invalidate(deckListProvider);
+      return ref.read(cardRepositoryProvider).getByDeckId(arg);
+    });
+  }
+
+  Future<void> deleteCard(String cardId) async {
+    state = await AsyncValue.guard<List<Flashcard>>(() async {
+      await ref.read(cardRepositoryProvider).delete(cardId);
+      ref.invalidate(deckListProvider);
+      return ref.read(cardRepositoryProvider).getByDeckId(arg);
+    });
+  }
+}
