@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
@@ -92,7 +91,6 @@ class _CardFormScreenState extends State<CardFormScreen> {
         await _repo.update(updated);
       } else {
         final card = Flashcard.newCard(
-          cardId: const Uuid().v4(),
           deckId: widget.deckId,
           front: _frontController.text.trim(),
           back: _backController.text.trim(),
@@ -112,7 +110,6 @@ class _CardFormScreenState extends State<CardFormScreen> {
 
     try {
       final card = Flashcard.newCard(
-        cardId: const Uuid().v4(),
         deckId: widget.deckId,
         front: _frontController.text.trim(),
         back: _backController.text.trim(),

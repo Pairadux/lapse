@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
@@ -55,34 +54,17 @@ class DevDrawer extends StatelessWidget {
   }
 
   Future<void> _insertMockData() async {
-    const uuid = Uuid();
     final deckRepo = DeckRepository();
     final cardRepo = CardRepository();
-    final now = DateTime.now();
 
     // Root decks
-    final spanish = Deck(
-      deckId: uuid.v4(), deckName: 'Spanish',
-      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
-    );
-    final programming = Deck(
-      deckId: uuid.v4(), deckName: 'Programming',
-      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
-    );
+    final spanish = Deck.create(deckName: 'Spanish');
+    final programming = Deck.create(deckName: 'Programming');
 
     // Sub-decks
-    final vocab = Deck(
-      deckId: uuid.v4(), parentId: spanish.deckId, deckName: 'Vocabulary',
-      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
-    );
-    final grammar = Deck(
-      deckId: uuid.v4(), parentId: spanish.deckId, deckName: 'Grammar',
-      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
-    );
-    final dart = Deck(
-      deckId: uuid.v4(), parentId: programming.deckId, deckName: 'Dart',
-      createdAt: now, updatedAt: now, cards: [], cardCount: 0, dueCount: 0,
-    );
+    final vocab = Deck.create(deckName: 'Vocabulary', parentId: spanish.deckId);
+    final grammar = Deck.create(deckName: 'Grammar', parentId: spanish.deckId);
+    final dart = Deck.create(deckName: 'Dart', parentId: programming.deckId);
 
     for (final deck in [spanish, programming, vocab, grammar, dart]) {
       await deckRepo.create(deck);
@@ -106,9 +88,75 @@ class DevDrawer extends StatelessWidget {
 
     for (final (deckId, front, back) in mockCards) {
       await cardRepo.create(Flashcard.newCard(
-        cardId: uuid.v4(), deckId: deckId, front: front, back: back,
+        deckId: deckId, front: front, back: back,
       ));
     }
+
+    await _insertEdgeCaseData(deckRepo, cardRepo);
+  }
+
+  /// Programmatically generated edge case data for UI stress testing.
+  Future<void> _insertEdgeCaseData(
+    DeckRepository deckRepo,
+    CardRepository cardRepo,
+  ) async {
+    // -- Deep nesting: 8 levels deep to stress breadcrumb scrolling --
+    const nestingDepth = 8;
+    String? parentId;
+    String deepLeafDeckId = '';
+    for (var i = 1; i <= nestingDepth; i++) {
+      final deck = Deck.create(
+        deckName: 'Nesting Level $i',
+        parentId: parentId,
+      );
+      await deckRepo.create(deck);
+      parentId = deck.deckId;
+      deepLeafDeckId = deck.deckId;
+    }
+    // Add a card in the deepest deck so it's studyable
+    await cardRepo.create(Flashcard.newCard(
+      deckId: deepLeafDeckId,
+      front: 'Deep card front',
+      back: 'Deep card back',
+    ));
+
+    // -- Max-length content: names and card text at the enforced limits --
+    // These lengths must stay in sync with the limits in DeckFormScreen
+    // and CardFormScreen (currently 50 and 300 respectively).
+    const maxDeckNameLength = 50;
+    const maxCardTextLength = 300;
+
+    final maxNameDeck = Deck.create(deckName: 'A' * maxDeckNameLength);
+    await deckRepo.create(maxNameDeck);
+
+    await cardRepo.create(Flashcard.newCard(
+      deckId: maxNameDeck.deckId,
+      front: 'F' * maxCardTextLength,
+      back: 'B' * maxCardTextLength,
+    ));
+
+    // -- Large card count: 200 cards to stress list rendering --
+    const bulkCardCount = 200;
+    final bulkDeck = Deck.create(deckName: 'Bulk Cards ($bulkCardCount)');
+    await deckRepo.create(bulkDeck);
+
+    for (var i = 1; i <= bulkCardCount; i++) {
+      await cardRepo.create(Flashcard.newCard(
+        deckId: bulkDeck.deckId,
+        front: 'Card $i front',
+        back: 'Card $i back',
+      ));
+    }
+
+    // -- Minimal content: single character to test layout with short text --
+    final minimalDeck = Deck.create(deckName: 'X');
+    await deckRepo.create(minimalDeck);
+
+    await cardRepo.create(Flashcard.newCard(
+      deckId: minimalDeck.deckId,
+      front: 'A',
+      back: 'B',
+    ));
   }
 
   @override
