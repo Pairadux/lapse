@@ -140,20 +140,21 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 - **Card count aggregation sometimes off (#44):** Aggregated card/due counts on parent decks occasionally show stale or incorrect numbers. Likely a timing issue with parallel Future.wait queries or stale state after mutations. Needs investigation.
 
-- **"Save & Add Another" not clearing fields (#45):** Does not consistently clear front/back text after saving. Detailed repro from tester:
-  - **Top-level deck (empty, no cards):** First use does NOT clear fields. Close and reopen the form — now it clears, but only for the first card. Subsequent saves stop clearing again.
-  - **Nested deck (empty, no cards):** Does NOT clear fields. Closing and reopening does NOT fix it either.
-  - **Nested deck (already has at least one card):** Works correctly, fields clear as expected.
-  - **Root cause theory:** The bug appears tied to whether the deck already contains cards, not just input speed. The previous "race condition on rapid input" theory may be a secondary issue or a red herring. Investigate the save callback — it may depend on a successful state refresh that behaves differently for empty vs. populated decks.
+- **"Save & Add Another" not clearing fields (#45):** Does not consistently clear front/back text after saving. Root cause appears tied to whether the deck already contains cards. Needs investigation.
 
-- **Cascade soft-delete missing on nested decks and their cards (#46):** Deleting a parent deck sets `is_deleted=true` on the parent only. Nested sub-decks are removed from the UI but their `is_deleted` field is NOT updated in the database. Cards within deleted decks are also not cascade-deleted. This will cause orphaned records and sync issues with future Supabase integration.
-  - **Fix:** When soft-deleting a deck, recursively soft-delete all descendant decks AND all cards belonging to the target deck and its descendants. Should be a single transaction.
+- ~~**Cascade soft-delete (#46):**~~ **Resolved.** `DeckRepository.delete()` uses recursive CTE + transactional cascade.
 
-- **Dev menu buttons don't refresh UI (#47):** "Load mock data" and "Clear database" buttons in the dev menu do not trigger a state refresh on the decks screen. The user has to navigate away and back to see changes.
-  - **Fix:** After these operations complete, invalidate/refresh the deck list state.
+- ~~**Dev menu buttons don't refresh UI (#47):**~~ **Resolved.** `DevDrawer` now accepts `onDataChanged` callback.
 
-- **Empty deck study shows misleading message (#48):** Clicking "Study" on a deck with zero cards shows "All caught up!" instead of a message indicating there are no cards to study. User expects something like "No cards in this deck."
-  - **Fix:** Check card count before/alongside due-card check. If total cards == 0, show "No cards in this deck" (or similar). Only show "All caught up" when cards exist but none are due.
+- ~~**Empty deck study shows misleading message (#48):**~~ **Resolved.** `DeckDetailScreen._study()` checks total card count.
+
+- **study_session_service.dart won't compile (#74):** Duplicate `StudySessionResult` class, unreachable code, return type mismatch. Assigned to Darius.
+
+- **Study session does not persist reviews (#75):** `_rateCard()` only updates local counters — FSRS not called, card not updated in DB, no Review record saved. Blocked by #74. Assigned to Darius.
+
+- **Repository providers throw UnimplementedError (#76):** `deckRepositoryProvider` and `cardRepositoryProvider` never overridden in ProviderScope. Assigned to GADudley.
+
+- **Dead Deck.cards/cardCount/dueCount fields on model (#62):** Runtime-only fields that don't belong on the domain object. `cards` is always `[]` from DB, counts are computed inline by screens. Assigned to GADudley.
 
 ---
 
@@ -161,7 +162,7 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 - **Keyboard submit for deck/card creation (#49):** Pressing Enter in the deck name field should submit the form. Shift+Enter to save cards (plain Enter for newline since card content may be multi-line).
 
-- **Character limit on card text fields (#50):** Add a reasonable max character limit (e.g., 5000–10000 chars) to front/back fields to prevent performance issues with extremely long content. Fields should be scrollable.
+- ~~**Character limit on card text fields (#50):**~~ **Resolved.** Deck names capped at 50 chars, card front/back at 300 chars with `MaxLengthEnforcement.enforced`. Study screen card text scrolls vertically. (Branch: `feat/input-validation`)
 
 - **Right-click context menu on decks/cards (#51):** Already planned (see Multi-Select section). Should include Delete, and eventually Move, Edit, etc.
 
@@ -171,25 +172,23 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ### Performance Bottlenecks (from audit 2026-02-14)
 
-**HIGH impact:**
-- **N+1 COUNT via full-object fetch (#53):** Card/due count aggregation deserializes full Flashcard objects just to call `.length`. Should use `COUNT(*)` queries. — `card_repository.dart`, `deck_list_screen.dart`, `deck_detail_screen.dart`
-- **Recursive Dart-side tree walk (#54):** `getDescendantIds()` does one DB round-trip per tree level sequentially. Should use a `WITH RECURSIVE` CTE. — `deck_repository.dart`
+**Resolved:**
+- ~~#53 N+1 COUNT~~ — `countByDeckId()` / `countDueByDeckId()` use COUNT(*) queries
+- ~~#54 Recursive Dart-side tree walk~~ — `getDescendantIds()` uses `WITH RECURSIVE` CTE
+- ~~#55 getAll() filtered client-side~~ — `getRootDecks()` added
+- ~~#57 FocusNode leak~~ — stored in `initState()`, disposed properly
+- ~~#58 Sequential card loading~~ — `Future.wait()` for parallel loading
+- ~~#59 `_dbName` ignored~~ — fixed in `fix/audit-bugs` branch
+- ~~#60 clearAllData() not transactional~~ — wrapped in transaction in `fix/audit-bugs` branch
+- ~~#63 CurvedAnimation leak~~ — pre-created in `initState()` in `fix/audit-bugs` branch
 
-**MEDIUM impact:**
-- **getAll() filtered client-side (#55):** `DeckListScreen` fetches all decks then filters to root in Dart. Needs a `getRootDecks()` query. — `deck_repository.dart`, `deck_list_screen.dart`
-- **Double card fetch in DeckDetailScreen (#56):** `_loadData()` fetches cards, then `_getAggregatedCounts()` fetches the same cards again for counting. — `deck_detail_screen.dart`
-- **FocusNode leak in study screen (#57):** FocusNode created inline in `build()` every rebuild, never disposed. — `study_session_screen.dart`
-- **Sequential card loading in study session (#58):** Due cards fetched per deck ID in a sequential loop instead of parallel/batched. — `study_session_screen.dart`
-- **`_dbName` ignored in DatabaseHelper (#59):** `_initDatabase()` hardcodes `DatabaseConstants.databaseName` instead of using the `_dbName` field — breaks `forTesting`. — `database_helper.dart`
-
-**LOW impact:**
-- **clearAllData() not transactional (#60):** Three deletes without a transaction wrapper. — `database_helper.dart`
+**Still open:**
+- **Double card fetch in DeckDetailScreen (#56):** `_loadData()` fetches cards, then `_getAggregatedCounts()` also queries descendants. — `deck_detail_screen.dart`
 - **Redundant getDescendantIds() in _study() (#61):** Already computed during `_loadData()`, not cached. — `deck_detail_screen.dart`
-- **Dead Deck.cards field in Equatable props (#62):** Always `[]` from DB, adds unnecessary list comparison on every equality check. — `deck.dart`
-- **CurvedAnimation created in build() (#63):** SpeedDialFab creates new CurvedAnimation objects per rebuild, leaking listeners. — `speed_dial_fab.dart`
-- **Mock data insertion not batched (#64):** 17 sequential individual inserts instead of a batch. — `dev_drawer.dart`
-- **No pagination on card queries (#65):** All lists loaded fully into memory. Low impact now, high at scale. — `card_repository.dart`
-- **Duplicate sqflite_common_ffi in pubspec (#66):** Listed in both dependencies and dev_dependencies. — `pubspec.yaml`
+- **Dead Deck.cards field in Equatable props (#62):** See Known Bugs above. Assigned to GADudley.
+- **Mock data insertion not batched (#64):** Sequential individual inserts. Assigned to Devam.
+- **No pagination on card queries (#65):** All lists loaded fully into memory. Low impact now, high at scale.
+- **Duplicate sqflite_common_ffi in pubspec (#66):** Listed in both deps and dev_deps. Assigned to Devam.
 
 ---
 
@@ -217,6 +216,23 @@ The following were confirmed working correctly by an external tester:
 - Nested deck study pulls cards from all descendant decks (intentional behavior, confirmed noticed by tester)
 - Individual card soft-delete sets `is_deleted=true` correctly
 - Clear database fully removes all records
+
+---
+
+### MVP Audit (2026-02-27)
+
+**Branches created:**
+- `fix/audit-bugs` — DatabaseHelper `_dbName` fix (#59), `clearAllData()` transaction (#60), SpeedDialFab CurvedAnimation leak (#63), breadcrumb overflow handling
+- `feat/input-validation` — Deck name 50 char cap, card text 300 char cap, paste enforcement, study screen card scrollability (#50)
+- `feat/mock-data-edge-cases` — Convenience factories `Deck.create()` and `Flashcard.newCard()` (#23), edge case mock data (deep nesting, max-length, bulk 200 cards, minimal content)
+
+**MVP blockers remaining:**
+- `study_session_service.dart` won't compile (#74) — blocks all FSRS integration
+- Study session does not persist reviews (#75) — blocked by #74
+- Repository providers throw UnimplementedError (#76) — blocks Riverpod migration
+- Screens bypass Riverpod providers entirely (#77) — all screens use direct repo calls
+
+**State management status:** Riverpod providers exist but are dead code. All screens use direct `DeckRepository()` / `CardRepository()` instantiation. Functional for MVP but not wired through state management.
 
 ---
 
