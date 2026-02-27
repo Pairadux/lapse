@@ -169,3 +169,12 @@ Input Summary: Provided team assignment rules: Pairadux (DB, repos, UI, PM), GAD
 Output Summary: Created 14 issues: 10 assigned to Pairadux, 2 to djanderson26 (#57, #58), 1 to GADudley (#62). Set project board fields — P0: #46, #53, #54; P1: #44, #45, #49, #51, #55–#59; P2: #47, #48, #50, #52, #60–#66. Trimmed #44–#52 bodies to match concise style. Updated CLAUDE.md with performance section referencing all issue numbers.
 Modifications: First issue (#53) was too verbose with full code solutions — user requested concise style, subsequent issues followed that pattern. Trimmed all 9 older issues (#44–#52) to match.
 Files Referenced: CLAUDE.md
+
+Date: 2026-02-27
+User: Austin
+Purpose: Input validation and content limits (feat/input-validation branch, #50)
+Approach: AI added character limits to deck name (50) and card front/back (300) fields with MaxLengthEnforcement.enforced. Discussed limit tradeoffs with user — balanced flashcard brevity against future Supabase sync bandwidth. Added vertical scrollability to study screen card content.
+Input Summary: Requested input constraints at UI layer. User guided character limit decisions — rejected 500 and 1000 as too high given sync considerations, settled on 300 for cards.
+Output Summary: Added maxLength + enforced truncation to DeckFormScreen (50 chars) and CardFormScreen (300 chars with visible counter). Wrapped study screen card text in SingleChildScrollView. Verified existing empty-input validators and card preview truncation are already correct.
+Modifications: Character limit adjusted from initial 500 to 300 based on user feedback about Supabase sync bandwidth.
+Files Referenced: lib/features/decks/presentation/screens/deck_form_screen.dart, lib/features/cards/presentation/screens/card_form_screen.dart, lib/features/study/presentation/screens/study_session_screen.dart
