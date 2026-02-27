@@ -169,3 +169,12 @@ Input Summary: Provided team assignment rules: Pairadux (DB, repos, UI, PM), GAD
 Output Summary: Created 14 issues: 10 assigned to Pairadux, 2 to djanderson26 (#57, #58), 1 to GADudley (#62). Set project board fields — P0: #46, #53, #54; P1: #44, #45, #49, #51, #55–#59; P2: #47, #48, #50, #52, #60–#66. Trimmed #44–#52 bodies to match concise style. Updated CLAUDE.md with performance section referencing all issue numbers.
 Modifications: First issue (#53) was too verbose with full code solutions — user requested concise style, subsequent issues followed that pattern. Trimmed all 9 older issues (#44–#52) to match.
 Files Referenced: CLAUDE.md
+
+Date: 2026-02-27
+User: Austin
+Purpose: Convenience model factories and edge case mock data (feat/mock-data-edge-cases branch, #23)
+Approach: AI added `Deck.create()` and updated `Flashcard.newCard()` to auto-generate UUIDs and timestamps, eliminating boilerplate at call sites. Added programmatic edge case mock data to DevDrawer. User prompted discussion about removing dead `cards`/`cardCount`/`dueCount` fields from Deck model — decided to leave for GADudley (#62) to avoid merge conflicts.
+Input Summary: User requested sensible factory defaults so callers don't manually create UUIDs/timestamps. Also requested edge case mock data for UI stress testing. User guided decision to keep model cleanup separate.
+Output Summary: Created `Deck.create()` factory, removed `cardId` param from `Flashcard.newCard()`. Updated all callers (CardFormScreen, DeckFormScreen, DevDrawer) — removed uuid imports where no longer needed. Added edge case mock data: 8-level deep nesting, max-length content (50/300 chars), 200-card bulk deck, single-character minimal content. Updated CLAUDE.md with audit state and resolved issues.
+Modifications: None beyond scope adjustments per user guidance.
+Files Referenced: lib/features/decks/domain/deck.dart, lib/features/cards/domain/flashcard.dart, lib/core/widgets/dev_drawer.dart, lib/features/decks/presentation/screens/deck_form_screen.dart, lib/features/cards/presentation/screens/card_form_screen.dart, CLAUDE.md
