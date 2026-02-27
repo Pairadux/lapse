@@ -27,7 +27,7 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, DatabaseConstants.databaseName);
+    final path = join(dbPath, _dbName);
     return openDatabase(
       path,
       version: DatabaseConstants.databaseVersion,
