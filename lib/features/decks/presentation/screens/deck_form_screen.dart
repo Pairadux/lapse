@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
@@ -69,17 +68,7 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
         // TODO: Replace with state management provider
         await _repo.update(updated);
       } else {
-        final now = DateTime.now();
-        final deck = Deck(
-          deckId: const Uuid().v4(),
-          parentId: widget.parentId,
-          deckName: name,
-          createdAt: now,
-          updatedAt: now,
-          cards: [],
-          cardCount: 0,
-          dueCount: 0,
-        );
+        final deck = Deck.create(deckName: name, parentId: widget.parentId);
         // TODO: Replace with state management provider
         await _repo.create(deck);
       }

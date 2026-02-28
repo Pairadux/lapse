@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:uuid/uuid.dart';
 import 'package:lapse/core/database/database_constants.dart';
 
 enum CardState { newCard, learning, review, relearning }
@@ -42,16 +43,15 @@ class Flashcard extends Equatable {
     required this.cardState,
   });
 
-  /// Creates a new card with sensible FSRS defaults.
+  /// Creates a new card with auto-generated ID, timestamps, and FSRS defaults.
   factory Flashcard.newCard({
-    required String cardId,
     required String deckId,
     required String front,
     required String back,
   }) {
     final now = DateTime.now();
     return Flashcard(
-      cardId: cardId,
+      cardId: const Uuid().v4(),
       deckId: deckId,
       front: front,
       back: back,

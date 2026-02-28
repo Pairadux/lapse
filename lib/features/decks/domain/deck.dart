@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:uuid/uuid.dart';
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
@@ -25,6 +26,24 @@ class Deck extends Equatable {
     required this.cardCount,
     required this.dueCount,
   });
+
+  /// Creates a new deck with auto-generated ID and timestamps.
+  factory Deck.create({
+    required String deckName,
+    String? parentId,
+  }) {
+    final now = DateTime.now();
+    return Deck(
+      deckId: const Uuid().v4(),
+      parentId: parentId,
+      deckName: deckName,
+      createdAt: now,
+      updatedAt: now,
+      cards: [],
+      cardCount: 0,
+      dueCount: 0,
+    );
+  }
 
   Deck copyWith({
     Optional<String?>? parentId,
