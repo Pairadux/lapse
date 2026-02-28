@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lapse/core/theme/app_colors.dart';
@@ -21,6 +22,8 @@ class CardFormScreen extends StatefulWidget {
 }
 
 class _CardFormScreenState extends State<CardFormScreen> {
+  static const int maxCardTextLength = 300;
+
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _frontController;
   late final TextEditingController _backController;
@@ -180,6 +183,8 @@ class _CardFormScreenState extends State<CardFormScreen> {
                 focusNode: _frontFocus,
                 autofocus: true,
                 maxLines: 4,
+                maxLength: maxCardTextLength,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 decoration: const InputDecoration(
                   labelText: 'Front',
                   hintText: 'Question or prompt',
@@ -192,6 +197,8 @@ class _CardFormScreenState extends State<CardFormScreen> {
               TextFormField(
                 controller: _backController,
                 maxLines: 4,
+                maxLength: maxCardTextLength,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 decoration: const InputDecoration(
                   labelText: 'Back',
                   hintText: 'Answer',

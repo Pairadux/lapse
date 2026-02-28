@@ -172,6 +172,12 @@ Files Referenced: CLAUDE.md
 
 Date: 2026-02-27
 User: Austin
+Purpose: Input validation and content limits (feat/input-validation branch, #50)
+Approach: AI added character limits to deck name (50) and card front/back (300) fields with MaxLengthEnforcement.enforced. Discussed limit tradeoffs with user — balanced flashcard brevity against future Supabase sync bandwidth. Added vertical scrollability to study screen card content.
+Input Summary: Requested input constraints at UI layer. User guided character limit decisions — rejected 500 and 1000 as too high given sync considerations, settled on 300 for cards.
+Output Summary: Added maxLength + enforced truncation to DeckFormScreen (50 chars) and CardFormScreen (300 chars with visible counter). Wrapped study screen card text in SingleChildScrollView. Verified existing empty-input validators and card preview truncation are already correct.
+Modifications: Character limit adjusted from initial 500 to 300 based on user feedback about Supabase sync bandwidth.
+Files Referenced: lib/features/decks/presentation/screens/deck_form_screen.dart, lib/features/cards/presentation/screens/card_form_screen.dart, lib/features/study/presentation/screens/study_session_screen.dart
 Purpose: MVP audit and critical bug triage (fix/audit-bugs branch)
 Approach: AI performed full codebase audit against MVP requirements (usable UI, persistent state, working FSRS). Read every source file, traced data flows end-to-end, identified blockers. Fixed self-contained bugs in scope (UI, database infra); filed GitHub issues for out-of-scope items with correct team assignments.
 Input Summary: Requested comprehensive audit of state management wiring, persistence end-to-end, FSRS integration, and route completeness. Specified team ownership boundaries — Austin owns UI/repos/PM, GADudley owns models/providers, Darius owns FSRS.
