@@ -4,13 +4,6 @@ import 'package:lapse/features/study/domain/review.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
-class StudySessionResult {
-  final StudySession session;
-  final Flashcard updatedCard;
-
-  const StudySessionResult({required this.session, required this.updatedCard});
-}
-
 /// Manages study session flow and card rating
 class StudySessionService {
   final FsrsService _fsrsService;
@@ -38,7 +31,7 @@ class StudySessionService {
       final result = _fsrsService.processReview(card, rating);
 
       return StudySessionResult(
-        updatedSession: _buildUpdatedSession(session, result.review, rating),
+        session: _buildUpdatedSession(session, result.review, rating),
         updatedCard: result.updatedCard,
         review: result.review,
       );
@@ -82,15 +75,13 @@ class StudySessionService {
       goodCount: goodCount,
       easyCount: easyCount,
     );
-
-    return StudySessionResult(session: updatedSession, updatedCard: updatedCard);
   }
 }
 
 class StudySessionResult {
-  final StudySession updatedSession;
+  final StudySession session;
   final Flashcard updatedCard;
   final Review review;
 
-  StudySessionResult({required this.updatedSession, required this.updatedCard, required this.review});
+  StudySessionResult({required this.session, required this.updatedCard, required this.review});
 }
