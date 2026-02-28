@@ -42,6 +42,12 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _breadcrumbScrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     try {
       // Run independent queries in parallel
@@ -321,7 +327,20 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     );
   }
 
+  final ScrollController _breadcrumbScrollController = ScrollController();
+
+  void _scrollBreadcrumbToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_breadcrumbScrollController.hasClients) {
+        _breadcrumbScrollController.jumpTo(
+          _breadcrumbScrollController.position.maxScrollExtent,
+        );
+      }
+    });
+  }
+
   Widget _buildBreadcrumb() {
+    _scrollBreadcrumbToEnd();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -330,6 +349,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       ),
       color: AppColors.surfaceElevated,
       child: SingleChildScrollView(
+        controller: _breadcrumbScrollController,
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
@@ -479,12 +499,17 @@ class _BreadcrumbItem extends StatelessWidget {
         InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(Spacing.radiusSm),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: isLast ? AppColors.textPrimary : AppColors.primary,
-                  fontWeight: isLast ? FontWeight.w600 : FontWeight.normal,
-                ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isLast ? AppColors.textPrimary : AppColors.primary,
+                    fontWeight: isLast ? FontWeight.w600 : FontWeight.normal,
+                  ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
         if (!isLast)

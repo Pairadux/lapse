@@ -169,3 +169,12 @@ Input Summary: Provided team assignment rules: Pairadux (DB, repos, UI, PM), GAD
 Output Summary: Created 14 issues: 10 assigned to Pairadux, 2 to djanderson26 (#57, #58), 1 to GADudley (#62). Set project board fields — P0: #46, #53, #54; P1: #44, #45, #49, #51, #55–#59; P2: #47, #48, #50, #52, #60–#66. Trimmed #44–#52 bodies to match concise style. Updated CLAUDE.md with performance section referencing all issue numbers.
 Modifications: First issue (#53) was too verbose with full code solutions — user requested concise style, subsequent issues followed that pattern. Trimmed all 9 older issues (#44–#52) to match.
 Files Referenced: CLAUDE.md
+
+Date: 2026-02-27
+User: Austin
+Purpose: MVP audit and critical bug triage (fix/audit-bugs branch)
+Approach: AI performed full codebase audit against MVP requirements (usable UI, persistent state, working FSRS). Read every source file, traced data flows end-to-end, identified blockers. Fixed self-contained bugs in scope (UI, database infra); filed GitHub issues for out-of-scope items with correct team assignments.
+Input Summary: Requested comprehensive audit of state management wiring, persistence end-to-end, FSRS integration, and route completeness. Specified team ownership boundaries — Austin owns UI/repos/PM, GADudley owns models/providers, Darius owns FSRS.
+Output Summary: Fixed DatabaseHelper._dbName (#59), clearAllData() transaction (#60), SpeedDialFab CurvedAnimation leak (#63), and breadcrumb overflow handling. Filed 4 new issues (#74–#77) for out-of-scope blockers. Closed 9 resolved issues (#46–#48, #53–#55, #57–#60, #63). Assigned backlog items to team members.
+Modifications: None — fixes were straightforward and matched audit findings.
+Files Referenced: lib/core/database/database_helper.dart, lib/core/widgets/speed_dial_fab.dart, lib/features/decks/presentation/screens/deck_detail_screen.dart
