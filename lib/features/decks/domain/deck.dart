@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lapse/core/database/database_constants.dart';
-import 'package:lapse/features/cards/domain/flashcard.dart';
 
 class Deck extends Equatable {
   final String deckId; // UUID, generated on creation
@@ -10,10 +9,6 @@ class Deck extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted; // Soft delete for sync
-  final List<Flashcard> cards; // Cards in the deck
-  // Denormalized counts (updated when cards change)
-  final int cardCount; // Total cards in deck
-  final int dueCount; // Cards due for review
 
   const Deck({
     required this.deckId,
@@ -22,9 +17,6 @@ class Deck extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
-    required this.cards,
-    required this.cardCount,
-    required this.dueCount,
   });
 
   /// Creates a new deck with auto-generated ID and timestamps.
@@ -50,10 +42,7 @@ class Deck extends Equatable {
     String? deckName,
     DateTime? createdAt,
     DateTime? updatedAt,
-    List<Flashcard>? cards,
     bool? isDeleted,
-    int? cardCount,
-    int? dueCount,
   }) {
     return Deck(
       deckId: deckId, // Deck Id cannot be changed
@@ -64,9 +53,6 @@ class Deck extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
-      cards: cards ?? this.cards,
-      cardCount: cardCount ?? this.cardCount,
-      dueCount: dueCount ?? this.dueCount,
     );
   }
 
@@ -93,14 +79,11 @@ class Deck extends Equatable {
       createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
       updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),
       isDeleted: map[DatabaseConstants.colIsDeleted] == 1,
-      cards: [],
-      cardCount: 0,
-      dueCount: 0,
     );
   }
 
   @override
-  List<Object?> get props => [deckId, parentId, deckName, createdAt, updatedAt, isDeleted, cards, cardCount, dueCount];
+  List<Object?> get props => [deckId, parentId, deckName, createdAt, updatedAt, isDeleted];
 }
 
 class Optional<T> {
