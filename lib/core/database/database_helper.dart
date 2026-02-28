@@ -27,7 +27,7 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, DatabaseConstants.databaseName);
+    final path = join(dbPath, _dbName);
     return openDatabase(
       path,
       version: DatabaseConstants.databaseVersion,
@@ -65,9 +65,11 @@ class DatabaseHelper {
   /// Deletes all rows from every table, preserving the schema.
   Future<void> clearAllData() async {
     final db = await database;
-    await db.delete(DatabaseConstants.tableReviews);
-    await db.delete(DatabaseConstants.tableCards);
-    await db.delete(DatabaseConstants.tableDecks);
+    await db.transaction((txn) async {
+      await txn.delete(DatabaseConstants.tableReviews);
+      await txn.delete(DatabaseConstants.tableCards);
+      await txn.delete(DatabaseConstants.tableDecks);
+    });
   }
 
   /// Closes the database and resets the cached reference.

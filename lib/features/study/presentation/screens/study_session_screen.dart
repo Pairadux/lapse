@@ -175,20 +175,22 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(Spacing.xl),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _showingAnswer ? _currentCard.back : _currentCard.front,
-                            style: Theme.of(context).textTheme.headlineSmall,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: Spacing.xl),
-                          Text(
-                            _showingAnswer ? '' : 'Tap or press Space to reveal',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
-                          ),
-                        ],
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _showingAnswer ? _currentCard.back : _currentCard.front,
+                              style: Theme.of(context).textTheme.headlineSmall,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: Spacing.xl),
+                            Text(
+                              _showingAnswer ? '' : 'Tap or press Space to reveal',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
@@ -20,6 +21,8 @@ class DeckFormScreen extends StatefulWidget {
 }
 
 class _DeckFormScreenState extends State<DeckFormScreen> {
+  static const int maxDeckNameLength = 50;
+
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   // TODO: Replace with state management provider
@@ -112,6 +115,8 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
               TextFormField(
                 controller: _nameController,
                 autofocus: true,
+                maxLength: maxDeckNameLength,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 decoration: const InputDecoration(
                   labelText: 'Deck name',
                   hintText: 'e.g. Spanish Vocabulary',
