@@ -178,3 +178,9 @@ Input Summary: Requested input constraints at UI layer. User guided character li
 Output Summary: Added maxLength + enforced truncation to DeckFormScreen (50 chars) and CardFormScreen (300 chars with visible counter). Wrapped study screen card text in SingleChildScrollView. Verified existing empty-input validators and card preview truncation are already correct.
 Modifications: Character limit adjusted from initial 500 to 300 based on user feedback about Supabase sync bandwidth.
 Files Referenced: lib/features/decks/presentation/screens/deck_form_screen.dart, lib/features/cards/presentation/screens/card_form_screen.dart, lib/features/study/presentation/screens/study_session_screen.dart
+Purpose: MVP audit and critical bug triage (fix/audit-bugs branch)
+Approach: AI performed full codebase audit against MVP requirements (usable UI, persistent state, working FSRS). Read every source file, traced data flows end-to-end, identified blockers. Fixed self-contained bugs in scope (UI, database infra); filed GitHub issues for out-of-scope items with correct team assignments.
+Input Summary: Requested comprehensive audit of state management wiring, persistence end-to-end, FSRS integration, and route completeness. Specified team ownership boundaries — Austin owns UI/repos/PM, GADudley owns models/providers, Darius owns FSRS.
+Output Summary: Fixed DatabaseHelper._dbName (#59), clearAllData() transaction (#60), SpeedDialFab CurvedAnimation leak (#63), and breadcrumb overflow handling. Filed 4 new issues (#74–#77) for out-of-scope blockers. Closed 9 resolved issues (#46–#48, #53–#55, #57–#60, #63). Assigned backlog items to team members.
+Modifications: None — fixes were straightforward and matched audit findings.
+Files Referenced: lib/core/database/database_helper.dart, lib/core/widgets/speed_dial_fab.dart, lib/features/decks/presentation/screens/deck_detail_screen.dart

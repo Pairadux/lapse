@@ -26,6 +26,7 @@ class SpeedDialFab extends StatefulWidget {
 class _SpeedDialFabState extends State<SpeedDialFab>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final List<CurvedAnimation> _itemAnimations;
   bool _isOpen = false;
 
   @override
@@ -35,10 +36,20 @@ class _SpeedDialFabState extends State<SpeedDialFab>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
+    _itemAnimations = List.generate(widget.actions.length, (index) {
+      final delay = index / widget.actions.length;
+      return CurvedAnimation(
+        parent: _controller,
+        curve: Interval(delay, 1.0, curve: Curves.easeOut),
+      );
+    });
   }
 
   @override
   void dispose() {
+    for (final animation in _itemAnimations) {
+      animation.dispose();
+    }
     _controller.dispose();
     super.dispose();
   }
@@ -65,22 +76,16 @@ class _SpeedDialFabState extends State<SpeedDialFab>
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         // Action items (shown when open)
-        ...widget.actions.reversed.map((action) {
-          final index = widget.actions.indexOf(action);
-          final delay = index / widget.actions.length;
-          return _SpeedDialItem(
-            icon: action.icon,
-            label: action.label,
-            animation: CurvedAnimation(
-              parent: _controller,
-              curve: Interval(delay, 1.0, curve: Curves.easeOut),
-            ),
+        for (int i = widget.actions.length - 1; i >= 0; i--)
+          _SpeedDialItem(
+            icon: widget.actions[i].icon,
+            label: widget.actions[i].label,
+            animation: _itemAnimations[i],
             onTap: () {
               _close();
-              action.onPressed();
+              widget.actions[i].onPressed();
             },
-          );
-        }),
+          ),
         // Main FAB
         FloatingActionButton(
           heroTag: null,
