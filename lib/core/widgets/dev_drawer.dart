@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
@@ -54,6 +55,7 @@ class DevDrawer extends StatelessWidget {
   }
 
   Future<void> _insertMockData() async {
+    final db = await DatabaseHelper.instance.database;
     final deckRepo = DeckRepository();
     final cardRepo = CardRepository();
 
@@ -66,9 +68,7 @@ class DevDrawer extends StatelessWidget {
     final grammar = Deck.create(deckName: 'Grammar', parentId: spanish.deckId);
     final dart = Deck.create(deckName: 'Dart', parentId: programming.deckId);
 
-    for (final deck in [spanish, programming, vocab, grammar, dart]) {
-      await deckRepo.create(deck);
-    }
+    final seedDecks = [spanish, programming, vocab, grammar, dart];
 
     // Cards
     final mockCards = <(String, String, String)>[
@@ -86,11 +86,21 @@ class DevDrawer extends StatelessWidget {
       (programming.deckId, 'SOLID - S', 'Single Responsibility Principle'),
     ];
 
-    for (final (deckId, front, back) in mockCards) {
-      await cardRepo.create(Flashcard.newCard(
-        deckId: deckId, front: front, back: back,
-      ));
-    }
+    final seedFlashcards = [
+      for (final (deckId, front, back) in mockCards)
+        Flashcard.newCard(deckId: deckId, front: front, back: back),
+    ];
+
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (final deck in seedDecks) {
+        batch.insert(DatabaseConstants.tableDecks, deck.toMap());
+      }
+      for (final card in seedFlashcards) {
+        batch.insert(DatabaseConstants.tableCards, card.toMap());
+      }
+      await batch.commit(noResult: true);
+    });
 
     await _insertEdgeCaseData(deckRepo, cardRepo);
   }
