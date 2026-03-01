@@ -8,6 +8,10 @@ import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
+class _SaveCardIntent extends Intent {
+  const _SaveCardIntent();
+}
+
 class CardFormScreen extends StatefulWidget {
   final String deckId;
   final Flashcard? card;
@@ -160,63 +164,79 @@ class _CardFormScreenState extends State<CardFormScreen> {
       ],
       body: Padding(
         padding: const EdgeInsets.all(Spacing.lg),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              if (_createdCount > 0)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: Spacing.lg),
-                  child: Text(
-                    '$_createdCount card${_createdCount == 1 ? '' : 's'} added',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
+        child: Shortcuts(
+          shortcuts: const {
+            SingleActivator(LogicalKeyboardKey.enter, shift: true):
+                _SaveCardIntent(),
+          },
+          child: Actions(
+            actions: {
+              _SaveCardIntent: CallbackAction<_SaveCardIntent>(
+                onInvoke: (intent) {
+                  _save();
+                  return null;
+                },
+              ),
+            },
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                children: [
+                  if (_createdCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Spacing.lg),
+                      child: Text(
+                        '$_createdCount card${_createdCount == 1 ? '' : 's'} added',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                    ),
+                  TextFormField(
+                    controller: _frontController,
+                    focusNode: _frontFocus,
+                    autofocus: true,
+                    maxLines: 4,
+                    maxLength: maxCardTextLength,
+                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                    decoration: const InputDecoration(
+                      labelText: 'Front',
+                      hintText: 'Question or prompt',
+                      alignLabelWithHint: true,
+                    ),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty) ? 'Front is required' : null,
                   ),
-                ),
-              TextFormField(
-                controller: _frontController,
-                focusNode: _frontFocus,
-                autofocus: true,
-                maxLines: 4,
-                maxLength: maxCardTextLength,
-                maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                decoration: const InputDecoration(
-                  labelText: 'Front',
-                  hintText: 'Question or prompt',
-                  alignLabelWithHint: true,
-                ),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Front is required' : null,
+                  const SizedBox(height: Spacing.lg),
+                  TextFormField(
+                    controller: _backController,
+                    maxLines: 4,
+                    maxLength: maxCardTextLength,
+                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                    decoration: const InputDecoration(
+                      labelText: 'Back',
+                      hintText: 'Answer',
+                      alignLabelWithHint: true,
+                    ),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty) ? 'Back is required' : null,
+                  ),
+                  const SizedBox(height: Spacing.xl),
+                  if (!widget.isEditing) ...[
+                    OutlinedButton(
+                      onPressed: _saving ? null : _saveAndAddAnother,
+                      child: const Text('Save & Add Another'),
+                    ),
+                    const SizedBox(height: Spacing.md),
+                  ],
+                  ElevatedButton(
+                    onPressed: _saving ? null : _save,
+                    child: Text(widget.isEditing ? 'Save' : 'Create'),
+                  ),
+                ],
               ),
-              const SizedBox(height: Spacing.lg),
-              TextFormField(
-                controller: _backController,
-                maxLines: 4,
-                maxLength: maxCardTextLength,
-                maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                decoration: const InputDecoration(
-                  labelText: 'Back',
-                  hintText: 'Answer',
-                  alignLabelWithHint: true,
-                ),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Back is required' : null,
-              ),
-              const SizedBox(height: Spacing.xl),
-              if (!widget.isEditing) ...[
-                OutlinedButton(
-                  onPressed: _saving ? null : _saveAndAddAnother,
-                  child: const Text('Save & Add Another'),
-                ),
-                const SizedBox(height: Spacing.md),
-              ],
-              ElevatedButton(
-                onPressed: _saving ? null : _save,
-                child: Text(widget.isEditing ? 'Save' : 'Create'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
