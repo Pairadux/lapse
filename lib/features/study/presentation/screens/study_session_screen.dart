@@ -7,6 +7,9 @@ import 'package:lapse/core/widgets/loading_indicator.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
+import 'package:lapse/features/study/data/review_repository.dart';
+import 'package:lapse/features/study/application/study_session_service.dart';
+import 'package:lapse/features/study/domain/study_session.dart';
 
 class StudySessionScreen extends StatefulWidget {
   final String deckName;
@@ -21,6 +24,9 @@ class StudySessionScreen extends StatefulWidget {
 class _StudySessionScreenState extends State<StudySessionScreen> {
   // TODO: Replace with state management provider
   final _cardRepo = CardRepository();
+  final _reviewRepo = ReviewRepository();
+  final _studySessionService = StudySessionService();
+  late StudySession _session;
 
   // Fix: FocusNode leak, stores it as a state variable
   late final FocusNode _focusNode;
@@ -72,6 +78,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       if (mounted) {
         setState(() {
           _cards = allCards;
+          _session = _studySessionService.startSession(widget.deckIds.first, _cards);
           _isLoading = false;
         });
       }
@@ -89,7 +96,12 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     });
   }
 
-  void _rateCard(Rating rating) {
+  Future<void> _rateCard(Rating rating) async {
+    //
+    final result = _studySessionService.rateCard(_session, _currentCard, rating);
+    await _cardRepo.update(result.updatedCard);
+    await _reviewRepo.addReview(result.review);
+
     setState(() {
       _ratingCounts[rating] = _ratingCounts[rating]! + 1;
       _currentIndex++;
