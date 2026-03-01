@@ -5,6 +5,7 @@ import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
+import 'package:lapse/core/widgets/context_menu_region.dart';
 import 'package:lapse/core/widgets/empty_state_widget.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
@@ -171,7 +172,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
       context: context,
       title: 'Delete deck?',
       message:
-          'This will permanently remove "${_deck!.deckName}" and all its cards.',
+          'This will delete "${_deck!.deckName}" and all its cards.',
       confirmLabel: 'Delete',
       isDestructive: true,
     );
@@ -183,6 +184,86 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
         context.go(Routes.deckPath(parent.deckId), extra: parent);
       } else {
         context.go(Routes.home);
+      }
+    }
+  }
+
+  Future<void> _handleDeckContextAction(
+    Deck deck,
+    ContextMenuAction action,
+  ) async {
+    try {
+      switch (action) {
+        case ContextMenuAction.edit:
+          await context.push(Routes.deckEditPath(deck.deckId), extra: deck);
+          if (mounted) _loadData();
+          break;
+        case ContextMenuAction.delete:
+          final confirmed = await ConfirmDialog.show(
+            context: context,
+            title: 'Delete deck?',
+            message:
+                'This will delete "${deck.deckName}" and all its cards.',
+            confirmLabel: 'Delete',
+            isDestructive: true,
+          );
+          if (!confirmed || !mounted) return;
+          await _deckRepo.delete(deck.deckId);
+          if (mounted) _loadData();
+          break;
+        case ContextMenuAction.move:
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Move action is coming soon')),
+          );
+          break;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleCardContextAction(
+    Flashcard card,
+    ContextMenuAction action,
+  ) async {
+    try {
+      switch (action) {
+        case ContextMenuAction.edit:
+          await context.push(
+            Routes.cardPath(widget.deckId, card.cardId),
+            extra: card,
+          );
+          if (mounted) _loadData();
+          break;
+        case ContextMenuAction.delete:
+          final confirmed = await ConfirmDialog.show(
+            context: context,
+            title: 'Delete card?',
+            message: 'This card will be deleted.',
+            confirmLabel: 'Delete',
+            isDestructive: true,
+          );
+          if (!confirmed || !mounted) return;
+          await _cardRepo.delete(card.cardId);
+          if (mounted) _loadData();
+          break;
+        case ContextMenuAction.move:
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Move action is coming soon')),
+          );
+          break;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e')),
+        );
       }
     }
   }
@@ -270,17 +351,21 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
               delegate: SliverChildBuilderDelegate((context, index) {
                 final child = _children[index];
                 final counts = _childCounts[child.deckId];
-                return DeckCard(
-                  deck: child,
-                  cardCount: counts?.$1 ?? 0,
-                  dueCount: counts?.$2 ?? 0,
-                  onTap: () async {
-                    await context.push(
-                      Routes.deckPath(child.deckId),
-                      extra: child,
-                    );
-                    _loadData();
-                  },
+                return ContextMenuRegion(
+                  onAction: (action) =>
+                      _handleDeckContextAction(child, action),
+                  child: DeckCard(
+                    deck: child,
+                    cardCount: counts?.$1 ?? 0,
+                    dueCount: counts?.$2 ?? 0,
+                    onTap: () async {
+                      await context.push(
+                        Routes.deckPath(child.deckId),
+                        extra: child,
+                      );
+                      _loadData();
+                    },
+                  ),
                 );
               }, childCount: _children.length),
             ),
@@ -413,54 +498,57 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
   }
 
   Widget _buildCardItem(Flashcard card) {
-    return InkWell(
-      onTap: () async {
-        await context.push(
-          Routes.cardPath(widget.deckId, card.cardId),
-          extra: card,
-        );
-        _loadData();
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Spacing.lg,
-          vertical: Spacing.md,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: card.front,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    TextSpan(
-                      text: '  →  ',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textTertiary,
+    return ContextMenuRegion(
+      onAction: (action) => _handleCardContextAction(card, action),
+      child: InkWell(
+        onTap: () async {
+          await context.push(
+            Routes.cardPath(widget.deckId, card.cardId),
+            extra: card,
+          );
+          _loadData();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.lg,
+            vertical: Spacing.md,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: card.front,
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                    ),
-                    TextSpan(
-                      text: card.back,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+                      TextSpan(
+                        text: '  →  ',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textTertiary,
+                        ),
                       ),
-                    ),
-                  ],
+                      TextSpan(
+                        text: card.back,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(width: Spacing.sm),
-            const Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: AppColors.textTertiary,
-            ),
-          ],
+              const SizedBox(width: Spacing.sm),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.textTertiary,
+              ),
+            ],
+          ),
         ),
       ),
     );
