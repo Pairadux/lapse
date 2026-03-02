@@ -30,6 +30,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   Deck? _deck;
   List<Deck> _ancestors = [];
   List<Deck> _children = [];
+  Map<String, (int, int)> _childCounts = {};
   List<Flashcard> _cards = [];
   int _totalCardCount = 0;
   int _totalDueCount = 0;
@@ -86,22 +87,17 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       final childCounts = allCounts[0] as List<(int, int)>;
       final totalCounts = allCounts[1] as (int, int);
 
-      final hydratedChildren = <Deck>[];
+      final childCountMap = <String, (int, int)>{};
       for (var i = 0; i < children.length; i++) {
-        hydratedChildren.add(children[i].copyWith(
-          cardCount: childCounts[i].$1,
-          dueCount: childCounts[i].$2,
-        ));
+        childCountMap[children[i].deckId] = childCounts[i];
       }
 
       if (mounted) {
         setState(() {
-          _deck = deck.copyWith(
-            cardCount: totalCounts.$1,
-            dueCount: totalCounts.$2,
-          );
+          _deck = deck;
           _ancestors = ancestors;
-          _children = hydratedChildren;
+          _children = children;
+          _childCounts = childCountMap;
           _cards = cards;
           _totalCardCount = totalCounts.$1;
           _totalDueCount = totalCounts.$2;
@@ -266,8 +262,11 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final child = _children[index];
+                  final counts = _childCounts[child.deckId];
                   return DeckCard(
                     deck: child,
+                    cardCount: counts?.$1 ?? 0,
+                    dueCount: counts?.$2 ?? 0,
                     onTap: () async {
                       await context.push(
                         Routes.deckPath(child.deckId),
@@ -377,12 +376,8 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   }
 
   Widget _buildStatsRow() {
-    final cardLabel = _children.isNotEmpty
-        ? '$_totalCardCount cards'
-        : '${_deck?.cardCount ?? 0} cards';
-    final dueLabel = _children.isNotEmpty
-        ? '$_totalDueCount due'
-        : '${_deck?.dueCount ?? 0} due';
+    final cardLabel = '$_totalCardCount cards';
+    final dueLabel = '$_totalDueCount due';
 
     return Padding(
       padding: const EdgeInsets.symmetric(
