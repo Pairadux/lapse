@@ -22,6 +22,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
   final _cardRepo = CardRepository();
 
   List<Deck> _rootDecks = [];
+  Map<String, (int, int)> _deckCounts = {};
   bool _hasLoaded = false;
 
   @override
@@ -34,7 +35,7 @@ class _DeckListScreenState extends State<DeckListScreen> {
     try {
       final rootDecks = await _deckRepo.getRootDecks();
 
-      // Hydrate all root decks with aggregated counts in parallel
+      // Compute aggregated counts for all root decks in parallel
       final countFutures = rootDecks.map((deck) async {
         final allIds = await _deckRepo.getDescendantIds(deck.deckId);
         var totalCards = 0;
@@ -47,14 +48,18 @@ class _DeckListScreenState extends State<DeckListScreen> {
           totalCards += counts[0];
           totalDue += counts[1];
         }
-        return deck.copyWith(cardCount: totalCards, dueCount: totalDue);
+        return (deck.deckId, totalCards, totalDue);
       });
 
-      final hydrated = await Future.wait(countFutures);
+      final results = await Future.wait(countFutures);
+      final countsMap = <String, (int, int)>{
+        for (final (id, cards, due) in results) id: (cards, due),
+      };
 
       if (mounted) {
         setState(() {
-          _rootDecks = hydrated;
+          _rootDecks = rootDecks;
+          _deckCounts = countsMap;
           _hasLoaded = true;
         });
       }
@@ -108,8 +113,11 @@ class _DeckListScreenState extends State<DeckListScreen> {
       itemCount: _rootDecks.length,
       itemBuilder: (context, index) {
         final deck = _rootDecks[index];
+        final counts = _deckCounts[deck.deckId];
         return DeckCard(
           deck: deck,
+          cardCount: counts?.$1 ?? 0,
+          dueCount: counts?.$2 ?? 0,
           onTap: () async {
             await context.push(Routes.deckPath(deck.deckId), extra: deck);
             _loadDecks();

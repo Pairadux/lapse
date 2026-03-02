@@ -35,9 +35,6 @@ void main() {
       deckName: name,
       createdAt: now,
       updatedAt: now,
-      cards: [],
-      cardCount: 0,
-      dueCount: 0,
     );
   }
 
