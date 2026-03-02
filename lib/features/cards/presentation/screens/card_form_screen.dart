@@ -8,8 +8,12 @@ import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
-class _SaveCardIntent extends Intent {
-  const _SaveCardIntent();
+class _SaveIntent extends Intent {
+  const _SaveIntent();
+}
+
+class _SaveAndAddAnotherIntent extends Intent {
+  const _SaveAndAddAnotherIntent();
 }
 
 class CardFormScreen extends StatefulWidget {
@@ -167,13 +171,26 @@ class _CardFormScreenState extends State<CardFormScreen> {
         child: Shortcuts(
           shortcuts: const {
             SingleActivator(LogicalKeyboardKey.enter, shift: true):
-                _SaveCardIntent(),
+                _SaveAndAddAnotherIntent(),
+            SingleActivator(LogicalKeyboardKey.enter, alt: true):
+                _SaveIntent(),
           },
           child: Actions(
             actions: {
-              _SaveCardIntent: CallbackAction<_SaveCardIntent>(
+              _SaveIntent: CallbackAction<_SaveIntent>(
                 onInvoke: (intent) {
                   _save();
+                  return null;
+                },
+              ),
+              _SaveAndAddAnotherIntent:
+                  CallbackAction<_SaveAndAddAnotherIntent>(
+                onInvoke: (intent) {
+                  if (widget.isEditing) {
+                    _save();
+                  } else {
+                    _saveAndAddAnother();
+                  }
                   return null;
                 },
               ),
