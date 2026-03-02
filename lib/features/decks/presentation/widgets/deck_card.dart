@@ -8,8 +8,8 @@ class DeckCard extends StatelessWidget {
   final bool hasChildren;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
-  final int? cardCount;
-  final int? dueCount;
+  final int cardCount;
+  final int dueCount;
 
   const DeckCard({
     super.key,
@@ -17,12 +17,12 @@ class DeckCard extends StatelessWidget {
     required this.onTap,
     this.hasChildren = false,
     this.onLongPress,
-    this.cardCount,
-    this.dueCount,
+    this.cardCount = 0,
+    this.dueCount = 0,
   });
 
-  int get _cardCount => cardCount ?? deck.cardCount;
-  int get _dueCount => dueCount ?? deck.dueCount;
+  int get _cardCount => cardCount;
+  int get _dueCount => dueCount;
 
   @override
   Widget build(BuildContext context) {

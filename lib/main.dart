@@ -47,15 +47,23 @@ class LapseApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
       routerConfig: appRouter,
       builder: (context, child) {
+        Widget content = child ?? const SizedBox();
+
         if (isDesktop && !Platform.isMacOS) {
-          return Column(
+          content = Column(
             children: [
               const WindowTitleBar(),
-              Expanded(child: child ?? const SizedBox()),
+              Expanded(child: content),
             ],
           );
         }
-        return child ?? const SizedBox();
+
+        // Suppress macOS NSBeep for key events unhandled by any widget
+        return Focus(
+          canRequestFocus: false,
+          onKeyEvent: (_, event) => KeyEventResult.handled,
+          child: content,
+        );
       },
     );
   }

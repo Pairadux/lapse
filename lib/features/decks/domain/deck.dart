@@ -31,9 +31,6 @@ class Deck extends Equatable {
       deckName: deckName,
       createdAt: now,
       updatedAt: now,
-      cards: [],
-      cardCount: 0,
-      dueCount: 0,
     );
   }
 
