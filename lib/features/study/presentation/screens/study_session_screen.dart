@@ -132,8 +132,8 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     );
   }
 
-  void _handleKeyPress(KeyEvent event) {
-    if (event is! KeyDownEvent) return;
+  KeyEventResult _handleKeyPress(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.handled;
 
     if (!_showingAnswer) {
       if (event.logicalKey == LogicalKeyboardKey.space) {
@@ -150,6 +150,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
         _rateCard(Rating.easy);
       }
     }
+    return KeyEventResult.handled;
   }
 
   Widget _buildStudyCard() {
@@ -158,10 +159,10 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       if (_focusNode.canRequestFocus) _focusNode.requestFocus();
     });
 
-    return KeyboardListener(
-      focusNode: _focusNode, //Fix: Uses the persisted node, not a new one
+    return Focus(
+      focusNode: _focusNode,
       autofocus: true,
-      onKeyEvent: _handleKeyPress,
+      onKeyEvent: (_, event) => _handleKeyPress(event),
       child: Padding(
         padding: const EdgeInsets.all(Spacing.lg),
         child: Column(
@@ -172,26 +173,34 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
                 child: GestureDetector(
                   onTap: _showingAnswer ? null : _flipCard,
                   child: Card(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(Spacing.xl),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              _showingAnswer ? _currentCard.back : _currentCard.front,
-                              style: Theme.of(context).textTheme.headlineSmall,
-                              textAlign: TextAlign.center,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            child: Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(Spacing.xl),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _showingAnswer ? _currentCard.back : _currentCard.front,
+                                      style: Theme.of(context).textTheme.headlineSmall,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: Spacing.xl),
+                                    Text(
+                                      _showingAnswer ? '' : 'Tap or press Space to reveal',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            const SizedBox(height: Spacing.xl),
-                            Text(
-                              _showingAnswer ? '' : 'Tap or press Space to reveal',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
