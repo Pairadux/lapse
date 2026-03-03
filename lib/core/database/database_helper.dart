@@ -55,11 +55,20 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     for (var version = oldVersion + 1; version <= newVersion; version++) {
       switch (version) {
-        // case 2: await _migrateV2(db); break;
+        case 2:
+          await _migrateV2(db);
+          break;
         default:
           break;
       }
     }
+  }
+
+  /// v2: Add step column to cards table for FSRS learning step tracking.
+  Future<void> _migrateV2(Database db) async {
+    await db.execute(
+      'ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colStep} INTEGER',
+    );
   }
 
   /// Deletes all rows from every table, preserving the schema.
