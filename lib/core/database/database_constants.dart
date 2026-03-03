@@ -1,7 +1,7 @@
 /// Compile-time constants for the SQLite schema.
 abstract final class DatabaseConstants {
   static const String databaseName = 'lapse.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 2;
 
   // -- Table names --
   static const String tableDecks = 'decks';
@@ -27,6 +27,7 @@ abstract final class DatabaseConstants {
   static const String colLapses = 'lapses';
   static const String colLastReview = 'last_review';
   static const String colCardState = 'card_state';
+  static const String colStep = 'step';
 
   // -- Review columns --
   static const String colId = 'id';
@@ -70,7 +71,8 @@ abstract final class DatabaseConstants {
       $colReps          INTEGER NOT NULL DEFAULT 0,
       $colLapses        INTEGER NOT NULL DEFAULT 0,
       $colLastReview    TEXT,
-      $colCardState     INTEGER NOT NULL DEFAULT 0
+      $colCardState     INTEGER NOT NULL DEFAULT 0,
+      $colStep          INTEGER
     )
   ''';
 
