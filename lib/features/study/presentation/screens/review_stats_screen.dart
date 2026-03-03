@@ -65,7 +65,10 @@ class _ReviewStatsScreenState extends State<ReviewStatsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Review Stats')),
+      appBar: AppBar(
+        leading: const BackButton(),
+        title: const Text('Review Stats'),
+      ),
       body: _isLoading ? const LoadingIndicator() : _buildBody(),
     );
   }
