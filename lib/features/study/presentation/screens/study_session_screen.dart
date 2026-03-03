@@ -31,6 +31,8 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   // Fix: FocusNode leak, stores it as a state variable
   late final FocusNode _focusNode;
 
+  bool _isProcessing = false;
+
   List<Flashcard> _cards = [];
   bool _isLoading = true;
 
@@ -58,13 +60,6 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
 
   Future<void> _loadCards() async {
     try {
-      /* final allCards = <Flashcard>[];
-      for (final deckId in widget.deckIds) {
-        // TODO: Replace with state management provider
-        final due = await _cardRepo.getDueCards(deckId);
-        allCards.addAll(due);
-      } */
-
       // Perf: Parallelize card loading
       // Create a list of Futures instead of awaiting in a for loop
       final futures = widget.deckIds.map((id) => _cardRepo.getDueCards(id));
@@ -78,6 +73,8 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       if (mounted) {
         setState(() {
           _cards = allCards;
+          // Note: We only use the first deckId for the session, even though cards are loaded from all deckIds.
+          // This is intentional—one study session is tied to a single root deck for now.
           _session = _studySessionService.startSession(widget.deckIds.first, _cards);
           _isLoading = false;
         });
@@ -97,16 +94,25 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   }
 
   Future<void> _rateCard(Rating rating) async {
-    //
-    final result = _studySessionService.rateCard(_session, _currentCard, rating);
-    await _cardRepo.update(result.updatedCard);
-    await _reviewRepo.addReview(result.review);
-
-    setState(() {
-      _ratingCounts[rating] = _ratingCounts[rating]! + 1;
-      _currentIndex++;
-      _showingAnswer = false;
-    });
+    if (_isProcessing) return;
+    _isProcessing = true;
+    try {
+      final result = _studySessionService.rateCard(_session, _currentCard, rating);
+      await _cardRepo.update(result.updatedCard);
+      await _reviewRepo.addReview(result.review);
+      setState(() {
+        _session = result.session;
+        _ratingCounts[rating] = _ratingCounts[rating]! + 1;
+        _currentIndex++;
+        _showingAnswer = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save review: $e')));
+      }
+    } finally {
+      _isProcessing = false;
+    }
   }
 
   @override
@@ -204,7 +210,9 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
                                     const SizedBox(height: Spacing.xl),
                                     Text(
                                       _showingAnswer ? '' : 'Tap or press Space to reveal',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
                                     ),
                                   ],
                                 ),
@@ -233,13 +241,29 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
         ignoring: !_showingAnswer,
         child: Row(
           children: [
-            _RatingButton(label: 'Again', color: AppColors.ratingAgain, onPressed: () => _rateCard(Rating.again)),
+            _RatingButton(
+              label: 'Again',
+              color: AppColors.ratingAgain,
+              onPressed: () async => await _rateCard(Rating.again),
+            ),
             const SizedBox(width: Spacing.sm),
-            _RatingButton(label: 'Hard', color: AppColors.ratingHard, onPressed: () => _rateCard(Rating.hard)),
+            _RatingButton(
+              label: 'Hard',
+              color: AppColors.ratingHard,
+              onPressed: () async => await _rateCard(Rating.hard),
+            ),
             const SizedBox(width: Spacing.sm),
-            _RatingButton(label: 'Good', color: AppColors.ratingGood, onPressed: () => _rateCard(Rating.good)),
+            _RatingButton(
+              label: 'Good',
+              color: AppColors.ratingGood,
+              onPressed: () async => await _rateCard(Rating.good),
+            ),
             const SizedBox(width: Spacing.sm),
-            _RatingButton(label: 'Easy', color: AppColors.ratingEasy, onPressed: () => _rateCard(Rating.easy)),
+            _RatingButton(
+              label: 'Easy',
+              color: AppColors.ratingEasy,
+              onPressed: () async => await _rateCard(Rating.easy),
+            ),
           ],
         ),
       ),
@@ -291,7 +315,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('End session?'),
-        content: const Text('Your progress in this session will be lost.'),
+        content: const Text('Already-reviewed cards are saved. You can resume later.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('End')),
