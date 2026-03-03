@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
@@ -10,6 +11,47 @@ import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/data/review_repository.dart';
 import 'package:lapse/features/study/application/study_session_service.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
+
+/// Snapshot of FSRS-relevant card fields for debug comparison.
+class _CardSnapshot {
+  final double stability;
+  final double difficulty;
+  final DateTime dueDate;
+  final CardState cardState;
+  final int? step;
+  final int reps;
+  final int lapses;
+  final int scheduledDays;
+  final int elapsedDays;
+  final DateTime? lastReview;
+
+  _CardSnapshot.fromCard(Flashcard c)
+      : stability = c.stability,
+        difficulty = c.difficulty,
+        dueDate = c.dueDate,
+        cardState = c.cardState,
+        step = c.step,
+        reps = c.reps,
+        lapses = c.lapses,
+        scheduledDays = c.scheduledDays,
+        elapsedDays = c.elapsedDays,
+        lastReview = c.lastReview;
+}
+
+class _ReviewLogEntry {
+  final String cardFront;
+  final Rating rating;
+  final _CardSnapshot before;
+  final _CardSnapshot after;
+  final DateTime timestamp;
+
+  _ReviewLogEntry({
+    required this.cardFront,
+    required this.rating,
+    required this.before,
+    required this.after,
+  }) : timestamp = DateTime.now();
+}
 
 class StudySessionScreen extends StatefulWidget {
   final String deckName;
@@ -35,14 +77,21 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
 
   List<Flashcard> _cards = [];
   bool _isLoading = true;
+  int _initialCardCount = 0;
 
   int _currentIndex = 0;
   bool _showingAnswer = false;
   final Map<Rating, int> _ratingCounts = {Rating.again: 0, Rating.hard: 0, Rating.good: 0, Rating.easy: 0};
+  final Set<String> _graduatedCardIds = {};
+
+  // Debug panel state
+  bool _showDebugPanel = false;
+  final List<_ReviewLogEntry> _reviewLog = [];
 
   Flashcard get _currentCard => _cards[_currentIndex];
   bool get _isSessionComplete => _cards.isEmpty || _currentIndex >= _cards.length;
-  double get _progress => _cards.isEmpty ? 0 : (_currentIndex / _cards.length);
+  double get _progress =>
+      _initialCardCount == 0 ? 0 : (_graduatedCardIds.length / _initialCardCount).clamp(0.0, 1.0);
 
   @override
   void initState() {
@@ -73,8 +122,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
       if (mounted) {
         setState(() {
           _cards = allCards;
-          // Note: We only use the first deckId for the session, even though cards are loaded from all deckIds.
-          // This is intentional—one study session is tied to a single root deck for now.
+          _initialCardCount = allCards.length;
           _session = _studySessionService.startSession(widget.deckIds.first, _cards);
           _isLoading = false;
         });
@@ -97,12 +145,24 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     if (_isProcessing) return;
     _isProcessing = true;
     try {
+      final before = _CardSnapshot.fromCard(_currentCard);
       final result = _studySessionService.rateCard(_session, _currentCard, rating);
       await _cardRepo.update(result.updatedCard);
       await _reviewRepo.addReview(result.review);
+      final after = _CardSnapshot.fromCard(result.updatedCard);
       setState(() {
         _session = result.session;
+        _cards = result.session.cards;
         _ratingCounts[rating] = _ratingCounts[rating]! + 1;
+        if (result.updatedCard.cardState == CardState.review) {
+          _graduatedCardIds.add(result.updatedCard.cardId);
+        }
+        _reviewLog.add(_ReviewLogEntry(
+          cardFront: _currentCard.front,
+          rating: rating,
+          before: before,
+          after: after,
+        ));
         _currentIndex++;
         _showingAnswer = false;
       });
@@ -123,12 +183,20 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
         leading: IconButton(icon: const Icon(Icons.close), onPressed: () => _showExitConfirmation(context)),
         title: Text(widget.deckName),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(_showDebugPanel ? Icons.bug_report : Icons.bug_report_outlined),
+            color: _showDebugPanel ? AppColors.warning : null,
+            onPressed: () => setState(() => _showDebugPanel = !_showDebugPanel),
+          ),
+        ],
       ),
       body: _isLoading
           ? const LoadingIndicator()
           : Column(
               children: [
                 _buildProgressBar(),
+                if (_showDebugPanel) _buildDebugPanel(),
                 Expanded(child: _isSessionComplete ? _buildSessionComplete() : _buildStudyCard()),
               ],
             ),
@@ -150,25 +218,227 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
     );
   }
 
+  Widget _buildDebugPanel() {
+    // Show upcoming card state if session is still active
+    Widget? currentCardInfo;
+    if (!_isSessionComplete) {
+      final c = _currentCard;
+      currentCardInfo = _buildDebugSection(
+        'Next Card',
+        AppColors.primary,
+        {
+          'front': c.front.length > 40 ? '${c.front.substring(0, 40)}...' : c.front,
+          'state': c.cardState.name,
+          'step': '${c.step ?? '-'}',
+          'stability': c.stability.toStringAsFixed(4),
+          'difficulty': c.difficulty.toStringAsFixed(4),
+          'reps': '${c.reps}',
+          'lapses': '${c.lapses}',
+          'due': _formatDate(c.dueDate),
+          'lastReview': c.lastReview != null ? _formatDate(c.lastReview!) : 'never',
+        },
+      );
+    }
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 260),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1A20),
+        border: Border(bottom: BorderSide(color: AppColors.outline, width: 0.5)),
+      ),
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
+        children: [
+          ?currentCardInfo,
+          if (_reviewLog.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.xs),
+              child: Text(
+                'Review Log (${_reviewLog.length})',
+                style: const TextStyle(
+                  color: AppColors.textTertiary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            // Show most recent first
+            for (final entry in _reviewLog.reversed) _buildReviewEntry(entry),
+          ],
+          if (_reviewLog.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: Spacing.md),
+              child: Text(
+                'No reviews yet — rate a card to see FSRS changes.',
+                style: TextStyle(color: AppColors.textTertiary, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewEntry(_ReviewLogEntry entry) {
+    final ratingColor = switch (entry.rating) {
+      Rating.again => AppColors.ratingAgain,
+      Rating.hard => AppColors.ratingHard,
+      Rating.good => AppColors.ratingGood,
+      Rating.easy => AppColors.ratingEasy,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: Spacing.xs),
+      padding: const EdgeInsets.all(Spacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.outlineVariant, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: ratingColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  entry.rating.name.toUpperCase(),
+                  style: TextStyle(color: ratingColor, fontSize: 10, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: Text(
+                  entry.cardFront.length > 30 ? '${entry.cardFront.substring(0, 30)}...' : entry.cardFront,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.xs),
+          _buildDiffTable(entry.before, entry.after),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiffTable(_CardSnapshot before, _CardSnapshot after) {
+    final rows = <_DiffRow>[
+      _DiffRow('state', before.cardState.name, after.cardState.name),
+      _DiffRow('step', '${before.step ?? '-'}', '${after.step ?? '-'}'),
+      _DiffRow('stability', before.stability.toStringAsFixed(4), after.stability.toStringAsFixed(4)),
+      _DiffRow('difficulty', before.difficulty.toStringAsFixed(4), after.difficulty.toStringAsFixed(4)),
+      _DiffRow('reps', '${before.reps}', '${after.reps}'),
+      _DiffRow('lapses', '${before.lapses}', '${after.lapses}'),
+      _DiffRow('due', _formatDate(before.dueDate), _formatDate(after.dueDate)),
+      _DiffRow('scheduledDays', '${before.scheduledDays}', '${after.scheduledDays}'),
+      _DiffRow('elapsedDays', '${before.elapsedDays}', '${after.elapsedDays}'),
+    ];
+
+    return DefaultTextStyle(
+      style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppColors.textSecondary),
+      child: Table(
+        columnWidths: const {
+          0: FixedColumnWidth(90),
+          1: FlexColumnWidth(),
+          2: FixedColumnWidth(20),
+          3: FlexColumnWidth(),
+        },
+        children: [
+          for (final row in rows)
+            TableRow(
+              children: [
+                Text(row.label, style: const TextStyle(color: AppColors.textTertiary)),
+                Text(row.before),
+                const Text(' → ', style: TextStyle(color: AppColors.textTertiary)),
+                Text(
+                  row.after,
+                  style: TextStyle(
+                    color: row.before != row.after ? AppColors.success : AppColors.textSecondary,
+                    fontWeight: row.before != row.after ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDebugSection(String title, Color color, Map<String, String> fields) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: Spacing.xs),
+      padding: const EdgeInsets.all(Spacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          DefaultTextStyle(
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppColors.textSecondary),
+            child: Column(
+              children: [
+                for (final e in fields.entries)
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 90,
+                        child: Text(e.key, style: const TextStyle(color: AppColors.textTertiary)),
+                      ),
+                      Expanded(child: Text(e.value)),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
   KeyEventResult _handleKeyPress(KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.handled;
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
     if (!_showingAnswer) {
       if (event.logicalKey == LogicalKeyboardKey.space) {
         _flipCard();
+        return KeyEventResult.handled;
       }
     } else {
       if (event.logicalKey == LogicalKeyboardKey.digit1) {
         _rateCard(Rating.again);
+        return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
         _rateCard(Rating.hard);
+        return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
         _rateCard(Rating.good);
+        return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
         _rateCard(Rating.easy);
+        return KeyEventResult.handled;
       }
     }
-    return KeyEventResult.handled;
+    return KeyEventResult.ignored;
   }
 
   Widget _buildStudyCard() {
@@ -202,10 +472,21 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      _showingAnswer ? _currentCard.back : _currentCard.front,
-                                      style: Theme.of(context).textTheme.headlineSmall,
-                                      textAlign: TextAlign.center,
+                                    MarkdownBody(
+                                      data: _showingAnswer
+                                          ? _currentCard.back
+                                          : _currentCard.front,
+                                      styleSheet: MarkdownStyleSheet.fromTheme(
+                                        Theme.of(context),
+                                      ).copyWith(
+                                        p: Theme.of(context).textTheme.headlineSmall,
+                                        textAlign: WrapAlignment.center,
+                                        listBullet: Theme.of(context).textTheme.headlineSmall,
+                                        blockquote: Theme.of(context)
+                                            .textTheme
+                                            .headlineSmall
+                                            ?.copyWith(color: AppColors.textSecondary),
+                                      ),
                                     ),
                                     const SizedBox(height: Spacing.xl),
                                     Text(
@@ -352,6 +633,13 @@ class _RatingButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DiffRow {
+  final String label;
+  final String before;
+  final String after;
+  const _DiffRow(this.label, this.before, this.after);
 }
 
 class _StatItem extends StatelessWidget {

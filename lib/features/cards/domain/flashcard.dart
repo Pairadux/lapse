@@ -23,6 +23,7 @@ class Flashcard extends Equatable {
   final int lapses; // Times forgotten (rated "Again")
   final DateTime? lastReview;
   final CardState cardState;
+  final int? step; // Learning step progress (null for new/review cards, 0+ for learning/relearning)
 
   const Flashcard({
     required this.cardId,
@@ -41,6 +42,7 @@ class Flashcard extends Equatable {
     required this.lapses,
     this.lastReview,
     required this.cardState,
+    this.step,
   });
 
   /// Creates a new card with auto-generated ID, timestamps, and FSRS defaults.
@@ -68,6 +70,9 @@ class Flashcard extends Equatable {
     );
   }
 
+  // Sentinel to distinguish "not provided" from "set to null" for nullable int fields.
+  static const int _stepUnset = -1;
+
   Flashcard copyWith({
     String? deckId,
     String? front,
@@ -84,6 +89,7 @@ class Flashcard extends Equatable {
     int? lapses,
     DateTime? lastReview,
     CardState? cardState,
+    int? step = _stepUnset,
   }) {
     return Flashcard(
       cardId: cardId, // cardId cannot be changed
@@ -102,6 +108,7 @@ class Flashcard extends Equatable {
       lapses: lapses ?? this.lapses,
       lastReview: lastReview ?? this.lastReview,
       cardState: cardState ?? this.cardState,
+      step: step == _stepUnset ? this.step : step,
     );
   }
 
@@ -124,6 +131,7 @@ class Flashcard extends Equatable {
       DatabaseConstants.colLapses: lapses,
       DatabaseConstants.colLastReview: lastReview?.toUtc().toIso8601String(),
       DatabaseConstants.colCardState: cardState.index,
+      DatabaseConstants.colStep: step,
     };
   }
 
@@ -147,6 +155,7 @@ class Flashcard extends Equatable {
       lapses: map[DatabaseConstants.colLapses] as int,
       lastReview: lastReviewStr != null ? DateTime.parse(lastReviewStr) : null,
       cardState: CardState.values[map[DatabaseConstants.colCardState] as int],
+      step: map[DatabaseConstants.colStep] as int?,
     );
   }
 
@@ -168,5 +177,6 @@ class Flashcard extends Equatable {
     lapses,
     lastReview,
     cardState,
+    step,
   ];
 }

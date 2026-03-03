@@ -17,50 +17,45 @@ class FsrsService {
   /// Process a review and return updated card state
   FsrsResult processReview(Flashcard card, Rating rating) {
     try {
-      // Convert Flashcard to fsrs Card (only the fields FSRS cares about)
       final fsrsCard = _toFsrsCard(card);
-
-      // Get scheduling result from FSRS
       final result = _scheduler.reviewCard(fsrsCard, _toFsrsRating(rating));
       final updatedFsrsCard = result.card;
+      final now = DateTime.now();
 
-      // Helper to sanitize double values
       double safeDouble(double? value) {
         if (value == null || value.isNaN || value.isInfinite) return 0.0;
         return value;
       }
 
-      // Calculate intervals for tracking
-      int elapsedDays = 0;
-      int scheduledDays = 0;
-      if (card.lastReview != null) {
-        elapsedDays = DateTime.now().difference(card.lastReview!).inDays;
-      }
+      final elapsedDays = card.lastReview != null
+          ? now.difference(card.lastReview!).inDays
+          : 0;
 
-      // Safely compute scheduledDays — FSRS may produce extreme due dates for easy ratings on new cards
-      final dueDiff = updatedFsrsCard.due.difference(DateTime.now()).inDays;
-      scheduledDays = dueDiff.clamp(0, 36500); // Cap at ~100 years
+      // Cap at ~100 years — FSRS can produce extreme due dates for easy ratings on new cards
+      final scheduledDays = updatedFsrsCard.due.difference(now).inDays.clamp(0, 36500);
 
-      // Update card with FSRS results and tracking info
+      final newState = _fromFsrsState(updatedFsrsCard.state);
+
       final updatedCard = card.copyWith(
         dueDate: updatedFsrsCard.due,
         stability: safeDouble(updatedFsrsCard.stability),
         difficulty: safeDouble(updatedFsrsCard.difficulty),
         elapsedDays: elapsedDays,
         scheduledDays: scheduledDays,
-        cardState: _updateCardState(rating),
-        reps: (card.reps) + 1,
+        cardState: newState,
+        step: updatedFsrsCard.step,
+        reps: card.reps + 1,
         lapses: (rating == Rating.again) ? card.lapses + 1 : card.lapses,
-        lastReview: DateTime.now(),
+        lastReview: now,
       );
 
       final review = Review(
         cardId: card.cardId,
         rating: rating,
-        reviewedAt: DateTime.now(),
+        reviewedAt: now,
         elapsedDays: elapsedDays,
         scheduledDays: scheduledDays,
-        state: _updateCardState(rating),
+        state: newState,
       );
 
       return FsrsResult(updatedCard: updatedCard, review: review);
@@ -69,23 +64,26 @@ class FsrsService {
     }
   }
 
-  /// Convert Flashcard to fsrs Card (only relevant fields)
-  /// For new cards (reps == 0), use FSRS library defaults to avoid NaN/Infinity errors
+  /// Convert Flashcard to fsrs Card, passing state and step for non-new cards
+  /// so FSRS knows where the card is in the learning sequence.
   fsrs.Card _toFsrsCard(Flashcard card) {
-    if (card.reps == 0) {
-      // New card — let FSRS use its own defaults
-      return fsrs.Card(cardId: int.tryParse(card.cardId) ?? card.cardId.hashCode, due: card.dueDate);
+    final cardId = int.tryParse(card.cardId) ?? card.cardId.hashCode;
+
+    if (card.cardState == CardState.newCard) {
+      return fsrs.Card(cardId: cardId, due: card.dueDate);
     }
+
     return fsrs.Card(
-      cardId: int.tryParse(card.cardId) ?? card.cardId.hashCode,
+      cardId: cardId,
       due: card.dueDate,
+      state: _toFsrsState(card.cardState),
+      step: card.step,
       stability: card.stability,
       difficulty: card.difficulty,
       lastReview: card.lastReview,
     );
   }
 
-  /// Convert Rating enum to fsrs Rating
   fsrs.Rating _toFsrsRating(Rating appRating) {
     return switch (appRating) {
       Rating.again => fsrs.Rating.again,
@@ -95,13 +93,20 @@ class FsrsService {
     };
   }
 
-  /// Updates cardState based on rating
-  CardState _updateCardState(Rating rating) {
-    return switch (rating) {
-      Rating.again => CardState.relearning,
-      Rating.hard => CardState.learning,
-      Rating.good => CardState.review,
-      Rating.easy => CardState.review,
+  fsrs.State _toFsrsState(CardState appState) {
+    return switch (appState) {
+      CardState.newCard => fsrs.State.learning,
+      CardState.learning => fsrs.State.learning,
+      CardState.review => fsrs.State.review,
+      CardState.relearning => fsrs.State.relearning,
+    };
+  }
+
+  CardState _fromFsrsState(fsrs.State fsrsState) {
+    return switch (fsrsState) {
+      fsrs.State.learning => CardState.learning,
+      fsrs.State.review => CardState.review,
+      fsrs.State.relearning => CardState.relearning,
     };
   }
 }
