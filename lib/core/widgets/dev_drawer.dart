@@ -200,6 +200,11 @@ class DevDrawer extends StatelessWidget {
             label: 'Widget Preview',
             route: Routes.debug,
           ),
+          _DrawerItem(
+            icon: Icons.bar_chart,
+            label: 'Review Stats',
+            route: Routes.devStats,
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.dataset_outlined),
