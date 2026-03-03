@@ -17,6 +17,7 @@ class _CardSnapshot {
   final double difficulty;
   final DateTime dueDate;
   final CardState cardState;
+  final int? step;
   final int reps;
   final int lapses;
   final int scheduledDays;
@@ -28,6 +29,7 @@ class _CardSnapshot {
         difficulty = c.difficulty,
         dueDate = c.dueDate,
         cardState = c.cardState,
+        step = c.step,
         reps = c.reps,
         lapses = c.lapses,
         scheduledDays = c.scheduledDays,
@@ -226,6 +228,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
         {
           'front': c.front.length > 40 ? '${c.front.substring(0, 40)}...' : c.front,
           'state': c.cardState.name,
+          'step': '${c.step ?? '-'}',
           'stability': c.stability.toStringAsFixed(4),
           'difficulty': c.difficulty.toStringAsFixed(4),
           'reps': '${c.reps}',
@@ -327,6 +330,7 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   Widget _buildDiffTable(_CardSnapshot before, _CardSnapshot after) {
     final rows = <_DiffRow>[
       _DiffRow('state', before.cardState.name, after.cardState.name),
+      _DiffRow('step', '${before.step ?? '-'}', '${after.step ?? '-'}'),
       _DiffRow('stability', before.stability.toStringAsFixed(4), after.stability.toStringAsFixed(4)),
       _DiffRow('difficulty', before.difficulty.toStringAsFixed(4), after.difficulty.toStringAsFixed(4)),
       _DiffRow('reps', '${before.reps}', '${after.reps}'),
