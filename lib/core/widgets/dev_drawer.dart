@@ -244,7 +244,7 @@ class _DrawerItem extends StatelessWidget {
       selected: isActive,
       onTap: () {
         Navigator.pop(context);
-        context.go(route);
+        context.push(route);
       },
     );
   }
