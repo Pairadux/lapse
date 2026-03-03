@@ -71,3 +71,39 @@ Input Summary: Provided the widget code creating FocusNode in build() and fetchi
 Output Summary: Recieved init/disposed managed FocusNode and refactoed data fetching logic to use Future.wait for parallel execution
 Modifications: Added a call to ensure the focus request does not interfere with build phase
 Files Referenced: study_session_screen.dart
+
+Date: 2026-02-26
+User: Darius Anderson
+Purpose: Error correction in study_session_service
+Approach: Provided error messages and asked for help fixing them in the service logic.
+Input Summary: Supplied error logs and described the issues encountered in study_session_service.
+Output Summary: Received targeted advice and code corrections for fixing parameter and logic errors in study_session_service.
+Modifications: Fixed parameter mismatches and logic errors in study_session_service.
+Files Referenced: study_session_service.dart
+
+Date: 2026-02-27
+User: Darius Anderson
+Purpose: Wire up FSRS persistence and add input validation
+Approach: Asked the AI for step-by-step guidance on connecting FSRS review logic to database persistence and implementing input validation in ReviewRepository.
+Input Summary: Provided code context for StudySessionScreen and ReviewRepository, described desired behaviors for persistence and validation.
+Output Summary: Received detailed instructions and code snippets for wiring up FSRS persistence in the UI and adding validation logic to ReviewRepository.
+Modifications: Implemented FSRS persistence in StudySessionScreen and added input validation to ReviewRepository.
+Files Referenced: study_session_screen.dart, review_repository.dart
+
+Date: 2026-03-01
+User: Darius Anderson
+Purpose: Add and validate edge-case and unit tests for FSRS and review persistence
+Approach: Asked the AI for robust test skeletons and validation strategies for StudySessionService and ReviewRepository, including edge cases.
+Input Summary: Provided test file context and described the edge cases and behaviors to cover.
+Output Summary: Received comprehensive test skeletons and validation logic for both normal and edge-case scenarios, and guidance on interpreting test failures.
+Modifications: Created/expanded test files for StudySessionService and ReviewRepository, and implemented validation logic to pass the new tests.
+Files Referenced: review_repository_test.dart, study_session_service_test.dart, review_repository.dart
+
+Date: 2026-03-02
+User: Darius Anderson
+Purpose: Fix FSRS bugs and expand test coverage
+Approach: Used AI to identify and help fix bugs, add error handling, and improve tests
+Input Summary: Listed bugs and test gaps, provided code context
+Output Summary: Guideline to implement bug fixes, error handling added, tests expanded and passing
+Modifications: Updated study session logic, fixed FSRS for new cards, improved validation, expanded tests
+Files Referenced: study_session_screen.dart, fsrs_service.dart, review_repository.dart, study_session_service_test.dart, review_repository_test.dart

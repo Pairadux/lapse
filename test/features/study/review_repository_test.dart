@@ -111,4 +111,90 @@ void main() {
       expect(history.first.rating, Rating.good); // Checks that the first item in the list is the most recent one
     });
   });
+
+  group('ReviewRepository edge-case testing', () {
+    test('addReview throws on empty cardId', () async {
+      final review = Review(
+        cardId: '', // Edge case: empty string
+        reviewedAt: DateTime.now(),
+        rating: Rating.good,
+        scheduledDays: 1,
+        elapsedDays: 0,
+        state: CardState.review,
+      );
+      expect(() => repository.addReview(review), throwsA(isA<ArgumentError>()));
+    });
+
+    test('addReview throws on whitespace cardId', () async {
+      final review = Review(
+        cardId: '   ', // whitespace only
+        reviewedAt: DateTime.now(),
+        rating: Rating.good,
+        scheduledDays: 1,
+        elapsedDays: 0,
+        state: CardState.review,
+      );
+      expect(() => repository.addReview(review), throwsA(isA<ArgumentError>()));
+    });
+
+    test('addReview accepts large scheduledDays and verifies retrieval', () async {
+      final largeValue = 100000;
+      final review = Review(
+        cardId: 'test_large',
+        reviewedAt: DateTime.now(),
+        rating: Rating.good,
+        scheduledDays: largeValue,
+        elapsedDays: 0,
+        state: CardState.review,
+      );
+      await repository.addReview(review);
+
+      // Optionally fetch and assert
+      final history = await repository.getReviewsForCard('test_large');
+      expect(history.length, 1);
+      expect(history.first.scheduledDays, largeValue);
+    });
+
+    test('scheduledDays throws on negative value', () async {
+      final review = Review(
+        cardId: 'test_days',
+        reviewedAt: DateTime.now(),
+        rating: Rating.good,
+        scheduledDays: -7,
+        elapsedDays: 0,
+        state: CardState.review,
+      );
+      expect(() => repository.addReview(review), throwsA(isA<ArgumentError>()));
+    });
+
+    test('addReview accepts large elapsedDays and verifies retrieval', () async {
+      final largeValue = 100000;
+      final review = Review(
+        cardId: 'test_large_elapsed',
+        reviewedAt: DateTime.now(),
+        rating: Rating.good,
+        scheduledDays: 1,
+        elapsedDays: largeValue,
+        state: CardState.review,
+      );
+      await repository.addReview(review);
+
+      // Optionally fetch and assert
+      final history = await repository.getReviewsForCard('test_large_elapsed');
+      expect(history.length, 1);
+      expect(history.first.elapsedDays, largeValue);
+    });
+
+    test('elapsedDays throws on negative value', () async {
+      final review = Review(
+        cardId: 'test_elapsed_days',
+        reviewedAt: DateTime.now(),
+        rating: Rating.good,
+        scheduledDays: 0,
+        elapsedDays: -2,
+        state: CardState.review,
+      );
+      expect(() => repository.addReview(review), throwsA(isA<ArgumentError>()));
+    });
+  });
 }

@@ -9,6 +9,17 @@ class ReviewRepository {
 
   // Persists a new review record to the database
   Future<void> addReview(Review review) async {
+    // Validation logic
+    if (review.cardId.trim().isEmpty) {
+      throw ArgumentError('cardId cannot be empty or whitespace');
+    }
+    if (review.scheduledDays < 0) {
+      throw ArgumentError('scheduledDays cannot be negative');
+    }
+    if (review.elapsedDays < 0) {
+      throw ArgumentError('elapsedDays cannot be negative');
+    }
+
     final db = await _dbHelper.database;
 
     // Use fields from constants as table name and column keys
