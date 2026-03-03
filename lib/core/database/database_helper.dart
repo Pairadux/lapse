@@ -66,9 +66,15 @@ class DatabaseHelper {
 
   /// v2: Add step column to cards table for FSRS learning step tracking.
   Future<void> _migrateV2(Database db) async {
-    await db.execute(
-      'ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colStep} INTEGER',
+    final columns = await db.rawQuery(
+      'PRAGMA table_info(${DatabaseConstants.tableCards})',
     );
+    final hasStep = columns.any((col) => col['name'] == DatabaseConstants.colStep);
+    if (!hasStep) {
+      await db.execute(
+        'ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colStep} INTEGER',
+      );
+    }
   }
 
   /// Deletes all rows from every table, preserving the schema.
