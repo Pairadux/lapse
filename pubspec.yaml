@@ -44,6 +44,7 @@ dependencies:
   path: ^1.9.1
   window_manager: ^0.5.1
   modern_titlebar_buttons: ^1.1.2
+  fl_chart: ^0.70.2
 
 dev_dependencies:
   flutter_test:
