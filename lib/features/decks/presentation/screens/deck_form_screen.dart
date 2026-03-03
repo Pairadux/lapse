@@ -115,6 +115,8 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
               TextFormField(
                 controller: _nameController,
                 autofocus: true,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _save(),
                 maxLength: maxDeckNameLength,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 decoration: const InputDecoration(
