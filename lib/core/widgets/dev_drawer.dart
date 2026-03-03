@@ -200,6 +200,11 @@ class DevDrawer extends StatelessWidget {
             label: 'Widget Preview',
             route: Routes.debug,
           ),
+          _DrawerItem(
+            icon: Icons.bar_chart,
+            label: 'Review Stats',
+            route: Routes.devStats,
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.dataset_outlined),
@@ -239,7 +244,7 @@ class _DrawerItem extends StatelessWidget {
       selected: isActive,
       onTap: () {
         Navigator.pop(context);
-        context.go(route);
+        context.push(route);
       },
     );
   }

@@ -76,6 +76,22 @@ class CardRepository {
     return result.first['c'] as int;
   }
 
+  /// Returns the number of non-deleted cards due on each calendar day.
+  /// Keys are dates (time portion zeroed), values are counts.
+  Future<Map<DateTime, int>> getDueDateCounts() async {
+    final db = await _dbHelper.database;
+    final rows = await db.rawQuery(
+      'SELECT DATE(${DatabaseConstants.colDueDate}) AS day, COUNT(*) AS c '
+      'FROM ${DatabaseConstants.tableCards} '
+      'WHERE ${DatabaseConstants.colIsDeleted} = 0 '
+      'GROUP BY day',
+    );
+    return {
+      for (final row in rows)
+        DateTime.parse(row['day'] as String): row['c'] as int,
+    };
+  }
+
   /// Returns true if a non-deleted card with [front] text exists in [deckId].
   /// Use [excludeCardId] to skip self when editing.
   Future<bool> frontExistsInDeck({
