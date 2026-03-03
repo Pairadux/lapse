@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
-import 'package:lapse/features/cards/data/card_repository.dart';
+import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
 class _SaveIntent extends Intent {
@@ -17,7 +18,7 @@ class _SaveAndAddAnotherIntent extends Intent {
   const _SaveAndAddAnotherIntent();
 }
 
-class CardFormScreen extends StatefulWidget {
+class CardFormScreen extends ConsumerStatefulWidget {
   final String deckId;
   final Flashcard? card;
 
@@ -26,18 +27,17 @@ class CardFormScreen extends StatefulWidget {
   bool get isEditing => card != null;
 
   @override
-  State<CardFormScreen> createState() => _CardFormScreenState();
+  ConsumerState<CardFormScreen> createState() => _CardFormScreenState();
 }
 
-class _CardFormScreenState extends State<CardFormScreen> {
+class _CardFormScreenState extends ConsumerState<CardFormScreen> {
   static const int maxCardTextLength = 300;
 
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _frontController;
   late final TextEditingController _backController;
   final _frontFocus = FocusNode();
-  // TODO: Replace with state management provider
-  final _repo = CardRepository();
+  CardRepository get _repo => ref.read(cardRepositoryProvider);
   bool _saving = false;
   int _createdCount = 0;
 
@@ -173,8 +173,7 @@ class _CardFormScreenState extends State<CardFormScreen> {
           shortcuts: const {
             SingleActivator(LogicalKeyboardKey.enter, shift: true):
                 _SaveAndAddAnotherIntent(),
-            SingleActivator(LogicalKeyboardKey.enter, alt: true):
-                _SaveIntent(),
+            SingleActivator(LogicalKeyboardKey.enter, alt: true): _SaveIntent(),
           },
           child: Actions(
             actions: {
@@ -186,15 +185,15 @@ class _CardFormScreenState extends State<CardFormScreen> {
               ),
               _SaveAndAddAnotherIntent:
                   CallbackAction<_SaveAndAddAnotherIntent>(
-                onInvoke: (intent) {
-                  if (widget.isEditing) {
-                    _save();
-                  } else {
-                    _saveAndAddAnother();
-                  }
-                  return null;
-                },
-              ),
+                    onInvoke: (intent) {
+                      if (widget.isEditing) {
+                        _save();
+                      } else {
+                        _saveAndAddAnother();
+                      }
+                      return null;
+                    },
+                  ),
             },
             child: Form(
               key: _formKey,
@@ -206,9 +205,9 @@ class _CardFormScreenState extends State<CardFormScreen> {
                       child: Text(
                         '$_createdCount card${_createdCount == 1 ? '' : 's'} added',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   TextFormField(
@@ -225,7 +224,9 @@ class _CardFormScreenState extends State<CardFormScreen> {
                       alignLabelWithHint: true,
                     ),
                     validator: (value) =>
-                        (value == null || value.trim().isEmpty) ? 'Front is required' : null,
+                        (value == null || value.trim().isEmpty)
+                        ? 'Front is required'
+                        : null,
                   ),
                   const SizedBox(height: Spacing.lg),
                   TextFormField(
@@ -240,14 +241,16 @@ class _CardFormScreenState extends State<CardFormScreen> {
                       alignLabelWithHint: true,
                     ),
                     validator: (value) =>
-                        (value == null || value.trim().isEmpty) ? 'Back is required' : null,
+                        (value == null || value.trim().isEmpty)
+                        ? 'Back is required'
+                        : null,
                   ),
                   const SizedBox(height: Spacing.lg),
                   Text(
                     'Markdown examples: **bold**, *italic*, `code`, - list item',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: Spacing.md),
                   Card(
@@ -263,9 +266,8 @@ class _CardFormScreenState extends State<CardFormScreen> {
                           const SizedBox(height: Spacing.sm),
                           Text(
                             'Front',
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: AppColors.textSecondary),
                           ),
                           MarkdownBody(
                             data: _frontController.text.trim().isEmpty
@@ -275,9 +277,8 @@ class _CardFormScreenState extends State<CardFormScreen> {
                           const SizedBox(height: Spacing.md),
                           Text(
                             'Back',
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: AppColors.textSecondary),
                           ),
                           MarkdownBody(
                             data: _backController.text.trim().isEmpty

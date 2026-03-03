@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/app_colors.dart';
@@ -6,26 +7,26 @@ import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/widgets/empty_state_widget.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
-import 'package:lapse/features/cards/data/card_repository.dart';
+import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
-import 'package:lapse/features/decks/data/deck_repository.dart';
+import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/core/widgets/speed_dial_fab.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 
-class DeckDetailScreen extends StatefulWidget {
+class DeckDetailScreen extends ConsumerStatefulWidget {
   final String deckId;
   final Deck? deck;
 
   const DeckDetailScreen({super.key, required this.deckId, this.deck});
 
   @override
-  State<DeckDetailScreen> createState() => _DeckDetailScreenState();
+  ConsumerState<DeckDetailScreen> createState() => _DeckDetailScreenState();
 }
 
-class _DeckDetailScreenState extends State<DeckDetailScreen> {
-  final _deckRepo = DeckRepository();
-  final _cardRepo = CardRepository();
+class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
+  DeckRepository get _deckRepo => ref.read(deckRepositoryProvider);
+  CardRepository get _cardRepo => ref.read(cardRepositoryProvider);
 
   Deck? _deck;
   List<Deck> _ancestors = [];
@@ -62,9 +63,9 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       final deck = results[0] as Deck?;
       if (deck == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Deck not found')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Deck not found')));
           context.pop();
         }
         return;
@@ -107,9 +108,9 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _hasLoaded = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load deck: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load deck: $e')));
       }
     }
   }
@@ -138,9 +139,11 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: Text(empty ? 'No cards yet' : 'All caught up!'),
-            content: Text(empty
-                ? 'Add some cards before studying.'
-                : 'No cards are due right now.'),
+            content: Text(
+              empty
+                  ? 'Add some cards before studying.'
+                  : 'No cards are due right now.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -203,9 +206,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           ),
         ],
       ),
-      body: _deck == null
-          ? const LoadingIndicator()
-          : _buildBody(),
+      body: _deck == null ? const LoadingIndicator() : _buildBody(),
       floatingActionButton: SpeedDialFab(
         actions: [
           SpeedDialAction(
@@ -259,25 +260,22 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
           SliverPadding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final child = _children[index];
-                  final counts = _childCounts[child.deckId];
-                  return DeckCard(
-                    deck: child,
-                    cardCount: counts?.$1 ?? 0,
-                    dueCount: counts?.$2 ?? 0,
-                    onTap: () async {
-                      await context.push(
-                        Routes.deckPath(child.deckId),
-                        extra: child,
-                      );
-                      _loadData();
-                    },
-                  );
-                },
-                childCount: _children.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final child = _children[index];
+                final counts = _childCounts[child.deckId];
+                return DeckCard(
+                  deck: child,
+                  cardCount: counts?.$1 ?? 0,
+                  dueCount: counts?.$2 ?? 0,
+                  onTap: () async {
+                    await context.push(
+                      Routes.deckPath(child.deckId),
+                      extra: child,
+                    );
+                    _loadData();
+                  },
+                );
+              }, childCount: _children.length),
             ),
           ),
           // Divider between sub-decks and cards
@@ -289,8 +287,9 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                   children: [
                     const Expanded(child: Divider()),
                     Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: Spacing.md),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.md,
+                      ),
                       child: Text(
                         'Cards',
                         style: Theme.of(context).textTheme.labelMedium,
@@ -318,12 +317,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
   }
 
   Widget _buildHeader() {
-    return Column(
-      children: [
-        _buildBreadcrumb(),
-        _buildStatsRow(),
-      ],
-    );
+    return Column(children: [_buildBreadcrumb(), _buildStatsRow()]);
   }
 
   final ScrollController _breadcrumbScrollController = ScrollController();
@@ -365,10 +359,7 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                 ),
               );
             }),
-            _BreadcrumbItem(
-              label: _deck?.deckName ?? '',
-              isLast: true,
-            ),
+            _BreadcrumbItem(label: _deck?.deckName ?? '', isLast: true),
           ],
         ),
       ),
@@ -386,26 +377,22 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
       ),
       child: Row(
         children: [
-          Text(
-            cardLabel,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          Text(cardLabel, style: Theme.of(context).textTheme.bodyMedium),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
             child: Text(
               '·',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textTertiary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary),
             ),
           ),
           Text(
             dueLabel,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const Spacer(),
           FilledButton.tonalIcon(
@@ -444,17 +431,15 @@ class _DeckDetailScreenState extends State<DeckDetailScreen> {
                     ),
                     TextSpan(
                       text: '  →  ',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(color: AppColors.textTertiary),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textTertiary,
+                      ),
                     ),
                     TextSpan(
                       text: card.back,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(color: AppColors.textSecondary),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -480,11 +465,7 @@ class _BreadcrumbItem extends StatelessWidget {
   final bool isLast;
   final VoidCallback? onTap;
 
-  const _BreadcrumbItem({
-    required this.label,
-    this.isLast = false,
-    this.onTap,
-  });
+  const _BreadcrumbItem({required this.label, this.isLast = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -499,9 +480,9 @@ class _BreadcrumbItem extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isLast ? AppColors.textPrimary : AppColors.primary,
-                    fontWeight: isLast ? FontWeight.w600 : FontWeight.normal,
-                  ),
+                color: isLast ? AppColors.textPrimary : AppColors.primary,
+                fontWeight: isLast ? FontWeight.w600 : FontWeight.normal,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

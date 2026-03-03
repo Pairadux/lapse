@@ -1,20 +1,21 @@
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
-import 'package:lapse/features/cards/data/card_repository.dart';
+import 'package:lapse/features/cards/data/card_repository_provider.dart';
 
-class ReviewStatsScreen extends StatefulWidget {
+class ReviewStatsScreen extends ConsumerStatefulWidget {
   const ReviewStatsScreen({super.key});
 
   @override
-  State<ReviewStatsScreen> createState() => _ReviewStatsScreenState();
+  ConsumerState<ReviewStatsScreen> createState() => _ReviewStatsScreenState();
 }
 
-class _ReviewStatsScreenState extends State<ReviewStatsScreen> {
-  final _cardRepo = CardRepository();
+class _ReviewStatsScreenState extends ConsumerState<ReviewStatsScreen> {
+  CardRepository get _cardRepo => ref.read(cardRepositoryProvider);
 
   Map<int, int> _dueCounts = {}; // dayOffset → count
   bool _isLoading = true;
@@ -54,9 +55,9 @@ class _ReviewStatsScreenState extends State<ReviewStatsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load stats: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load stats: $e')));
       }
     }
   }
@@ -95,10 +96,9 @@ class _ReviewStatsScreenState extends State<ReviewStatsScreen> {
           const SizedBox(height: Spacing.xs),
           Text(
             'Cards due per day from today',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppColors.textTertiary),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
           ),
           const SizedBox(height: Spacing.lg),
           Expanded(child: _buildChart()),
@@ -133,8 +133,12 @@ class _ReviewStatsScreenState extends State<ReviewStatsScreen> {
           ),
         ),
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -181,10 +185,8 @@ class _ReviewStatsScreenState extends State<ReviewStatsScreen> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: AppColors.outlineVariant,
-            strokeWidth: 0.5,
-          ),
+          getDrawingHorizontalLine: (value) =>
+              FlLine(color: AppColors.outlineVariant, strokeWidth: 0.5),
         ),
         borderData: FlBorderData(show: false),
         barGroups: _buildBarGroups(),
