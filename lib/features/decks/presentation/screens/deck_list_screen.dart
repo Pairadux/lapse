@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/dev_drawer.dart';
-import 'package:lapse/features/cards/data/card_repository.dart';
-import 'package:lapse/features/decks/data/deck_repository.dart';
+import 'package:lapse/features/cards/data/card_repository_provider.dart';
+import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 import 'package:lapse/features/decks/presentation/widgets/empty_deck_state.dart';
 
-class DeckListScreen extends StatefulWidget {
+class DeckListScreen extends ConsumerStatefulWidget {
   const DeckListScreen({super.key});
 
   @override
-  State<DeckListScreen> createState() => _DeckListScreenState();
+  ConsumerState<DeckListScreen> createState() => _DeckListScreenState();
 }
 
-class _DeckListScreenState extends State<DeckListScreen> {
-  // TODO: Replace with state management provider
-  final _deckRepo = DeckRepository();
-  final _cardRepo = CardRepository();
+class _DeckListScreenState extends ConsumerState<DeckListScreen> {
+  DeckRepository get _deckRepo => ref.read(deckRepositoryProvider);
+  CardRepository get _cardRepo => ref.read(cardRepositoryProvider);
 
   List<Deck> _rootDecks = [];
   Map<String, (int, int)> _deckCounts = {};
@@ -66,9 +66,9 @@ class _DeckListScreenState extends State<DeckListScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _hasLoaded = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load decks: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load decks: $e')));
       }
     }
   }
@@ -102,10 +102,12 @@ class _DeckListScreenState extends State<DeckListScreen> {
 
   Widget _buildDeckList() {
     if (_rootDecks.isEmpty) {
-      return EmptyDeckState(onCreateDeck: () async {
-        await context.push(Routes.deckNew);
-        _loadDecks();
-      });
+      return EmptyDeckState(
+        onCreateDeck: () async {
+          await context.push(Routes.deckNew);
+          _loadDecks();
+        },
+      );
     }
 
     return ListView.builder(

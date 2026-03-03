@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
-import 'package:lapse/features/decks/data/deck_repository.dart';
+import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 
-class DeckFormScreen extends StatefulWidget {
+class DeckFormScreen extends ConsumerStatefulWidget {
   final Deck? deck;
   final String? parentId;
 
@@ -17,16 +18,15 @@ class DeckFormScreen extends StatefulWidget {
   bool get isEditing => deck != null;
 
   @override
-  State<DeckFormScreen> createState() => _DeckFormScreenState();
+  ConsumerState<DeckFormScreen> createState() => _DeckFormScreenState();
 }
 
-class _DeckFormScreenState extends State<DeckFormScreen> {
+class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
   static const int maxDeckNameLength = 50;
 
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  // TODO: Replace with state management provider
-  final _repo = DeckRepository();
+  DeckRepository get _repo => ref.read(deckRepositoryProvider);
   bool _saving = false;
 
   @override
@@ -47,7 +47,9 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
 
     try {
       final name = _nameController.text.trim();
-      final parentId = widget.isEditing ? widget.deck!.parentId : widget.parentId;
+      final parentId = widget.isEditing
+          ? widget.deck!.parentId
+          : widget.parentId;
       final duplicate = await _repo.nameExistsAtLevel(
         name: name,
         parentId: parentId,
@@ -57,7 +59,9 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
         if (mounted) {
           setState(() => _saving = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('A deck with this name already exists here')),
+            const SnackBar(
+              content: Text('A deck with this name already exists here'),
+            ),
           );
         }
         return;
@@ -65,11 +69,9 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
 
       if (widget.isEditing) {
         final updated = widget.deck!.copyWith(deckName: name);
-        // TODO: Replace with state management provider
         await _repo.update(updated);
       } else {
         final deck = Deck.create(deckName: name, parentId: widget.parentId);
-        // TODO: Replace with state management provider
         await _repo.create(deck);
       }
       if (mounted) context.pop();
@@ -82,13 +84,13 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
     final confirmed = await ConfirmDialog.show(
       context: context,
       title: 'Delete deck?',
-      message: 'This will permanently remove "${widget.deck!.deckName}" and all its cards.',
+      message:
+          'This will permanently remove "${widget.deck!.deckName}" and all its cards.',
       confirmLabel: 'Delete',
       isDestructive: true,
     );
     if (!confirmed || !mounted) return;
 
-    // TODO: Replace with state management provider
     await _repo.delete(widget.deck!.deckId);
     if (mounted) context.go(Routes.home);
   }
@@ -123,8 +125,9 @@ class _DeckFormScreenState extends State<DeckFormScreen> {
                   labelText: 'Deck name',
                   hintText: 'e.g. Spanish Vocabulary',
                 ),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Name is required' : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Name is required'
+                    : null,
               ),
               const SizedBox(height: Spacing.xl),
               ElevatedButton(
