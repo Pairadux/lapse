@@ -24,19 +24,28 @@ class FsrsService {
       final result = _scheduler.reviewCard(fsrsCard, _toFsrsRating(rating));
       final updatedFsrsCard = result.card;
 
+      // Helper to sanitize double values
+      double safeDouble(double? value) {
+        if (value == null || value.isNaN || value.isInfinite) return 0.0;
+        return value;
+      }
+
       // Calculate intervals for tracking
       int elapsedDays = 0;
       int scheduledDays = 0;
       if (card.lastReview != null) {
         elapsedDays = DateTime.now().difference(card.lastReview!).inDays;
       }
-      scheduledDays = updatedFsrsCard.due.difference(DateTime.now()).inDays;
+
+      // Safely compute scheduledDays — FSRS may produce extreme due dates for easy ratings on new cards
+      final dueDiff = updatedFsrsCard.due.difference(DateTime.now()).inDays;
+      scheduledDays = dueDiff.clamp(0, 36500); // Cap at ~100 years
 
       // Update card with FSRS results and tracking info
       final updatedCard = card.copyWith(
         dueDate: updatedFsrsCard.due,
-        stability: updatedFsrsCard.stability ?? 0,
-        difficulty: updatedFsrsCard.difficulty ?? 0,
+        stability: safeDouble(updatedFsrsCard.stability),
+        difficulty: safeDouble(updatedFsrsCard.difficulty),
         elapsedDays: elapsedDays,
         scheduledDays: scheduledDays,
         cardState: _updateCardState(rating),
@@ -61,7 +70,12 @@ class FsrsService {
   }
 
   /// Convert Flashcard to fsrs Card (only relevant fields)
+  /// For new cards (reps == 0), use FSRS library defaults to avoid NaN/Infinity errors
   fsrs.Card _toFsrsCard(Flashcard card) {
+    if (card.reps == 0) {
+      // New card — let FSRS use its own defaults
+      return fsrs.Card(cardId: int.tryParse(card.cardId) ?? card.cardId.hashCode, due: card.dueDate);
+    }
     return fsrs.Card(
       cardId: int.tryParse(card.cardId) ?? card.cardId.hashCode,
       due: card.dueDate,
