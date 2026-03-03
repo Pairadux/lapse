@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
@@ -214,12 +215,13 @@ class _CardFormScreenState extends State<CardFormScreen> {
                     controller: _frontController,
                     focusNode: _frontFocus,
                     autofocus: true,
+                    onChanged: (_) => setState(() {}),
                     maxLines: 4,
                     maxLength: maxCardTextLength,
                     maxLengthEnforcement: MaxLengthEnforcement.enforced,
                     decoration: const InputDecoration(
                       labelText: 'Front',
-                      hintText: 'Question or prompt',
+                      hintText: 'Question or prompt (Markdown supported)',
                       alignLabelWithHint: true,
                     ),
                     validator: (value) =>
@@ -228,16 +230,63 @@ class _CardFormScreenState extends State<CardFormScreen> {
                   const SizedBox(height: Spacing.lg),
                   TextFormField(
                     controller: _backController,
+                    onChanged: (_) => setState(() {}),
                     maxLines: 4,
                     maxLength: maxCardTextLength,
                     maxLengthEnforcement: MaxLengthEnforcement.enforced,
                     decoration: const InputDecoration(
                       labelText: 'Back',
-                      hintText: 'Answer',
+                      hintText: 'Answer (Markdown supported)',
                       alignLabelWithHint: true,
                     ),
                     validator: (value) =>
                         (value == null || value.trim().isEmpty) ? 'Back is required' : null,
+                  ),
+                  const SizedBox(height: Spacing.lg),
+                  Text(
+                    'Markdown examples: **bold**, *italic*, `code`, - list item',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                  ),
+                  const SizedBox(height: Spacing.md),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(Spacing.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Live Preview',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: Spacing.sm),
+                          Text(
+                            'Front',
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                          ),
+                          MarkdownBody(
+                            data: _frontController.text.trim().isEmpty
+                                ? '_Front preview_'
+                                : _frontController.text,
+                          ),
+                          const SizedBox(height: Spacing.md),
+                          Text(
+                            'Back',
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                          ),
+                          MarkdownBody(
+                            data: _backController.text.trim().isEmpty
+                                ? '_Back preview_'
+                                : _backController.text,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: Spacing.xl),
                   if (!widget.isEditing) ...[

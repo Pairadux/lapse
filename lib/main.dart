@@ -58,12 +58,7 @@ class LapseApp extends StatelessWidget {
           );
         }
 
-        // Suppress macOS NSBeep for key events unhandled by any widget
-        return Focus(
-          canRequestFocus: false,
-          onKeyEvent: (_, event) => KeyEventResult.handled,
-          child: content,
-        );
+        return content;
       },
     );
   }

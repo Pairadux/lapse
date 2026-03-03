@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
@@ -415,24 +416,29 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
   }
 
   KeyEventResult _handleKeyPress(KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.handled;
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
     if (!_showingAnswer) {
       if (event.logicalKey == LogicalKeyboardKey.space) {
         _flipCard();
+        return KeyEventResult.handled;
       }
     } else {
       if (event.logicalKey == LogicalKeyboardKey.digit1) {
         _rateCard(Rating.again);
+        return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
         _rateCard(Rating.hard);
+        return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
         _rateCard(Rating.good);
+        return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
         _rateCard(Rating.easy);
+        return KeyEventResult.handled;
       }
     }
-    return KeyEventResult.handled;
+    return KeyEventResult.ignored;
   }
 
   Widget _buildStudyCard() {
@@ -466,10 +472,21 @@ class _StudySessionScreenState extends State<StudySessionScreen> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      _showingAnswer ? _currentCard.back : _currentCard.front,
-                                      style: Theme.of(context).textTheme.headlineSmall,
-                                      textAlign: TextAlign.center,
+                                    MarkdownBody(
+                                      data: _showingAnswer
+                                          ? _currentCard.back
+                                          : _currentCard.front,
+                                      styleSheet: MarkdownStyleSheet.fromTheme(
+                                        Theme.of(context),
+                                      ).copyWith(
+                                        p: Theme.of(context).textTheme.headlineSmall,
+                                        textAlign: WrapAlignment.center,
+                                        listBullet: Theme.of(context).textTheme.headlineSmall,
+                                        blockquote: Theme.of(context)
+                                            .textTheme
+                                            .headlineSmall
+                                            ?.copyWith(color: AppColors.textSecondary),
+                                      ),
                                     ),
                                     const SizedBox(height: Spacing.xl),
                                     Text(
