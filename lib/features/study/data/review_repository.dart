@@ -11,13 +11,13 @@ class ReviewRepository {
   Future<void> addReview(Review review) async {
     // Validation logic
     if (review.cardId.trim().isEmpty) {
-      throw Exception('cardId cannot be empty or whitespace');
+      throw ArgumentError('cardId cannot be empty or whitespace');
     }
     if (review.scheduledDays < 0) {
-      throw Exception('scheduledDays cannot be negative');
+      throw ArgumentError('scheduledDays cannot be negative');
     }
     if (review.elapsedDays < 0) {
-      throw Exception('elapsedDays cannot be negative');
+      throw ArgumentError('elapsedDays cannot be negative');
     }
 
     final db = await _dbHelper.database;
