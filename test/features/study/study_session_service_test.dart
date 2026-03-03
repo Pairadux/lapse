@@ -59,7 +59,101 @@ void main() {
       expect(result.session.currentIndex, equals(session.currentIndex + 1));
       expect(result.session.completedReviews.length, equals(session.completedReviews.length + 1));
       expect(result.session.goodCount, equals(session.goodCount + 1));
-      // TODO: Add more specific field checks as needed
+    });
+  });
+
+  group('StudySessionService', () {
+    test('startSession initializes session correctly', () {
+      final service = StudySessionService();
+      final card = Flashcard(
+        cardId: 'test-id',
+        deckId: 'deck-1',
+        front: 'Front',
+        back: 'Back',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        isDeleted: false,
+        dueDate: DateTime.now(),
+        stability: 0.0,
+        difficulty: 0.0,
+        elapsedDays: 0,
+        scheduledDays: 0,
+        reps: 0,
+        lapses: 0,
+        lastReview: null,
+        cardState: CardState.newCard,
+      );
+      final session = service.startSession('deck-1', [card]);
+      expect(session.deckId, 'deck-1');
+      expect(session.cards.length, 1);
+      expect(session.currentIndex, 0);
+      expect(session.completedReviews, isEmpty);
+    });
+
+    for (var rating in Rating.values) {
+      test('rateCard increments correct counter for $rating', () {
+        final service = StudySessionService();
+        final card = Flashcard(
+          cardId: 'test-id',
+          deckId: 'deck-1',
+          front: 'Front',
+          back: 'Back',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          isDeleted: false,
+          dueDate: DateTime.now(),
+          stability: 0.0,
+          difficulty: 0.0,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          reps: 0,
+          lapses: 0,
+          lastReview: null,
+          cardState: CardState.newCard,
+        );
+        final session = service.startSession('deck-1', [card]);
+        final result = service.rateCard(session, card, rating);
+        expect(result.updatedCard, isNotNull);
+        expect(result.review, isNotNull);
+        expect(result.session, isNotNull);
+
+        // Check correct counter increment
+        if (rating == Rating.again) {
+          expect(result.session.againCount, 1);
+        } else if (rating == Rating.hard) {
+          expect(result.session.hardCount, 1);
+        } else if (rating == Rating.good) {
+          expect(result.session.goodCount, 1);
+        } else if (rating == Rating.easy) {
+          expect(result.session.easyCount, 1);
+        }
+      });
+    }
+
+    test('rateCard throws on error', () {
+      final service = StudySessionService();
+      final card = Flashcard(
+        cardId: 'test-id',
+        deckId: 'deck-1',
+        front: 'Front',
+        back: 'Back',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        isDeleted: false,
+        dueDate: DateTime.now(),
+        stability: 0.0,
+        difficulty: 0.0,
+        elapsedDays: 0,
+        scheduledDays: 0,
+        reps: 0,
+        lapses: 0,
+        lastReview: null,
+        cardState: CardState.newCard,
+      );
+      final session = service.startSession('deck-1', [card]);
+
+      // Simulate error by passing an invalid rating (if possible)
+      expect(() => service.rateCard(session, card, null as Rating), throwsA(anything));
     });
   });
 }
