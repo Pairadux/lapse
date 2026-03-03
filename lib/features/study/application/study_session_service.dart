@@ -25,13 +25,14 @@ class StudySessionService {
     );
   }
 
-  /// Process card rating, update scheduling with FSRS, and advance session
+  /// Process card rating, update scheduling with FSRS, and advance session.
+  /// Learning/relearning cards are re-queued at the end of the session.
   StudySessionResult rateCard(StudySession session, Flashcard card, Rating rating) {
     try {
       final result = _fsrsService.processReview(card, rating);
 
       return StudySessionResult(
-        session: _buildUpdatedSession(session, result.review, rating),
+        session: _buildUpdatedSession(session, result.review, rating, result.updatedCard),
         updatedCard: result.updatedCard,
         review: result.review,
       );
@@ -40,8 +41,12 @@ class StudySessionService {
     }
   }
 
-  // Helper to construct the new StudySession state
-  StudySession _buildUpdatedSession(StudySession session, Review review, Rating rating) {
+  StudySession _buildUpdatedSession(
+    StudySession session,
+    Review review,
+    Rating rating,
+    Flashcard updatedCard,
+  ) {
     int againCount = session.againCount;
     int hardCount = session.hardCount;
     int goodCount = session.goodCount;
@@ -64,9 +69,17 @@ class StudySessionService {
 
     final updatedCompletedReviews = List<Review>.from(session.completedReviews)..add(review);
 
+    // Re-queue learning/relearning cards at the end so they reappear this session
+    final updatedCards = List<Flashcard>.from(session.cards);
+    final stillLearning = updatedCard.cardState == CardState.learning ||
+        updatedCard.cardState == CardState.relearning;
+    if (stillLearning) {
+      updatedCards.add(updatedCard);
+    }
+
     return StudySession(
       deckId: session.deckId,
-      cards: session.cards,
+      cards: updatedCards,
       currentIndex: session.currentIndex + 1,
       completedReviews: updatedCompletedReviews,
       startedAt: session.startedAt,
