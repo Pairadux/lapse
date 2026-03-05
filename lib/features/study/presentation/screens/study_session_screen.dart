@@ -677,22 +677,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
             ),
             const SizedBox(height: Spacing.lg),
           ] else
-            // Hint text for swipe directions on mobile.
-            Padding(
-              padding: const EdgeInsets.only(
-                bottom: Spacing.md,
-                top: Spacing.sm,
-              ),
-              child: _showingAnswer
-                  ? Text(
-                      'Swipe to rate',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: AppColors.textTertiary),
-                    )
-                  : const SizedBox.shrink(),
-            ),
+            const SizedBox(height: Spacing.lg),
         ],
       ),
     );
