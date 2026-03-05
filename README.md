@@ -66,4 +66,4 @@ This project is in active development as a school project. See `docs/` for AI us
 
 ## License
 
-All rights reserved. This source code is provided for viewing purposes only. No permission is granted to use, copy, modify, or distribute this software.
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
