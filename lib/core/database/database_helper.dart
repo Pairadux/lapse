@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'database_constants.dart';
@@ -25,8 +28,20 @@ class DatabaseHelper {
     return _database!;
   }
 
+  /// On Android, [getDatabasesPath] returns the standard app database
+  /// directory. On iOS and desktop, [getApplicationSupportDirectory] returns
+  /// the platform-idiomatic location (Library/Application Support on
+  /// iOS/macOS, ~/.local/share on Linux, %APPDATA% on Windows). The desktop
+  /// FFI backend's [getDatabasesPath] returns "." (the CWD), which is
+  /// unwritable for packaged installs.
   Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
+    final String dbPath;
+    if (Platform.isAndroid) {
+      dbPath = await getDatabasesPath();
+    } else {
+      final dir = await getApplicationSupportDirectory();
+      dbPath = dir.path;
+    }
     final path = join(dbPath, _dbName);
     return openDatabase(
       path,
