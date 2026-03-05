@@ -72,7 +72,8 @@ class StudySessionScreen extends ConsumerStatefulWidget {
   ConsumerState<StudySessionScreen> createState() => _StudySessionScreenState();
 }
 
-class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
+class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
+    with SingleTickerProviderStateMixin {
   CardRepository get _cardRepo => ref.read(cardRepositoryProvider);
   ReviewRepository get _reviewRepo => ref.read(reviewRepositoryProvider);
   final _studySessionService = StudySessionService();
@@ -80,6 +81,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
 
   // Fix: FocusNode leak, stores it as a state variable
   late final FocusNode _focusNode;
+
+  // Desktop dismiss animation — slides card off-screen left on rate.
+  late final AnimationController _dismissController;
+  double _dismissOffset = 0;
 
   bool _isProcessing = false;
 
@@ -112,13 +117,19 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+    _dismissController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    )..addListener(() {
+        setState(() => _dismissOffset = _dismissController.value);
+      });
     _loadCards();
   }
 
-  // Fix: Memory managements, clears the node
   @override
   void dispose() {
     _focusNode.dispose();
+    _dismissController.dispose();
     super.dispose();
   }
 
@@ -159,6 +170,18 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     setState(() {
       _showingAnswer = true;
     });
+  }
+
+  /// Desktop only: animate card off-screen left, then perform the rating.
+  Future<void> _dismissAndRate(Rating rating) async {
+    if (_isProcessing) return;
+    _dismissController.reset();
+    await _dismissController.forward();
+    // Reset offset BEFORE _rateCard's setState so the new card
+    // renders at origin, not still translated off-screen.
+    _dismissOffset = 0;
+    _dismissController.reset();
+    await _rateCard(rating);
   }
 
   Future<void> _rateCard(Rating rating) async {
@@ -525,16 +548,16 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
       }
     } else {
       if (event.logicalKey == LogicalKeyboardKey.digit1) {
-        _rateCard(Rating.again);
+        _dismissAndRate(Rating.again);
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
-        _rateCard(Rating.hard);
+        _dismissAndRate(Rating.hard);
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
-        _rateCard(Rating.good);
+        _dismissAndRate(Rating.good);
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
-        _rateCard(Rating.easy);
+        _dismissAndRate(Rating.easy);
         return KeyEventResult.handled;
       }
     }
@@ -625,11 +648,24 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
           Expanded(
             child: CardStack(
               remainingCards: remaining,
-              topCard: MouseRegion(
-                cursor: _showingAnswer
-                    ? SystemMouseCursors.basic
-                    : SystemMouseCursors.click,
-                child: flipCard,
+              dismissProgress: _dismissOffset,
+              topCard: LayoutBuilder(
+                builder: (context, constraints) {
+                  final dx = -constraints.maxWidth *
+                      Curves.easeIn.transform(_dismissOffset);
+                  return Transform.translate(
+                    offset: Offset(dx, 0),
+                    child: Opacity(
+                      opacity: 1.0 - _dismissOffset,
+                      child: MouseRegion(
+                        cursor: _showingAnswer
+                            ? SystemMouseCursors.basic
+                            : SystemMouseCursors.click,
+                        child: flipCard,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -663,34 +699,37 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
   }
 
   Widget _buildRatingButtons() {
+    // Fade from full → dimmed as dismiss animation plays.
+    final baseOpacity = _showingAnswer ? 1.0 : 0.3;
+    final opacity = baseOpacity - (_dismissOffset * (baseOpacity - 0.3));
     return Opacity(
-      opacity: _showingAnswer ? 1.0 : 0.3,
+      opacity: opacity,
       child: IgnorePointer(
-        ignoring: !_showingAnswer,
+        ignoring: !_showingAnswer || _dismissOffset > 0,
         child: Row(
           children: [
             _RatingButton(
               label: 'Again',
               color: AppColors.ratingAgain,
-              onPressed: () async => await _rateCard(Rating.again),
+              onPressed: () => _dismissAndRate(Rating.again),
             ),
             const SizedBox(width: Spacing.sm),
             _RatingButton(
               label: 'Hard',
               color: AppColors.ratingHard,
-              onPressed: () async => await _rateCard(Rating.hard),
+              onPressed: () => _dismissAndRate(Rating.hard),
             ),
             const SizedBox(width: Spacing.sm),
             _RatingButton(
               label: 'Good',
               color: AppColors.ratingGood,
-              onPressed: () async => await _rateCard(Rating.good),
+              onPressed: () => _dismissAndRate(Rating.good),
             ),
             const SizedBox(width: Spacing.sm),
             _RatingButton(
               label: 'Easy',
               color: AppColors.ratingEasy,
-              onPressed: () async => await _rateCard(Rating.easy),
+              onPressed: () => _dismissAndRate(Rating.easy),
             ),
           ],
         ),
