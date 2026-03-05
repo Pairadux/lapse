@@ -1,0 +1,15 @@
+cask "lapse" do
+  version "%%VERSION%%"
+  sha256 "%%SHA256%%"
+
+  url "https://github.com/Pairadux/lapse/releases/download/v#{version}/lapse-#{version}-macos-arm64.dmg"
+  name "Lapse"
+  desc "A spaced repetition flashcard app"
+  homepage "https://github.com/Pairadux/lapse"
+
+  app "lapse.app"
+
+  zap trash: [
+    "~/Library/Application Support/com.example.lapse",
+  ]
+end
