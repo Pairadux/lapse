@@ -206,6 +206,38 @@ The `isDesktop` getter lives in `page_transitions.dart` and is also imported by 
 
 ---
 
+### Study Session — Swipe-to-Rate & Card Stack Visual
+
+**Status:** In progress (`feat/study-swipe` branch).
+
+**Visual changes (all platforms):**
+- Radial gradient background behind card area: `AppColors.primary` (violet) bottom-left, `AppColors.secondary` (pink) top-right, low opacity — matching the logo palette
+- Card stack illusion: 1-2 offset "shadow" cards behind the active card (down-right offset, decreasing opacity) mimicking the logo's letter-echo effect
+- Subtle horizontal 3D flip animation (~250ms) when revealing the answer — front rotates to edge, back rotates in un-mirrored
+- Card has margin exposing gradient edges
+
+**Touch-only changes (iOS/Android):**
+- Swipe-to-rate replaces the button row. Tap to flip, then swipe to rate (cannot swipe before flip)
+- Direction → rating mapping (Tinder-style):
+  - **Right** → Good (green) — most common positive action
+  - **Left** → Hard (amber) — most common negative action
+  - **Up** → Easy (blue) — ascending = instant recall
+  - **Down** → Again (red) — banishing = forgot
+- Card follows finger freely with slight rotation and scale-up ("coming forward" from the stack)
+- Rating label fades in at card edge during drag, colored border shows intent
+- 25% screen dimension threshold to commit; below that, card snaps back
+
+**Desktop unchanged:** Keyboard shortcuts (Space to flip, 1-4 to rate) and button row remain.
+
+**Widgets:**
+- `lib/features/study/presentation/widgets/flip_card.dart` — 3D flip animation
+- `lib/features/study/presentation/widgets/swipeable_card.dart` — pan gesture + swipe-to-rate
+- `lib/features/study/presentation/widgets/card_stack.dart` — gradient background + shadow cards
+
+**Known UX issue (unrelated, noted for future):** Card creation preview pane pushes save button off-screen on mobile. Consider showing markdown preview inline in the editing pane instead of below it.
+
+---
+
 ### Tester-Verified Behavior (2026-02-13)
 
 The following were confirmed working correctly by an external tester:

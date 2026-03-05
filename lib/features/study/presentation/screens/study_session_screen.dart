@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lapse/core/routing/page_transitions.dart' show isDesktop;
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
@@ -12,6 +13,9 @@ import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/data/review_repository_provider.dart';
 import 'package:lapse/features/study/application/study_session_service.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
+import 'package:lapse/features/study/presentation/widgets/card_stack.dart';
+import 'package:lapse/features/study/presentation/widgets/flip_card.dart';
+import 'package:lapse/features/study/presentation/widgets/swipeable_card.dart';
 
 /// Snapshot of FSRS-relevant card fields for debug comparison.
 class _CardSnapshot {
@@ -537,93 +541,123 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     return KeyEventResult.ignored;
   }
 
+  Widget _buildCardContent(String text) {
+    return Card(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.xl),
+                  child: MarkdownBody(
+                    data: text,
+                    styleSheet: MarkdownStyleSheet.fromTheme(
+                      Theme.of(context),
+                    ).copyWith(
+                      p: Theme.of(context).textTheme.headlineSmall,
+                      textAlign: WrapAlignment.center,
+                      listBullet: Theme.of(context).textTheme.headlineSmall,
+                      blockquote: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildStudyCard() {
     // Fix: Requests focus after build finishes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_focusNode.canRequestFocus) _focusNode.requestFocus();
     });
 
+    final remaining = _cards.length - _currentIndex;
+
+    Widget flipCard = FlipCard(
+      key: ValueKey(_currentIndex),
+      isFlipped: _showingAnswer,
+      onFlip: _flipCard,
+      front: Stack(
+        children: [
+          Positioned.fill(child: _buildCardContent(_currentCard.front)),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: Spacing.lg,
+            child: Text(
+              'Tap to reveal',
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: AppColors.textTertiary),
+            ),
+          ),
+        ],
+      ),
+      back: _buildCardContent(_currentCard.back),
+    );
+
+    // On touch platforms, wrap with swipe gesture.
+    if (!isDesktop) {
+      flipCard = SwipeableCard(
+        enabled: _showingAnswer,
+        onRate: _rateCard,
+        child: flipCard,
+      );
+    }
+
     return Focus(
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: (_, event) => _handleKeyPress(event),
-      child: Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: Column(
-          children: [
-            Expanded(
-              child: MouseRegion(
+      child: Column(
+        children: [
+          Expanded(
+            child: CardStack(
+              remainingCards: remaining,
+              topCard: MouseRegion(
                 cursor: _showingAnswer
                     ? SystemMouseCursors.basic
                     : SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: _showingAnswer ? null : _flipCard,
-                  child: Card(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight,
-                            ),
-                            child: Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(Spacing.xl),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    MarkdownBody(
-                                      data: _showingAnswer
-                                          ? _currentCard.back
-                                          : _currentCard.front,
-                                      styleSheet:
-                                          MarkdownStyleSheet.fromTheme(
-                                            Theme.of(context),
-                                          ).copyWith(
-                                            p: Theme.of(
-                                              context,
-                                            ).textTheme.headlineSmall,
-                                            textAlign: WrapAlignment.center,
-                                            listBullet: Theme.of(
-                                              context,
-                                            ).textTheme.headlineSmall,
-                                            blockquote: Theme.of(context)
-                                                .textTheme
-                                                .headlineSmall
-                                                ?.copyWith(
-                                                  color:
-                                                      AppColors.textSecondary,
-                                                ),
-                                          ),
-                                    ),
-                                    const SizedBox(height: Spacing.xl),
-                                    Text(
-                                      _showingAnswer
-                                          ? ''
-                                          : 'Tap or press Space to reveal',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: AppColors.textTertiary,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
+                child: flipCard,
               ),
             ),
+          ),
+          if (isDesktop) ...[
             const SizedBox(height: Spacing.lg),
-            _buildRatingButtons(),
-          ],
-        ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+              child: _buildRatingButtons(),
+            ),
+            const SizedBox(height: Spacing.lg),
+          ] else
+            // Hint text for swipe directions on mobile.
+            Padding(
+              padding: const EdgeInsets.only(
+                bottom: Spacing.md,
+                top: Spacing.sm,
+              ),
+              child: _showingAnswer
+                  ? Text(
+                      'Swipe to rate',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: AppColors.textTertiary),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+        ],
       ),
     );
   }
