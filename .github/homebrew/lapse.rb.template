@@ -10,6 +10,6 @@ cask "lapse" do
   app "lapse.app"
 
   zap trash: [
-    "~/Library/Application Support/com.example.lapse",
+    "~/Library/Application Support/co.lapseapp.lapse",
   ]
 end
