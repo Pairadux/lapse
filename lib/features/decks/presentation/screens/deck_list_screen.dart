@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -77,6 +78,12 @@ class _DeckListScreenState extends ConsumerState<DeckListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: kDebugMode
+              ? () => Scaffold.of(context).openDrawer()
+              : null,
+        ),
         title: const Text('Decks'),
         actions: [
           IconButton(
@@ -85,7 +92,7 @@ class _DeckListScreenState extends ConsumerState<DeckListScreen> {
           ),
         ],
       ),
-      drawer: DevDrawer(onDataChanged: _loadDecks),
+      drawer: kDebugMode ? DevDrawer(onDataChanged: _loadDecks) : null,
       body: (!_hasLoaded && _rootDecks.isEmpty)
           ? const SizedBox.shrink()
           : _buildDeckList(),

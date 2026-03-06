@@ -42,14 +42,40 @@ lib/
 └── main.dart
 ```
 
-## Getting Started
+## Installation
+
+### macOS (Homebrew)
+
+```bash
+brew tap Pairadux/lapse
+brew install --cask lapse
+```
+
+### Arch Linux (AUR)
+
+```bash
+yay -S lapse-appimage
+```
+
+### Windows
+
+Download the latest `.zip` from [GitHub Releases](https://github.com/Pairadux/lapse/releases), extract, and run `lapse.exe`.
+
+### Linux (Other)
+
+Download the latest `.AppImage` from [GitHub Releases](https://github.com/Pairadux/lapse/releases), make it executable, and run it:
+
+```bash
+chmod +x lapse-*.AppImage
+./lapse-*.AppImage
+```
+
+## Building from Source
 
 ### Prerequisites
 
 - Flutter SDK
 - Dart SDK
-
-### Build & Run
 
 ```bash
 git clone https://github.com/Pairadux/lapse.git

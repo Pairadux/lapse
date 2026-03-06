@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../routing/routes.dart';
-import 'dev_drawer.dart';
 
 class AppScaffold extends StatelessWidget {
   final String title;
@@ -49,7 +48,6 @@ class AppScaffold extends StatelessWidget {
             ),
         ],
       ),
-      drawer: const DevDrawer(),
       body: body,
       floatingActionButton: floatingActionButton,
     );
