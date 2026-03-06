@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lapse/core/routing/page_transitions.dart' show isDesktop;
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
@@ -12,6 +13,9 @@ import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/data/review_repository_provider.dart';
 import 'package:lapse/features/study/application/study_session_service.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
+import 'package:lapse/features/study/presentation/widgets/card_stack.dart';
+import 'package:lapse/features/study/presentation/widgets/flip_card.dart';
+import 'package:lapse/features/study/presentation/widgets/swipeable_card.dart';
 
 /// Snapshot of FSRS-relevant card fields for debug comparison.
 class _CardSnapshot {
@@ -68,7 +72,8 @@ class StudySessionScreen extends ConsumerStatefulWidget {
   ConsumerState<StudySessionScreen> createState() => _StudySessionScreenState();
 }
 
-class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
+class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
+    with SingleTickerProviderStateMixin {
   CardRepository get _cardRepo => ref.read(cardRepositoryProvider);
   ReviewRepository get _reviewRepo => ref.read(reviewRepositoryProvider);
   final _studySessionService = StudySessionService();
@@ -76,6 +81,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
 
   // Fix: FocusNode leak, stores it as a state variable
   late final FocusNode _focusNode;
+
+  // Desktop dismiss animation — slides card off-screen left on rate.
+  late final AnimationController _dismissController;
+  double _dismissOffset = 0;
 
   bool _isProcessing = false;
 
@@ -108,13 +117,19 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+    _dismissController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    )..addListener(() {
+        setState(() => _dismissOffset = _dismissController.value);
+      });
     _loadCards();
   }
 
-  // Fix: Memory managements, clears the node
   @override
   void dispose() {
     _focusNode.dispose();
+    _dismissController.dispose();
     super.dispose();
   }
 
@@ -157,6 +172,18 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
     });
   }
 
+  /// Desktop only: animate card off-screen left, then perform the rating.
+  Future<void> _dismissAndRate(Rating rating) async {
+    if (_isProcessing) return;
+    _dismissController.reset();
+    await _dismissController.forward();
+    // Don't reset _dismissOffset here — keep the card off-screen until
+    // _rateCard's setState atomically swaps to the next card.
+    await _rateCard(rating);
+    // Controller can now be reset safely (the card has already changed).
+    _dismissController.reset();
+  }
+
   Future<void> _rateCard(Rating rating) async {
     if (_isProcessing) return;
     _isProcessing = true;
@@ -171,6 +198,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
       await _reviewRepo.addReview(result.review);
       final after = _CardSnapshot.fromCard(result.updatedCard);
       setState(() {
+        // Reset dismiss offset atomically with card change so the old
+        // card never reappears at center between animation and swap.
+        _dismissOffset = 0;
         _session = result.session;
         _cards = result.session.cards;
         _ratingCounts[rating] = _ratingCounts[rating]! + 1;
@@ -521,20 +551,53 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
       }
     } else {
       if (event.logicalKey == LogicalKeyboardKey.digit1) {
-        _rateCard(Rating.again);
+        _dismissAndRate(Rating.again);
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
-        _rateCard(Rating.hard);
+        _dismissAndRate(Rating.hard);
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
-        _rateCard(Rating.good);
+        _dismissAndRate(Rating.good);
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
-        _rateCard(Rating.easy);
+        _dismissAndRate(Rating.easy);
         return KeyEventResult.handled;
       }
     }
     return KeyEventResult.ignored;
+  }
+
+  Widget _buildCardContent(String text) {
+    return Card(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.xl),
+                  child: MarkdownBody(
+                    data: text,
+                    styleSheet: MarkdownStyleSheet.fromTheme(
+                      Theme.of(context),
+                    ).copyWith(
+                      p: Theme.of(context).textTheme.headlineSmall,
+                      textAlign: WrapAlignment.center,
+                      listBullet: Theme.of(context).textTheme.headlineSmall,
+                      blockquote: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildStudyCard() {
@@ -543,120 +606,121 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> {
       if (_focusNode.canRequestFocus) _focusNode.requestFocus();
     });
 
+    final remaining = _cards.length - _currentIndex;
+
+    Widget flipCard = FlipCard(
+      key: ValueKey(_currentIndex),
+      isFlipped: _showingAnswer,
+      onFlip: _flipCard,
+      front: Stack(
+        children: [
+          Positioned.fill(child: _buildCardContent(_currentCard.front)),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: Spacing.lg,
+            child: Text(
+              'Tap to reveal',
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: AppColors.textTertiary),
+            ),
+          ),
+        ],
+      ),
+      back: _buildCardContent(_currentCard.back),
+    );
+
+    // On touch platforms, wrap with swipe gesture.
+    // Key ensures a fresh SwipeableCard state per card — the old one stays
+    // off-screen until _rateCard's setState swaps _currentIndex.
+    if (!isDesktop) {
+      flipCard = SwipeableCard(
+        key: ValueKey('swipe_$_currentIndex'),
+        enabled: _showingAnswer,
+        onRate: _rateCard,
+        child: flipCard,
+      );
+    }
+
     return Focus(
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: (_, event) => _handleKeyPress(event),
-      child: Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: Column(
-          children: [
-            Expanded(
-              child: MouseRegion(
-                cursor: _showingAnswer
-                    ? SystemMouseCursors.basic
-                    : SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: _showingAnswer ? null : _flipCard,
-                  child: Card(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return SingleChildScrollView(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight,
-                            ),
-                            child: Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(Spacing.xl),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    MarkdownBody(
-                                      data: _showingAnswer
-                                          ? _currentCard.back
-                                          : _currentCard.front,
-                                      styleSheet:
-                                          MarkdownStyleSheet.fromTheme(
-                                            Theme.of(context),
-                                          ).copyWith(
-                                            p: Theme.of(
-                                              context,
-                                            ).textTheme.headlineSmall,
-                                            textAlign: WrapAlignment.center,
-                                            listBullet: Theme.of(
-                                              context,
-                                            ).textTheme.headlineSmall,
-                                            blockquote: Theme.of(context)
-                                                .textTheme
-                                                .headlineSmall
-                                                ?.copyWith(
-                                                  color:
-                                                      AppColors.textSecondary,
-                                                ),
-                                          ),
-                                    ),
-                                    const SizedBox(height: Spacing.xl),
-                                    Text(
-                                      _showingAnswer
-                                          ? ''
-                                          : 'Tap or press Space to reveal',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: AppColors.textTertiary,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+      child: Column(
+        children: [
+          Expanded(
+            child: CardStack(
+              remainingCards: remaining,
+              dismissProgress: _dismissOffset,
+              topCard: LayoutBuilder(
+                builder: (context, constraints) {
+                  final dx = -constraints.maxWidth *
+                      Curves.easeIn.transform(_dismissOffset);
+                  return Transform.translate(
+                    offset: Offset(dx, 0),
+                    child: Opacity(
+                      opacity: 1.0 - _dismissOffset,
+                      child: MouseRegion(
+                        cursor: _showingAnswer
+                            ? SystemMouseCursors.basic
+                            : SystemMouseCursors.click,
+                        child: flipCard,
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
+          ),
+          if (isDesktop) ...[
             const SizedBox(height: Spacing.lg),
-            _buildRatingButtons(),
-          ],
-        ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+              child: _buildRatingButtons(),
+            ),
+            const SizedBox(height: Spacing.lg),
+          ] else
+            const SizedBox(height: Spacing.lg),
+        ],
       ),
     );
   }
 
   Widget _buildRatingButtons() {
+    // Fade from full → dimmed as dismiss animation plays.
+    final baseOpacity = _showingAnswer ? 1.0 : 0.3;
+    final opacity = baseOpacity - (_dismissOffset * (baseOpacity - 0.3));
     return Opacity(
-      opacity: _showingAnswer ? 1.0 : 0.3,
+      opacity: opacity,
       child: IgnorePointer(
-        ignoring: !_showingAnswer,
+        ignoring: !_showingAnswer || _dismissOffset > 0,
         child: Row(
           children: [
             _RatingButton(
               label: 'Again',
               color: AppColors.ratingAgain,
-              onPressed: () async => await _rateCard(Rating.again),
+              onPressed: () => _dismissAndRate(Rating.again),
             ),
             const SizedBox(width: Spacing.sm),
             _RatingButton(
               label: 'Hard',
               color: AppColors.ratingHard,
-              onPressed: () async => await _rateCard(Rating.hard),
+              onPressed: () => _dismissAndRate(Rating.hard),
             ),
             const SizedBox(width: Spacing.sm),
             _RatingButton(
               label: 'Good',
               color: AppColors.ratingGood,
-              onPressed: () async => await _rateCard(Rating.good),
+              onPressed: () => _dismissAndRate(Rating.good),
             ),
             const SizedBox(width: Spacing.sm),
             _RatingButton(
               label: 'Easy',
               color: AppColors.ratingEasy,
-              onPressed: () async => await _rateCard(Rating.easy),
+              onPressed: () => _dismissAndRate(Rating.easy),
             ),
           ],
         ),

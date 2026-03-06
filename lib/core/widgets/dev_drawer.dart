@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
@@ -216,6 +217,8 @@ class DevDrawer extends StatelessWidget {
             title: const Text('Clear Database'),
             onTap: () => _clearDatabase(context),
           ),
+          const Divider(),
+          const _AnimationSpeedSlider(),
         ],
       ),
     );
@@ -246,6 +249,54 @@ class _DrawerItem extends StatelessWidget {
         Navigator.pop(context);
         context.push(route);
       },
+    );
+  }
+}
+
+class _AnimationSpeedSlider extends StatefulWidget {
+  const _AnimationSpeedSlider();
+
+  @override
+  State<_AnimationSpeedSlider> createState() => _AnimationSpeedSliderState();
+}
+
+class _AnimationSpeedSliderState extends State<_AnimationSpeedSlider> {
+  double _dilation = timeDilation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.slow_motion_video, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Animation Slowdown',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const Spacer(),
+              Text(
+                _dilation == 1.0 ? 'Off' : '${_dilation.toStringAsFixed(1)}x slower',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          Slider(
+            value: _dilation,
+            min: 1.0,
+            max: 20.0,
+            divisions: 38,
+            onChanged: (value) {
+              setState(() => _dilation = value);
+              timeDilation = value;
+            },
+          ),
+        ],
+      ),
     );
   }
 }
