@@ -136,6 +136,30 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ---
 
+### Reduced Motion (Future Setting)
+
+**Status:** Planned, not yet implemented.
+
+**Future plan:** Add a user setting to reduce or disable animations app-wide. When enabled, flip animations would crossfade instead of 3D rotate, dismiss animations would be instant or very fast, and swipe gestures would snap rather than animate. Respects platform accessibility preferences (`MediaQuery.disableAnimations`) as a default.
+
+---
+
+### New Cards Daily Limit (Future Setting)
+
+**Status:** Planned, not yet implemented.
+
+**Future plan:** Cap how many new (unseen) cards a user studies per day, similar to Anki's default of ~20 new cards/day. Reviews of previously-seen cards are unlimited. Needs a setting for the limit value and tracking of how many new cards were introduced today.
+
+---
+
+### Splash / Launch Screen
+
+**Status:** Known issue — the native splash screen is stark white, which is jarring when the app uses dark mode.
+
+**Fix:** Update the native splash screen background to match `AppColors.background` (dark) for Android (`launch_background.xml`), iOS (`LaunchScreen.storyboard`), and optionally use `flutter_native_splash` for consistency.
+
+---
+
 ### Known Bugs
 
 - **Card count aggregation sometimes off (#44):** Aggregated card/due counts on parent decks occasionally show stale or incorrect numbers. Likely a timing issue with parallel Future.wait queries or stale state after mutations. Needs investigation.
@@ -233,6 +257,12 @@ The `isDesktop` getter lives in `page_transitions.dart` and is also imported by 
 - `lib/features/study/presentation/widgets/flip_card.dart` — 3D flip animation
 - `lib/features/study/presentation/widgets/swipeable_card.dart` — pan gesture + swipe-to-rate
 - `lib/features/study/presentation/widgets/card_stack.dart` — gradient background + shadow cards
+
+**Planned: First-launch tutorial popup (#109).** One-time overlay explaining swipe directions on mobile. Resettable from settings. Separate branch/PR.
+
+**Planned: Haptic feedback on touch devices.** Add subtle vibrations for swipe commit, card flip, and rating confirmation on iOS/Android. Use `HapticFeedback` from `flutter/services.dart` (light impact for flip, medium for swipe commit). No dependency needed — built into Flutter.
+
+**Shadow card content decision:** Keep shadow cards blank (Option B). Future improvement: crossfade new card content in over ~150ms after the shadow promotes to top position, so the blank→content transition feels intentional rather than jarring. No spoilers during drag.
 
 **Known UX issue (unrelated, noted for future):** Card creation preview pane pushes save button off-screen on mobile. Consider showing markdown preview inline in the editing pane instead of below it.
 

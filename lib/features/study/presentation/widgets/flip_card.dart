@@ -2,11 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// A card that flips horizontally to reveal its back side.
+/// A card that flips to reveal its back side.
 ///
-/// Tap to flip. The animation is a subtle 3D horizontal rotation (~250ms).
+/// Tap to flip. The animation is a subtle 3D rotation (~250ms).
 /// Front and back content swap at the midpoint so the back reads correctly
 /// (not mirrored).
+///
+/// The flip axis adapts to aspect ratio: horizontal flip (rotateY) in
+/// portrait, vertical flip (rotateX) in landscape. This keeps the
+/// rotation along the shorter axis, avoiding a jarring wide-arc sweep.
 class FlipCard extends StatefulWidget {
   final Widget front;
   final Widget back;
@@ -65,6 +69,9 @@ class _FlipCardState extends State<FlipCard>
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final useVerticalFlip = size.width > size.height;
+
     return GestureDetector(
       onTap: widget.isFlipped ? null : widget.onFlip,
       child: AnimatedBuilder(
@@ -80,8 +87,12 @@ class _FlipCardState extends State<FlipCard>
               : (value - 1) * math.pi;
 
           final transform = Matrix4.identity()
-            ..setEntry(3, 2, 0.001)
-            ..rotateY(angle);
+            ..setEntry(3, 2, 0.001);
+          if (useVerticalFlip) {
+            transform.rotateX(angle);
+          } else {
+            transform.rotateY(angle);
+          }
 
           return Transform(
             alignment: Alignment.center,

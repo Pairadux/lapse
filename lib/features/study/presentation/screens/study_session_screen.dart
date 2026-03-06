@@ -177,11 +177,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     if (_isProcessing) return;
     _dismissController.reset();
     await _dismissController.forward();
-    // Reset offset BEFORE _rateCard's setState so the new card
-    // renders at origin, not still translated off-screen.
-    _dismissOffset = 0;
-    _dismissController.reset();
+    // Don't reset _dismissOffset here — keep the card off-screen until
+    // _rateCard's setState atomically swaps to the next card.
     await _rateCard(rating);
+    // Controller can now be reset safely (the card has already changed).
+    _dismissController.reset();
   }
 
   Future<void> _rateCard(Rating rating) async {
@@ -198,6 +198,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       await _reviewRepo.addReview(result.review);
       final after = _CardSnapshot.fromCard(result.updatedCard);
       setState(() {
+        // Reset dismiss offset atomically with card change so the old
+        // card never reappears at center between animation and swap.
+        _dismissOffset = 0;
         _session = result.session;
         _cards = result.session.cards;
         _ratingCounts[rating] = _ratingCounts[rating]! + 1;
@@ -631,8 +634,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     );
 
     // On touch platforms, wrap with swipe gesture.
+    // Key ensures a fresh SwipeableCard state per card — the old one stays
+    // off-screen until _rateCard's setState swaps _currentIndex.
     if (!isDesktop) {
       flipCard = SwipeableCard(
+        key: ValueKey('swipe_$_currentIndex'),
         enabled: _showingAnswer,
         onRate: _rateCard,
         child: flipCard,

@@ -36,7 +36,8 @@ class _SwipeableCardState extends State<SwipeableCard>
   late Animation<Offset> _returnAnimation;
 
   /// Fraction of screen dimension required to commit a swipe.
-  static const _commitThreshold = 0.25;
+  static const _commitThresholdH = 0.25;
+  static const _commitThresholdV = 0.20;
 
   /// Maximum rotation in radians during drag.
   static const _maxRotation = 0.15;
@@ -77,10 +78,11 @@ class _SwipeableCardState extends State<SwipeableCard>
 
   double get _commitProgress {
     final size = MediaQuery.sizeOf(context);
-    final threshold = _currentRating == Rating.good ||
-            _currentRating == Rating.hard
-        ? size.width * _commitThreshold
-        : size.height * _commitThreshold;
+    final isHorizontal =
+        _currentRating == Rating.good || _currentRating == Rating.hard;
+    final threshold = isHorizontal
+        ? size.width * _commitThresholdH
+        : size.height * _commitThresholdV;
     return (_dragOffset.distance / threshold).clamp(0.0, 1.0);
   }
 
@@ -156,11 +158,9 @@ class _SwipeableCardState extends State<SwipeableCard>
     _returnController
       ..reset()
       ..forward().then((_) {
-        // Reset position before notifying parent (which swaps the card).
-        setState(() {
-          _dragOffset = Offset.zero;
-          _isAnimating = false;
-        });
+        // Don't reset _dragOffset here — the parent's setState will change
+        // _currentIndex, giving this widget a new key. The old state (with
+        // the off-screen offset) is disposed; the new one starts at zero.
         widget.onRate(rating);
       });
   }
@@ -216,6 +216,7 @@ class _SwipeableCardState extends State<SwipeableCard>
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
+                                color: AppColors.surface.withValues(alpha: 0.85),
                                 border: Border.all(
                                   color: _ratingColor,
                                   width: 2,

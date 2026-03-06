@@ -151,7 +151,7 @@ class _ShadowCard extends StatelessWidget {
       margin: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Spacing.radiusLg),
         border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
     );
