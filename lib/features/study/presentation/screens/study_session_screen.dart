@@ -682,8 +682,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
               child: _buildRatingButtons(),
             ),
             const SizedBox(height: Spacing.lg),
-          ] else
-            const SizedBox(height: Spacing.lg),
+          ],
         ],
       ),
     );
