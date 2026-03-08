@@ -121,7 +121,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     )..addListener(() {
-        setState(() => _dismissOffset = _dismissController.value);
+        final value = _dismissController.value;
+        if (value != _dismissOffset) {
+          setState(() => _dismissOffset = value);
+        }
       });
     _loadCards();
   }
@@ -177,11 +180,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     if (_isProcessing) return;
     _dismissController.reset();
     await _dismissController.forward();
-    // Don't reset _dismissOffset here — keep the card off-screen until
-    // _rateCard's setState atomically swaps to the next card.
+    // _rateCard's setState atomically resets _dismissOffset and swaps to the
+    // next card. No trailing reset() — the guarded listener would ignore it
+    // anyway, and the next _dismissAndRate starts with reset().
     await _rateCard(rating);
-    // Controller can now be reset safely (the card has already changed).
-    _dismissController.reset();
   }
 
   Future<void> _rateCard(Rating rating) async {
