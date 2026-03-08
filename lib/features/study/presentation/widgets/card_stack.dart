@@ -125,9 +125,12 @@ class CardStack extends StatelessWidget {
           );
         }
 
-        // Top card at origin.
+        // Top card at origin. Key ensures Flutter preserves the subtree
+        // (including FlipCard state) when shadow cards are added/removed
+        // and the child index shifts.
         children.add(
           Positioned(
+            key: const ValueKey('top_card'),
             top: 0,
             left: 0,
             width: w,
