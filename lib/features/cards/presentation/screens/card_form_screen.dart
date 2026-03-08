@@ -109,7 +109,20 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         );
         await _repo.create(card);
       }
-      if (mounted) context.pop();
+      if (mounted) {
+        final label = widget.isEditing
+            ? 'Card updated'
+            : _createdCount > 0
+                ? '${_createdCount + 1} cards created'
+                : 'Card created';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(label),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        context.pop();
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
