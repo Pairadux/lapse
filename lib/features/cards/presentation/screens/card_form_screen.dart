@@ -168,11 +168,31 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     if (mounted) context.pop();
   }
 
+  void _goBack() {
+    if (_createdCount > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$_createdCount card${_createdCount == 1 ? '' : 's'} created',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+    context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return PopScope(
+      canPop: _createdCount == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goBack();
+      },
+      child: AppScaffold(
       title: widget.isEditing ? 'Edit Card' : 'New Card',
       showBackButton: true,
+      onBack: _goBack,
       actions: [
         if (widget.isEditing)
           IconButton(
@@ -320,6 +340,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }
