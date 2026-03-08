@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
+import 'package:lapse/core/widgets/confirm_dialog.dart';
+import 'package:lapse/core/widgets/context_menu_region.dart';
 import 'package:lapse/core/widgets/dev_drawer.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
@@ -74,6 +76,45 @@ class _DeckListScreenState extends ConsumerState<DeckListScreen> {
     }
   }
 
+  Future<void> _handleContextAction(
+    Deck deck,
+    ContextMenuAction action,
+  ) async {
+    try {
+      switch (action) {
+        case ContextMenuAction.edit:
+          await context.push(Routes.deckEditPath(deck.deckId), extra: deck);
+          if (mounted) _loadDecks();
+          break;
+        case ContextMenuAction.delete:
+          final confirmed = await ConfirmDialog.show(
+            context: context,
+            title: 'Delete deck?',
+            message:
+                'This will delete "${deck.deckName}" and all its cards.',
+            confirmLabel: 'Delete',
+            isDestructive: true,
+          );
+          if (!confirmed || !mounted) return;
+          await _deckRepo.delete(deck.deckId);
+          if (mounted) _loadDecks();
+          break;
+        case ContextMenuAction.move:
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Move action is coming soon')),
+          );
+          break;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -125,14 +166,17 @@ class _DeckListScreenState extends ConsumerState<DeckListScreen> {
       itemBuilder: (context, index) {
         final deck = _rootDecks[index];
         final counts = _deckCounts[deck.deckId];
-        return DeckCard(
-          deck: deck,
-          cardCount: counts?.$1 ?? 0,
-          dueCount: counts?.$2 ?? 0,
-          onTap: () async {
-            await context.push(Routes.deckPath(deck.deckId), extra: deck);
-            _loadDecks();
-          },
+        return ContextMenuRegion(
+          onAction: (action) => _handleContextAction(deck, action),
+          child: DeckCard(
+            deck: deck,
+            cardCount: counts?.$1 ?? 0,
+            dueCount: counts?.$2 ?? 0,
+            onTap: () async {
+              await context.push(Routes.deckPath(deck.deckId), extra: deck);
+              _loadDecks();
+            },
+          ),
         );
       },
     );
