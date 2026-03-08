@@ -13,6 +13,7 @@ abstract final class DatabaseConstants {
   static const String colParentId = 'parent_id';
   static const String colDeckName = 'deck_name';
   static const String colUserId = 'user_id';
+  static const String syncStatus = 'sync_status';
 
   // -- Card columns --
   static const String colCardId = 'card_id';
@@ -42,7 +43,8 @@ abstract final class DatabaseConstants {
 
   // ── CREATE TABLE DDL ──────────────────────────────────────────────
 
-  static const String createDecksTable = '''
+  static const String createDecksTable =
+      '''
     CREATE TABLE $tableDecks (
       $colDeckId    TEXT PRIMARY KEY,
       $colParentId  TEXT,
@@ -51,10 +53,12 @@ abstract final class DatabaseConstants {
       $colCreatedAt TEXT NOT NULL,
       $colUpdatedAt TEXT NOT NULL,
       $colIsDeleted INTEGER NOT NULL DEFAULT 0
+      $syncStatus   TEXT NOT NULL DEFAULT 'synced'
     )
   ''';
 
-  static const String createCardsTable = '''
+  static const String createCardsTable =
+      '''
     CREATE TABLE $tableCards (
       $colCardId        TEXT PRIMARY KEY,
       $colDeckId        TEXT NOT NULL REFERENCES $tableDecks($colDeckId) ON DELETE CASCADE,
@@ -76,7 +80,8 @@ abstract final class DatabaseConstants {
     )
   ''';
 
-  static const String createReviewsTable = '''
+  static const String createReviewsTable =
+      '''
     CREATE TABLE $tableReviews (
       $colId            INTEGER PRIMARY KEY AUTOINCREMENT,
       $colCardId        TEXT NOT NULL REFERENCES $tableCards($colCardId) ON DELETE CASCADE,
@@ -90,31 +95,37 @@ abstract final class DatabaseConstants {
 
   // ── CREATE INDEX DDL ──────────────────────────────────────────────
 
-  static const String createIndexDecksParentId = '''
+  static const String createIndexDecksParentId =
+      '''
     CREATE INDEX idx_decks_parent_id ON $tableDecks($colParentId)
       WHERE $colIsDeleted = 0 AND $colParentId IS NOT NULL
   ''';
 
-  static const String createIndexDecksUserId = '''
+  static const String createIndexDecksUserId =
+      '''
     CREATE INDEX idx_decks_user_id ON $tableDecks($colUserId)
       WHERE $colIsDeleted = 0
   ''';
 
-  static const String createIndexCardsDueDate = '''
+  static const String createIndexCardsDueDate =
+      '''
     CREATE INDEX idx_cards_due_date ON $tableCards($colDueDate)
       WHERE $colIsDeleted = 0
   ''';
 
-  static const String createIndexCardsDeckDue = '''
+  static const String createIndexCardsDeckDue =
+      '''
     CREATE INDEX idx_cards_deck_due ON $tableCards($colDeckId, $colDueDate)
       WHERE $colIsDeleted = 0
   ''';
 
-  static const String createIndexReviewsCardId = '''
+  static const String createIndexReviewsCardId =
+      '''
     CREATE INDEX idx_reviews_card_id ON $tableReviews($colCardId)
   ''';
 
-  static const String createIndexReviewsReviewedAt = '''
+  static const String createIndexReviewsReviewedAt =
+      '''
     CREATE INDEX idx_reviews_reviewed_at ON $tableReviews($colReviewedAt)
   ''';
 
