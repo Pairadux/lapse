@@ -177,7 +177,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
     );
     if (!confirmed || !mounted) return;
     await _deckRepo.delete(widget.deckId);
-    if (mounted) context.pop();
+    if (mounted) {
+      if (_ancestors.isNotEmpty) {
+        final parent = _ancestors.last;
+        context.go(Routes.deckPath(parent.deckId), extra: parent);
+      } else {
+        context.go(Routes.home);
+      }
+    }
   }
 
   @override

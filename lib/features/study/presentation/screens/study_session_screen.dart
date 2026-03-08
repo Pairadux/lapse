@@ -86,6 +86,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   late final AnimationController _dismissController;
   double _dismissOffset = 0;
 
+  // Mobile swipe progress for shadow card animations (0.0–1.0).
+  double _swipeProgress = 0;
+
   bool _isProcessing = false;
 
   List<Flashcard> _cards = [];
@@ -121,7 +124,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 200),
     )..addListener(() {
-        setState(() => _dismissOffset = _dismissController.value);
+        final value = _dismissController.value;
+        if (value != _dismissOffset) {
+          setState(() => _dismissOffset = value);
+        }
       });
     _loadCards();
   }
@@ -177,11 +183,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     if (_isProcessing) return;
     _dismissController.reset();
     await _dismissController.forward();
-    // Don't reset _dismissOffset here — keep the card off-screen until
-    // _rateCard's setState atomically swaps to the next card.
+    // _rateCard's setState atomically resets _dismissOffset and swaps to the
+    // next card. No trailing reset() — the guarded listener would ignore it
+    // anyway, and the next _dismissAndRate starts with reset().
     await _rateCard(rating);
-    // Controller can now be reset safely (the card has already changed).
-    _dismissController.reset();
   }
 
   Future<void> _rateCard(Rating rating) async {
@@ -201,6 +206,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         // Reset dismiss offset atomically with card change so the old
         // card never reappears at center between animation and swap.
         _dismissOffset = 0;
+        _swipeProgress = 0;
         _session = result.session;
         _cards = result.session.cards;
         _ratingCounts[rating] = _ratingCounts[rating]! + 1;
@@ -641,6 +647,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         key: ValueKey('swipe_$_currentIndex'),
         enabled: _showingAnswer,
         onRate: _rateCard,
+        onDismissProgress: (progress) {
+          if (progress != _swipeProgress) {
+            setState(() => _swipeProgress = progress);
+          }
+        },
         child: flipCard,
       );
     }
@@ -654,7 +665,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
           Expanded(
             child: CardStack(
               remainingCards: remaining,
-              dismissProgress: _dismissOffset,
+              dismissProgress: isDesktop ? _dismissOffset : _swipeProgress,
               topCard: LayoutBuilder(
                 builder: (context, constraints) {
                   final dx = -constraints.maxWidth *
@@ -682,8 +693,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
               child: _buildRatingButtons(),
             ),
             const SizedBox(height: Spacing.lg),
-          ] else
-            const SizedBox(height: Spacing.lg),
+          ],
         ],
       ),
     );

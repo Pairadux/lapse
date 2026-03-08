@@ -78,12 +78,14 @@ class _DeckListScreenState extends ConsumerState<DeckListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: kDebugMode
-              ? () => Scaffold.of(context).openDrawer()
-              : null,
-        ),
+        leading: kDebugMode
+            ? Builder(
+                builder: (ctx) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                ),
+              )
+            : null,
         title: const Text('Decks'),
         actions: [
           IconButton(
