@@ -86,6 +86,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   late final AnimationController _dismissController;
   double _dismissOffset = 0;
 
+  // Mobile swipe progress for shadow card animations (0.0–1.0).
+  double _swipeProgress = 0;
+
   bool _isProcessing = false;
 
   List<Flashcard> _cards = [];
@@ -203,6 +206,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         // Reset dismiss offset atomically with card change so the old
         // card never reappears at center between animation and swap.
         _dismissOffset = 0;
+        _swipeProgress = 0;
         _session = result.session;
         _cards = result.session.cards;
         _ratingCounts[rating] = _ratingCounts[rating]! + 1;
@@ -643,6 +647,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         key: ValueKey('swipe_$_currentIndex'),
         enabled: _showingAnswer,
         onRate: _rateCard,
+        onDismissProgress: (progress) {
+          if (progress != _swipeProgress) {
+            setState(() => _swipeProgress = progress);
+          }
+        },
         child: flipCard,
       );
     }
@@ -656,7 +665,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
           Expanded(
             child: CardStack(
               remainingCards: remaining,
-              dismissProgress: _dismissOffset,
+              dismissProgress: isDesktop ? _dismissOffset : _swipeProgress,
               topCard: LayoutBuilder(
                 builder: (context, constraints) {
                   final dx = -constraints.maxWidth *

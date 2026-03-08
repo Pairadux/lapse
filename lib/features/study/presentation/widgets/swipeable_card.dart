@@ -14,12 +14,14 @@ class SwipeableCard extends StatefulWidget {
   final Widget child;
   final bool enabled;
   final ValueChanged<Rating> onRate;
+  final ValueChanged<double>? onDismissProgress;
 
   const SwipeableCard({
     super.key,
     required this.child,
     required this.enabled,
     required this.onRate,
+    this.onDismissProgress,
   });
 
   @override
@@ -51,6 +53,7 @@ class _SwipeableCardState extends State<SwipeableCard>
     );
     _returnController.addListener(() {
       setState(() => _dragOffset = _returnAnimation.value);
+      _reportDismissProgress();
     });
     _returnController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -102,6 +105,10 @@ class _SwipeableCardState extends State<SwipeableCard>
         null => '',
       };
 
+  void _reportDismissProgress() {
+    widget.onDismissProgress?.call(_commitProgress);
+  }
+
   void _onPanStart(DragStartDetails details) {
     if (!widget.enabled || _isAnimating) return;
     _returnController.stop();
@@ -111,6 +118,7 @@ class _SwipeableCardState extends State<SwipeableCard>
   void _onPanUpdate(DragUpdateDetails details) {
     if (!_isDragging) return;
     setState(() => _dragOffset += details.delta);
+    _reportDismissProgress();
   }
 
   void _onPanEnd(DragEndDetails details) {
