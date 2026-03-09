@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/page_transitions.dart' show isDesktop;
@@ -589,16 +590,32 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
                   padding: const EdgeInsets.all(Spacing.xl),
                   child: MarkdownBody(
                     data: text,
+                    onTapLink: (text, href, title) {
+                      if (href != null) launchUrl(Uri.parse(href));
+                    },
                     styleSheet: MarkdownStyleSheet.fromTheme(
                       Theme.of(context),
                     ).copyWith(
-                      p: Theme.of(context).textTheme.headlineSmall,
+                      p: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.normal),
+                      strong: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                       textAlign: WrapAlignment.center,
-                      listBullet: Theme.of(context).textTheme.headlineSmall,
+                      listBullet: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.normal),
                       blockquote: Theme.of(context)
                           .textTheme
                           .headlineSmall
-                          ?.copyWith(color: AppColors.textSecondary),
+                          ?.copyWith(
+                            fontWeight: FontWeight.normal,
+                            color: AppColors.textSecondary,
+                          ),
                     ),
                   ),
                 ),

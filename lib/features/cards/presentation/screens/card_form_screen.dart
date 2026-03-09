@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
@@ -334,7 +335,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         ),
         const SizedBox(height: Spacing.md),
         Text(
-          'Markdown: **bold**, *italic*, `code`, - list item',
+          '**bold**  *italic*  `code`  # heading  - list  > quote  [link](url)',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppColors.textTertiary,
               ),
@@ -390,6 +391,9 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         const SizedBox(height: Spacing.sm),
         MarkdownBody(
           data: hasContent ? text : placeholder,
+          onTapLink: (text, href, title) {
+            if (href != null) launchUrl(Uri.parse(href));
+          },
           styleSheet:
               MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
             p: Theme.of(context).textTheme.bodyLarge,
