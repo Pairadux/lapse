@@ -47,9 +47,23 @@ final appRouter = GoRouter(
       path: Routes.deck,
       pageBuilder: (context, state) {
         final deckId = state.pathParameters['deckId']!;
+        final extra = state.extra;
+        // Extra can be a Deck (simple push) or a Map with deck + ancestors.
+        final deck = extra is Deck
+            ? extra
+            : (extra is Map<String, dynamic>
+                ? extra['deck'] as Deck?
+                : null);
+        final ancestors = extra is Map<String, dynamic>
+            ? extra['ancestors'] as List<Deck>?
+            : null;
         return buildPage(
           state,
-          DeckDetailScreen(deckId: deckId, deck: state.extra as Deck?),
+          DeckDetailScreen(
+            deckId: deckId,
+            deck: deck,
+            initialAncestors: ancestors,
+          ),
         );
       },
       routes: [

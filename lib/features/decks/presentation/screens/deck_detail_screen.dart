@@ -19,8 +19,14 @@ import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 class DeckDetailScreen extends ConsumerStatefulWidget {
   final String deckId;
   final Deck? deck;
+  final List<Deck>? initialAncestors;
 
-  const DeckDetailScreen({super.key, required this.deckId, this.deck});
+  const DeckDetailScreen({
+    super.key,
+    required this.deckId,
+    this.deck,
+    this.initialAncestors,
+  });
 
   @override
   ConsumerState<DeckDetailScreen> createState() => _DeckDetailScreenState();
@@ -44,6 +50,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
   void initState() {
     super.initState();
     _deck = widget.deck;
+    _ancestors = widget.initialAncestors ?? [];
     // Defer load until after the first frame so we can check whether this
     // screen is actually the visible (top-most) route. Intermediate screens
     // created during ancestor-stack navigation skip loading here and pick
@@ -199,11 +206,20 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
   /// This ensures back button / swipe-back always goes up the tree.
   void _navigateWithAncestorStack(List<Deck> ancestorChain, Deck? target) {
     context.go(Routes.home);
-    for (final ancestor in ancestorChain) {
-      context.push(Routes.deckPath(ancestor.deckId), extra: ancestor);
+    for (var i = 0; i < ancestorChain.length; i++) {
+      context.push(
+        Routes.deckPath(ancestorChain[i].deckId),
+        extra: {
+          'deck': ancestorChain[i],
+          'ancestors': ancestorChain.sublist(0, i),
+        },
+      );
     }
     if (target != null) {
-      context.push(Routes.deckPath(target.deckId), extra: target);
+      context.push(
+        Routes.deckPath(target.deckId),
+        extra: {'deck': target, 'ancestors': ancestorChain},
+      );
     }
   }
 
@@ -393,7 +409,10 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
                     dueCount: counts?.$2 ?? 0,
                     onTap: () => context.push(
                       Routes.deckPath(child.deckId),
-                      extra: child,
+                      extra: {
+                        'deck': child,
+                        'ancestors': [..._ancestors, _deck!],
+                      },
                     ),
                   ),
                 );
@@ -446,7 +465,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
 
   void _scrollBreadcrumbToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_breadcrumbScrollController.hasClients) {
+      if (!mounted) return;
+      if (_breadcrumbScrollController.hasClients &&
+          _breadcrumbScrollController.position.hasContentDimensions) {
         _breadcrumbScrollController.jumpTo(
           _breadcrumbScrollController.position.maxScrollExtent,
         );
