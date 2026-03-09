@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -247,13 +248,15 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         title: Text(widget.deckName),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: Icon(
-              _showDebugPanel ? Icons.bug_report : Icons.bug_report_outlined,
+          if (kDebugMode)
+            IconButton(
+              icon: Icon(
+                _showDebugPanel ? Icons.bug_report : Icons.bug_report_outlined,
+              ),
+              color: _showDebugPanel ? AppColors.warning : null,
+              onPressed: () =>
+                  setState(() => _showDebugPanel = !_showDebugPanel),
             ),
-            color: _showDebugPanel ? AppColors.warning : null,
-            onPressed: () => setState(() => _showDebugPanel = !_showDebugPanel),
-          ),
         ],
       ),
       body: _isLoading
