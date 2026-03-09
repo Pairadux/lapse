@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
@@ -40,6 +41,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
   CardRepository get _repo => ref.read(cardRepositoryProvider);
   bool _saving = false;
   int _createdCount = 0;
+  bool _showPreview = false;
 
   @override
   void initState() {
@@ -89,8 +91,25 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     return proceed == true;
   }
 
+  /// Validates fields, switching back to edit mode to show errors if needed.
+  bool _validateFields() {
+    if (_showPreview) {
+      final frontEmpty = _frontController.text.trim().isEmpty;
+      final backEmpty = _backController.text.trim().isEmpty;
+      if (frontEmpty || backEmpty) {
+        setState(() => _showPreview = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _formKey.currentState?.validate();
+        });
+        return false;
+      }
+      return true;
+    }
+    return _formKey.currentState!.validate();
+  }
+
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate() || _saving) return;
+    if (!_validateFields() || _saving) return;
     if (!await _checkDuplicate()) return;
     setState(() => _saving = true);
 
@@ -129,7 +148,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
   }
 
   Future<void> _saveAndAddAnother() async {
-    if (!_formKey.currentState!.validate() || _saving) return;
+    if (!_validateFields() || _saving) return;
     if (!await _checkDuplicate()) return;
     setState(() => _saving = true);
 
@@ -144,10 +163,13 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       if (mounted) {
         setState(() {
           _createdCount++;
+          _showPreview = false;
           _frontController.clear();
           _backController.clear();
         });
-        _frontFocus.requestFocus();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _frontFocus.requestFocus();
+        });
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -182,6 +204,10 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     context.pop();
   }
 
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -190,23 +216,28 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         if (!didPop) _goBack();
       },
       child: AppScaffold(
-      title: widget.isEditing ? 'Edit Card' : 'New Card',
-      showBackButton: true,
-      onBack: _goBack,
-      actions: [
-        if (widget.isEditing)
+        title: widget.isEditing ? 'Edit Card' : 'New Card',
+        showBackButton: true,
+        onBack: _goBack,
+        actions: [
           IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: _delete,
+            icon: Icon(
+              _showPreview ? Icons.edit_outlined : Icons.visibility_outlined,
+            ),
+            onPressed: () => setState(() => _showPreview = !_showPreview),
           ),
-      ],
-      body: Padding(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: Shortcuts(
+          if (widget.isEditing)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _delete,
+            ),
+        ],
+        body: Shortcuts(
           shortcuts: const {
             SingleActivator(LogicalKeyboardKey.enter, shift: true):
                 _SaveAndAddAnotherIntent(),
-            SingleActivator(LogicalKeyboardKey.enter, alt: true): _SaveIntent(),
+            SingleActivator(LogicalKeyboardKey.enter, alt: true):
+                _SaveIntent(),
           },
           child: Actions(
             actions: {
@@ -218,129 +249,240 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
               ),
               _SaveAndAddAnotherIntent:
                   CallbackAction<_SaveAndAddAnotherIntent>(
-                    onInvoke: (intent) {
-                      if (widget.isEditing) {
-                        _save();
-                      } else {
-                        _saveAndAddAnother();
-                      }
-                      return null;
-                    },
-                  ),
+                onInvoke: (intent) {
+                  if (widget.isEditing) {
+                    _save();
+                  } else {
+                    _saveAndAddAnother();
+                  }
+                  return null;
+                },
+              ),
             },
             child: Form(
               key: _formKey,
-              child: ListView(
+              child: Column(
                 children: [
-                  if (_createdCount > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Spacing.lg),
-                      child: Text(
-                        '$_createdCount card${_createdCount == 1 ? '' : 's'} added',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  TextFormField(
-                    controller: _frontController,
-                    focusNode: _frontFocus,
-                    autofocus: true,
-                    onChanged: (_) => setState(() {}),
-                    maxLines: 4,
-                    maxLength: maxCardTextLength,
-                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                    decoration: const InputDecoration(
-                      labelText: 'Front',
-                      hintText: 'Question or prompt (Markdown supported)',
-                      alignLabelWithHint: true,
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                        ? 'Front is required'
-                        : null,
+                  Expanded(
+                    child: _showPreview
+                        ? _buildPreviewContent()
+                        : _buildEditContent(),
                   ),
-                  const SizedBox(height: Spacing.lg),
-                  TextFormField(
-                    controller: _backController,
-                    onChanged: (_) => setState(() {}),
-                    maxLines: 4,
-                    maxLength: maxCardTextLength,
-                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                    decoration: const InputDecoration(
-                      labelText: 'Back',
-                      hintText: 'Answer (Markdown supported)',
-                      alignLabelWithHint: true,
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                        ? 'Back is required'
-                        : null,
-                  ),
-                  const SizedBox(height: Spacing.lg),
-                  Text(
-                    'Markdown examples: **bold**, *italic*, `code`, - list item',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: Spacing.md),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(Spacing.md),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Live Preview',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          const SizedBox(height: Spacing.sm),
-                          Text(
-                            'Front',
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(color: AppColors.textSecondary),
-                          ),
-                          MarkdownBody(
-                            data: _frontController.text.trim().isEmpty
-                                ? '_Front preview_'
-                                : _frontController.text,
-                          ),
-                          const SizedBox(height: Spacing.md),
-                          Text(
-                            'Back',
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(color: AppColors.textSecondary),
-                          ),
-                          MarkdownBody(
-                            data: _backController.text.trim().isEmpty
-                                ? '_Back preview_'
-                                : _backController.text,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: Spacing.xl),
-                  if (!widget.isEditing) ...[
-                    OutlinedButton(
-                      onPressed: _saving ? null : _saveAndAddAnother,
-                      child: const Text('Save & Add Another'),
-                    ),
-                    const SizedBox(height: Spacing.md),
-                  ],
-                  ElevatedButton(
-                    onPressed: _saving ? null : _save,
-                    child: Text(widget.isEditing ? 'Save' : 'Create'),
-                  ),
+                  _buildActionButtons(),
                 ],
               ),
             ),
           ),
         ),
       ),
-    ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Edit pane — text fields for the current card type.
+  //
+  // Future card types (cloze, image, etc.) can override or replace this
+  // content via a card-type-specific editor widget.
+  // ---------------------------------------------------------------------------
+
+  Widget _buildEditContent() {
+    return ListView(
+      padding: const EdgeInsets.all(Spacing.lg),
+      children: [
+        if (_createdCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.lg),
+            child: Text(
+              '$_createdCount card${_createdCount == 1 ? '' : 's'} added',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          ),
+        TextFormField(
+          controller: _frontController,
+          focusNode: _frontFocus,
+          autofocus: true,
+          onChanged: (_) => setState(() {}),
+          maxLines: 4,
+          maxLength: maxCardTextLength,
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          decoration: const InputDecoration(
+            labelText: 'Front',
+            hintText: 'Question or prompt (Markdown supported)',
+            alignLabelWithHint: true,
+          ),
+          validator: (value) => (value == null || value.trim().isEmpty)
+              ? 'Front is required'
+              : null,
+        ),
+        const SizedBox(height: Spacing.lg),
+        TextFormField(
+          controller: _backController,
+          onChanged: (_) => setState(() {}),
+          maxLines: 4,
+          maxLength: maxCardTextLength,
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          decoration: const InputDecoration(
+            labelText: 'Back',
+            hintText: 'Answer (Markdown supported)',
+            alignLabelWithHint: true,
+          ),
+          validator: (value) => (value == null || value.trim().isEmpty)
+              ? 'Back is required'
+              : null,
+        ),
+        const SizedBox(height: Spacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '**bold**  *italic*  `code`  # heading  - list  > quote',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textTertiary,
+                    ),
+              ),
+            ),
+            const SizedBox(width: Spacing.sm),
+            GestureDetector(
+              onTap: () => setState(() => _showPreview = true),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.visibility_outlined,
+                    size: 14,
+                    color: AppColors.textTertiary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Preview',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textTertiary,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.textTertiary,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Preview pane — rendered markdown for the current card type.
+  //
+  // Future card types will provide their own preview widgets (e.g. cloze
+  // with blanked portions, image cards with thumbnails, etc.).
+  // ---------------------------------------------------------------------------
+
+  Widget _buildPreviewContent() {
+    return ListView(
+      padding: const EdgeInsets.all(Spacing.lg),
+      children: [
+        _buildPreviewField(
+          label: 'Front',
+          text: _frontController.text,
+          placeholder: '_No front text_',
+        ),
+        const SizedBox(height: Spacing.lg),
+        const Divider(),
+        const SizedBox(height: Spacing.lg),
+        _buildPreviewField(
+          label: 'Back',
+          text: _backController.text,
+          placeholder: '_No back text_',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPreviewField({
+    required String label,
+    required String text,
+    required String placeholder,
+  }) {
+    final hasContent = text.trim().isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context)
+              .textTheme
+              .labelMedium
+              ?.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: Spacing.sm),
+        MarkdownBody(
+          data: hasContent ? text : placeholder,
+          onTapLink: (text, href, title) {
+            if (href != null) launchUrl(Uri.parse(href));
+          },
+          styleSheet:
+              MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+            p: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Action buttons — always pinned at the bottom of the screen.
+  // ---------------------------------------------------------------------------
+
+  Widget _buildActionButtons() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.lg,
+        Spacing.md,
+        Spacing.lg,
+        Spacing.lg,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        border: Border(
+          top: BorderSide(
+            color: AppColors.outlineVariant,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!widget.isEditing) ...[
+              OutlinedButton(
+                onPressed: _saving
+                    ? null
+                    : () {
+                        HapticFeedback.lightImpact();
+                        _saveAndAddAnother();
+                      },
+                child: const Text('Save & Add Another'),
+              ),
+              const SizedBox(height: Spacing.sm),
+            ],
+            ElevatedButton(
+              onPressed: _saving
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      _save();
+                    },
+              child: Text(widget.isEditing ? 'Save' : 'Create'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

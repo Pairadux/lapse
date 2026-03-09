@@ -42,14 +42,14 @@ class AppScaffold extends StatelessWidget {
                   }
                 },
               )
-            : kDebugMode
-                ? Builder(
-                    builder: (context) => IconButton(
-                      icon: const Icon(Icons.menu),
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                    ),
-                  )
-                : null,
+            : Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: kDebugMode
+                      ? () => Scaffold.of(context).openDrawer()
+                      : null,
+                ),
+              ),
         actions: [
           ...?actions,
           if (showSettingsButton)

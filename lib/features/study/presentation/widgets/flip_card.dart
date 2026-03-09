@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// A card that flips to reveal its back side.
 ///
@@ -73,7 +74,12 @@ class _FlipCardState extends State<FlipCard>
     final useVerticalFlip = size.width > size.height;
 
     return GestureDetector(
-      onTap: widget.isFlipped ? null : widget.onFlip,
+      onTap: widget.isFlipped
+          ? null
+          : () {
+              HapticFeedback.lightImpact();
+              widget.onFlip();
+            },
       child: AnimatedBuilder(
         animation: _animation,
         builder: (context, child) {

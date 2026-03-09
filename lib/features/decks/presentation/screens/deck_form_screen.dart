@@ -131,7 +131,12 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
               ),
               const SizedBox(height: Spacing.xl),
               ElevatedButton(
-                onPressed: _saving ? null : _save,
+                onPressed: _saving
+                    ? null
+                    : () {
+                        HapticFeedback.lightImpact();
+                        _save();
+                      },
                 child: Text(widget.isEditing ? 'Save' : 'Create'),
               ),
             ],

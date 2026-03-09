@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lapse/core/routing/route_observer.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
@@ -18,14 +19,25 @@ import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 class DeckDetailScreen extends ConsumerStatefulWidget {
   final String deckId;
   final Deck? deck;
+  final List<Deck>? initialAncestors;
+  final int? initialCardCount;
+  final int? initialDueCount;
 
-  const DeckDetailScreen({super.key, required this.deckId, this.deck});
+  const DeckDetailScreen({
+    super.key,
+    required this.deckId,
+    this.deck,
+    this.initialAncestors,
+    this.initialCardCount,
+    this.initialDueCount,
+  });
 
   @override
   ConsumerState<DeckDetailScreen> createState() => _DeckDetailScreenState();
 }
 
-class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
+class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
+    with RouteAware {
   DeckRepository get _deckRepo => ref.read(deckRepositoryProvider);
   CardRepository get _cardRepo => ref.read(cardRepositoryProvider);
 
@@ -42,13 +54,41 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
   void initState() {
     super.initState();
     _deck = widget.deck;
-    _loadData();
+    _ancestors = widget.initialAncestors ?? [];
+    _totalCardCount = widget.initialCardCount ?? 0;
+    _totalDueCount = widget.initialDueCount ?? 0;
+    // Defer load until after the first frame so we can check whether this
+    // screen is actually the visible (top-most) route. Intermediate screens
+    // created during ancestor-stack navigation skip loading here and pick
+    // it up in didPopNext when the user navigates back to them.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && (ModalRoute.of(context)?.isCurrent ?? true)) {
+        _loadData();
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
   }
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _breadcrumbScrollController.dispose();
     super.dispose();
+  }
+
+  /// Called when a child route pops, making this screen visible again.
+  /// Reloads data to pick up any changes (edits, new cards, etc.).
+  @override
+  void didPopNext() {
+    _loadData();
   }
 
   Future<void> _loadData() async {
@@ -159,11 +199,33 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
 
     final allIds = await _deckRepo.getDescendantIds(widget.deckId);
     if (mounted) {
-      await context.push(
+      context.push(
         Routes.studyPath(widget.deckId),
         extra: {'name': _deck!.deckName, 'deckIds': allIds},
       );
-      _loadData();
+    }
+  }
+
+  /// Rebuild the navigation stack to match the deck hierarchy.
+  ///
+  /// Stack becomes: home → ancestorChain[0] → ... → target.
+  /// This ensures back button / swipe-back always goes up the tree.
+  void _navigateWithAncestorStack(List<Deck> ancestorChain, Deck? target) {
+    context.go(Routes.home);
+    for (var i = 0; i < ancestorChain.length; i++) {
+      context.push(
+        Routes.deckPath(ancestorChain[i].deckId),
+        extra: {
+          'deck': ancestorChain[i],
+          'ancestors': ancestorChain.sublist(0, i),
+        },
+      );
+    }
+    if (target != null) {
+      context.push(
+        Routes.deckPath(target.deckId),
+        extra: {'deck': target, 'ancestors': ancestorChain},
+      );
     }
   }
 
@@ -180,8 +242,10 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
     await _deckRepo.delete(widget.deckId);
     if (mounted) {
       if (_ancestors.isNotEmpty) {
-        final parent = _ancestors.last;
-        context.go(Routes.deckPath(parent.deckId), extra: parent);
+        _navigateWithAncestorStack(
+          _ancestors.sublist(0, _ancestors.length - 1),
+          _ancestors.last,
+        );
       } else {
         context.go(Routes.home);
       }
@@ -195,8 +259,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
     try {
       switch (action) {
         case ContextMenuAction.edit:
-          await context.push(Routes.deckEditPath(deck.deckId), extra: deck);
-          if (mounted) _loadData();
+          context.push(Routes.deckEditPath(deck.deckId), extra: deck);
           break;
         case ContextMenuAction.delete:
           final confirmed = await ConfirmDialog.show(
@@ -234,11 +297,10 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
     try {
       switch (action) {
         case ContextMenuAction.edit:
-          await context.push(
+          context.push(
             Routes.cardPath(widget.deckId, card.cardId),
             extra: card,
           );
-          if (mounted) _loadData();
           break;
         case ContextMenuAction.delete:
           final confirmed = await ConfirmDialog.show(
@@ -280,13 +342,10 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
             icon: const Icon(Icons.edit_outlined),
             onPressed: _deck == null
                 ? null
-                : () async {
-                    await context.push(
+                : () => context.push(
                       Routes.deckEditPath(widget.deckId),
                       extra: _deck,
-                    );
-                    _loadData();
-                  },
+                    ),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -300,18 +359,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
           SpeedDialAction(
             icon: Icons.style_outlined,
             label: 'New Card',
-            onPressed: () async {
-              await context.push(Routes.cardNewPath(widget.deckId));
-              _loadData();
-            },
+            onPressed: () =>
+                context.push(Routes.cardNewPath(widget.deckId)),
           ),
           SpeedDialAction(
             icon: Icons.folder_outlined,
             label: 'New Deck',
-            onPressed: () async {
-              await context.push(Routes.deckNew, extra: widget.deckId);
-              _loadData();
-            },
+            onPressed: () =>
+                context.push(Routes.deckNew, extra: widget.deckId),
           ),
         ],
       ),
@@ -358,12 +413,17 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
                     deck: child,
                     cardCount: counts?.$1 ?? 0,
                     dueCount: counts?.$2 ?? 0,
-                    onTap: () async {
-                      await context.push(
+                    onTap: () {
+                      final counts = _childCounts[child.deckId];
+                      context.push(
                         Routes.deckPath(child.deckId),
-                        extra: child,
+                        extra: {
+                          'deck': child,
+                          'ancestors': [..._ancestors, _deck!],
+                          'cardCount': counts?.$1,
+                          'dueCount': counts?.$2,
+                        },
                       );
-                      _loadData();
                     },
                   ),
                 );
@@ -416,7 +476,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
 
   void _scrollBreadcrumbToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_breadcrumbScrollController.hasClients) {
+      if (!mounted) return;
+      if (_breadcrumbScrollController.hasClients &&
+          _breadcrumbScrollController.position.hasContentDimensions) {
         _breadcrumbScrollController.jumpTo(
           _breadcrumbScrollController.position.maxScrollExtent,
         );
@@ -442,15 +504,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
               label: 'Home',
               onTap: () => context.go(Routes.home),
             ),
-            ..._ancestors.map((ancestor) {
-              return _BreadcrumbItem(
-                label: ancestor.deckName,
-                onTap: () => context.push(
-                  Routes.deckPath(ancestor.deckId),
-                  extra: ancestor,
+            for (var i = 0; i < _ancestors.length; i++)
+              _BreadcrumbItem(
+                label: _ancestors[i].deckName,
+                onTap: () => _navigateWithAncestorStack(
+                  _ancestors.sublist(0, i),
+                  _ancestors[i],
                 ),
-              );
-            }),
+              ),
             _BreadcrumbItem(label: _deck?.deckName ?? '', isLast: true),
           ],
         ),
@@ -501,13 +562,10 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
     return ContextMenuRegion(
       onAction: (action) => _handleCardContextAction(card, action),
       child: InkWell(
-        onTap: () async {
-          await context.push(
-            Routes.cardPath(widget.deckId, card.cardId),
-            extra: card,
-          );
-          _loadData();
-        },
+        onTap: () => context.push(
+          Routes.cardPath(widget.deckId, card.cardId),
+          extra: card,
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: Spacing.lg,
