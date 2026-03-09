@@ -182,6 +182,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   /// Desktop only: animate card off-screen left, then perform the rating.
   Future<void> _dismissAndRate(Rating rating) async {
     if (_isProcessing) return;
+    HapticFeedback.mediumImpact();
     _dismissController.reset();
     await _dismissController.forward();
     // _rateCard's setState atomically resets _dismissOffset and swaps to the

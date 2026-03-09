@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 
@@ -148,6 +149,7 @@ class _SwipeableCardState extends State<SwipeableCard>
   }
 
   void _animateOffScreen(Rating rating) {
+    HapticFeedback.mediumImpact();
     _isAnimating = true;
     // Fly off in the drag direction, well past the screen edge.
     final direction = _dragOffset / _dragOffset.distance;
