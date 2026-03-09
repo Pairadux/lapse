@@ -53,6 +53,7 @@ abstract final class DatabaseConstants {
       $colCreatedAt TEXT NOT NULL,
       $colUpdatedAt TEXT NOT NULL,
       $colIsDeleted INTEGER NOT NULL DEFAULT 0,
+      $colUserId      TEXT NOT NULL,
       $colSyncStatus   TEXT NOT NULL DEFAULT 'synced'
     )
   ''';
@@ -76,7 +77,9 @@ abstract final class DatabaseConstants {
       $colLapses        INTEGER NOT NULL DEFAULT 0,
       $colLastReview    TEXT,
       $colCardState     INTEGER NOT NULL DEFAULT 0,
-      $colStep          INTEGER
+      $colStep          INTEGER,
+      $colUserId        TEXT NOT NULL,
+      $colSyncStatus    TEXT NOT NULL DEFAULT 'synced'
     )
   ''';
 
@@ -89,7 +92,9 @@ abstract final class DatabaseConstants {
       $colRating        INTEGER NOT NULL,
       $colScheduledDays INTEGER NOT NULL,
       $colElapsedDays   INTEGER NOT NULL,
-      $colState         INTEGER NOT NULL
+      $colState         INTEGER NOT NULL,
+      $colUserId        TEXT,
+      $colSyncStatus    TEXT NOT NULL DEFAULT 'synced'
     )
   ''';
 
