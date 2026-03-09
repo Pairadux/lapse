@@ -57,12 +57,20 @@ final appRouter = GoRouter(
         final ancestors = extra is Map<String, dynamic>
             ? extra['ancestors'] as List<Deck>?
             : null;
+        final cardCount = extra is Map<String, dynamic>
+            ? extra['cardCount'] as int?
+            : null;
+        final dueCount = extra is Map<String, dynamic>
+            ? extra['dueCount'] as int?
+            : null;
         return buildPage(
           state,
           DeckDetailScreen(
             deckId: deckId,
             deck: deck,
             initialAncestors: ancestors,
+            initialCardCount: cardCount,
+            initialDueCount: dueCount,
           ),
         );
       },

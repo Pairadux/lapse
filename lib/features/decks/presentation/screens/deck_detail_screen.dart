@@ -20,12 +20,16 @@ class DeckDetailScreen extends ConsumerStatefulWidget {
   final String deckId;
   final Deck? deck;
   final List<Deck>? initialAncestors;
+  final int? initialCardCount;
+  final int? initialDueCount;
 
   const DeckDetailScreen({
     super.key,
     required this.deckId,
     this.deck,
     this.initialAncestors,
+    this.initialCardCount,
+    this.initialDueCount,
   });
 
   @override
@@ -51,6 +55,8 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     super.initState();
     _deck = widget.deck;
     _ancestors = widget.initialAncestors ?? [];
+    _totalCardCount = widget.initialCardCount ?? 0;
+    _totalDueCount = widget.initialDueCount ?? 0;
     // Defer load until after the first frame so we can check whether this
     // screen is actually the visible (top-most) route. Intermediate screens
     // created during ancestor-stack navigation skip loading here and pick
@@ -407,13 +413,18 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
                     deck: child,
                     cardCount: counts?.$1 ?? 0,
                     dueCount: counts?.$2 ?? 0,
-                    onTap: () => context.push(
-                      Routes.deckPath(child.deckId),
-                      extra: {
-                        'deck': child,
-                        'ancestors': [..._ancestors, _deck!],
-                      },
-                    ),
+                    onTap: () {
+                      final counts = _childCounts[child.deckId];
+                      context.push(
+                        Routes.deckPath(child.deckId),
+                        extra: {
+                          'deck': child,
+                          'ancestors': [..._ancestors, _deck!],
+                          'cardCount': counts?.$1,
+                          'dueCount': counts?.$2,
+                        },
+                      );
+                    },
                   ),
                 );
               }, childCount: _children.length),
