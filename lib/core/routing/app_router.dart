@@ -11,10 +11,12 @@ import 'package:lapse/features/study/presentation/screens/review_stats_screen.da
 import '../widgets/app_scaffold.dart';
 import '../widgets/debug_widget_screen.dart';
 import 'page_transitions.dart';
+import 'route_observer.dart';
 import 'routes.dart';
 
 final appRouter = GoRouter(
   initialLocation: Routes.home,
+  observers: [routeObserver],
   routes: [
     GoRoute(
       path: Routes.home,
