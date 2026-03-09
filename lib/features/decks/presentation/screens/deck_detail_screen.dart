@@ -167,6 +167,20 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
     }
   }
 
+  /// Rebuild the navigation stack to match the deck hierarchy.
+  ///
+  /// Stack becomes: home → ancestorChain[0] → ... → target.
+  /// This ensures back button / swipe-back always goes up the tree.
+  void _navigateWithAncestorStack(List<Deck> ancestorChain, Deck? target) {
+    context.go(Routes.home);
+    for (final ancestor in ancestorChain) {
+      context.push(Routes.deckPath(ancestor.deckId), extra: ancestor);
+    }
+    if (target != null) {
+      context.push(Routes.deckPath(target.deckId), extra: target);
+    }
+  }
+
   Future<void> _deleteDeck() async {
     final confirmed = await ConfirmDialog.show(
       context: context,
@@ -180,8 +194,10 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
     await _deckRepo.delete(widget.deckId);
     if (mounted) {
       if (_ancestors.isNotEmpty) {
-        final parent = _ancestors.last;
-        context.go(Routes.deckPath(parent.deckId), extra: parent);
+        _navigateWithAncestorStack(
+          _ancestors.sublist(0, _ancestors.length - 1),
+          _ancestors.last,
+        );
       } else {
         context.go(Routes.home);
       }
@@ -442,15 +458,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
               label: 'Home',
               onTap: () => context.go(Routes.home),
             ),
-            ..._ancestors.map((ancestor) {
-              return _BreadcrumbItem(
-                label: ancestor.deckName,
-                onTap: () => context.push(
-                  Routes.deckPath(ancestor.deckId),
-                  extra: ancestor,
+            for (var i = 0; i < _ancestors.length; i++)
+              _BreadcrumbItem(
+                label: _ancestors[i].deckName,
+                onTap: () => _navigateWithAncestorStack(
+                  _ancestors.sublist(0, i),
+                  _ancestors[i],
                 ),
-              );
-            }),
+              ),
             _BreadcrumbItem(label: _deck?.deckName ?? '', isLast: true),
           ],
         ),
