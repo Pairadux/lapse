@@ -152,11 +152,9 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ---
 
-### Splash / Launch Screen
+### ~~Splash / Launch Screen~~
 
-**Status:** Known issue — the native splash screen is stark white, which is jarring when the app uses dark mode.
-
-**Fix:** Update the native splash screen background to match `AppColors.background` (dark) for Android (`launch_background.xml`), iOS (`LaunchScreen.storyboard`), and optionally use `flutter_native_splash` for consistency.
+**Status:** Resolved. Dark background (#0F0F14) with centered app icon on Android (both pre-v21 and v21+) and iOS.
 
 ---
 
@@ -164,7 +162,7 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 - **Card count aggregation sometimes off (#44):** Aggregated card/due counts on parent decks occasionally show stale or incorrect numbers. Likely a timing issue with parallel Future.wait queries or stale state after mutations. Needs investigation.
 
-- **"Save & Add Another" not clearing fields (#45):** Does not consistently clear front/back text after saving. Root cause appears tied to whether the deck already contains cards. Needs investigation.
+- ~~**"Save & Add Another" not clearing fields (#45):**~~ **Resolved.** Fields clear and focus returns to front field via post-frame callback.
 
 - ~~**Cascade soft-delete (#46):**~~ **Resolved.** `DeckRepository.delete()` uses recursive CTE + transactional cascade.
 
@@ -212,7 +210,7 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 - **Dead Deck.cards field in Equatable props (#62):** See Known Bugs above. Assigned to GADudley.
 - **Mock data insertion not batched (#64):** Sequential individual inserts. Assigned to Devam.
 - **No pagination on card queries (#65):** All lists loaded fully into memory. Low impact now, high at scale.
-- **Duplicate sqflite_common_ffi in pubspec (#66):** Listed in both deps and dev_deps. Assigned to Devam.
+- ~~**Duplicate sqflite_common_ffi in pubspec (#66):**~~ **Resolved.** No longer duplicated.
 
 ---
 
@@ -260,11 +258,11 @@ The `isDesktop` getter lives in `page_transitions.dart` and is also imported by 
 
 **Planned: First-launch tutorial popup (#109).** One-time overlay explaining swipe directions on mobile. Resettable from settings. Separate branch/PR.
 
-**Planned: Haptic feedback on touch devices.** Add subtle vibrations for swipe commit, card flip, and rating confirmation on iOS/Android. Use `HapticFeedback` from `flutter/services.dart` (light impact for flip, medium for swipe commit). No dependency needed — built into Flutter.
+~~**Haptic feedback on touch devices.**~~ **Implemented.** Light impact on card flip, medium impact on swipe commit and rating button press. Uses `HapticFeedback` from `flutter/services.dart`.
 
 **Shadow card content decision:** Keep shadow cards blank (Option B). Future improvement: crossfade new card content in over ~150ms after the shadow promotes to top position, so the blank→content transition feels intentional rather than jarring. No spoilers during drag.
 
-**Known UX issue (unrelated, noted for future):** Card creation preview pane pushes save button off-screen on mobile. Consider showing markdown preview inline in the editing pane instead of below it.
+~~**Known UX issue (resolved):** Card creation preview pane pushed save button off-screen on mobile.~~ Replaced with app bar edit/preview toggle; buttons pinned at bottom.
 
 ---
 
