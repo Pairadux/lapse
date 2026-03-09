@@ -128,6 +128,14 @@ No desktop-specific dependencies. Standard Flutter mobile toolchains.
 
 ---
 
+### AppBar Scroll-Under Tint
+
+**Status:** Design decision open.
+
+Material 3 tints the AppBar when content scrolls beneath it (elevation effect). Some testers like it; the product owner is unsure. Left as-is for now — revisit if user feedback leans negative. To disable: set `scrolledUnderElevation: 0` in `AppBarTheme` in `app_theme.dart`.
+
+---
+
 ### Tooltips (Future Setting)
 
 **Status:** Globally suppressed via `TooltipThemeData(waitDuration: Duration(days: 365))` in `app_theme.dart`.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 enum ContextMenuAction { edit, delete, move }
 
@@ -61,7 +62,10 @@ class ContextMenuRegion extends StatelessWidget {
     return GestureDetector(
       onSecondaryTapDown: (details) =>
           _show(context, globalPosition: details.globalPosition),
-      onLongPress: () => _show(context),
+      onLongPress: () {
+        HapticFeedback.heavyImpact();
+        _show(context);
+      },
       child: child,
     );
   }

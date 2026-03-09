@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lapse/core/theme/app_colors.dart';
+import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 
 /// Wraps a child widget with pan-gesture swipe-to-rate on touch devices.
@@ -201,13 +202,18 @@ class _SwipeableCardState extends State<SwipeableCard>
             child: Stack(
               children: [
                 widget.child,
-                // Rating label overlay.
+                // Rating label overlay — inset by Card's default 4dp margin
+                // so the border aligns with the card's visible surface.
                 if (_currentRating != null && _commitProgress > 0.1)
-                  Positioned.fill(
+                  Positioned(
+                    left: 4,
+                    right: 4,
+                    top: 4,
+                    bottom: 4,
                     child: IgnorePointer(
                       child: Container(
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(Spacing.radiusLg),
                           border: Border.all(
                             color: _ratingColor
                                 .withValues(alpha: _commitProgress * 0.6),
