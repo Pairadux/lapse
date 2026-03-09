@@ -69,8 +69,11 @@ final appRouter = GoRouter(
       routes: [
         GoRoute(
           path: 'edit',
-          pageBuilder: (context, state) =>
-              buildPage(state, DeckFormScreen(deck: state.extra as Deck?)),
+          pageBuilder: (context, state) {
+            final extra = state.extra;
+            final deck = extra is Deck ? extra : null;
+            return buildPage(state, DeckFormScreen(deck: deck));
+          },
         ),
         GoRoute(
           path: 'card/new',
@@ -81,13 +84,17 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: 'card/:cardId',
-          pageBuilder: (context, state) => buildPage(
-            state,
-            CardFormScreen(
-              deckId: state.pathParameters['deckId']!,
-              card: state.extra as Flashcard?,
-            ),
-          ),
+          pageBuilder: (context, state) {
+            final extra = state.extra;
+            final card = extra is Flashcard ? extra : null;
+            return buildPage(
+              state,
+              CardFormScreen(
+                deckId: state.pathParameters['deckId']!,
+                card: card,
+              ),
+            );
+          },
         ),
         GoRoute(
           path: 'study',
