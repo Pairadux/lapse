@@ -9,11 +9,13 @@ import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/widgets/context_menu_region.dart';
 import 'package:lapse/core/widgets/empty_state_widget.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
-import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/core/widgets/speed_dial_fab.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_detail_state.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 
 class DeckDetailScreen extends ConsumerStatefulWidget {
@@ -38,35 +40,7 @@ class DeckDetailScreen extends ConsumerStatefulWidget {
 
 class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     with RouteAware {
-  DeckRepository get _deckRepo => ref.read(deckRepositoryProvider);
-  CardRepository get _cardRepo => ref.read(cardRepositoryProvider);
-
-  Deck? _deck;
-  List<Deck> _ancestors = [];
-  List<Deck> _children = [];
-  Map<String, (int, int)> _childCounts = {};
-  List<Flashcard> _cards = [];
-  int _totalCardCount = 0;
-  int _totalDueCount = 0;
-  bool _hasLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _deck = widget.deck;
-    _ancestors = widget.initialAncestors ?? [];
-    _totalCardCount = widget.initialCardCount ?? 0;
-    _totalDueCount = widget.initialDueCount ?? 0;
-    // Defer load until after the first frame so we can check whether this
-    // screen is actually the visible (top-most) route. Intermediate screens
-    // created during ancestor-stack navigation skip loading here and pick
-    // it up in didPopNext when the user navigates back to them.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && (ModalRoute.of(context)?.isCurrent ?? true)) {
-        _loadData();
-      }
-    });
-  }
+  final ScrollController _breadcrumbScrollController = ScrollController();
 
   @override
   void didChangeDependencies() {
@@ -84,132 +58,17 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     super.dispose();
   }
 
-  /// Called when a child route pops, making this screen visible again.
-  /// Reloads data to pick up any changes (edits, new cards, etc.).
+  /// Invalidate the provider when returning from a child route so we pick up
+  /// any changes (card edits, new sub-decks, study session results, etc.).
   @override
   void didPopNext() {
-    _loadData();
+    ref.invalidate(deckDetailProvider(widget.deckId));
   }
 
-  Future<void> _loadData() async {
-    try {
-      // Run independent queries in parallel
-      final results = await Future.wait([
-        _deckRepo.getById(widget.deckId),
-        _deckRepo.getAncestors(widget.deckId),
-        _deckRepo.getChildren(widget.deckId),
-        _cardRepo.getByDeckId(widget.deckId),
-      ]);
-
-      final deck = results[0] as Deck?;
-      if (deck == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Deck not found')));
-          context.pop();
-        }
-        return;
-      }
-
-      final ancestors = results[1] as List<Deck>;
-      final children = results[2] as List<Deck>;
-      final cards = results[3] as List<Flashcard>;
-
-      // Hydrate children with aggregated counts in parallel
-      final childCountFutures = children.map(
-        (child) => _getAggregatedCounts(child.deckId),
-      );
-      final totalCountsFuture = _getAggregatedCounts(widget.deckId);
-      final allCounts = await Future.wait([
-        Future.wait(childCountFutures.toList()),
-        totalCountsFuture,
-      ]);
-
-      final childCounts = allCounts[0] as List<(int, int)>;
-      final totalCounts = allCounts[1] as (int, int);
-
-      final childCountMap = <String, (int, int)>{};
-      for (var i = 0; i < children.length; i++) {
-        childCountMap[children[i].deckId] = childCounts[i];
-      }
-
-      if (mounted) {
-        setState(() {
-          _deck = deck;
-          _ancestors = ancestors;
-          _children = children;
-          _childCounts = childCountMap;
-          _cards = cards;
-          _totalCardCount = totalCounts.$1;
-          _totalDueCount = totalCounts.$2;
-          _hasLoaded = true;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _hasLoaded = true);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load deck: $e')));
-      }
-    }
-  }
-
-  /// Returns (totalCards, totalDue) across a deck and all descendants.
-  Future<(int, int)> _getAggregatedCounts(String deckId) async {
-    final allIds = await _deckRepo.getDescendantIds(deckId);
-    var cards = 0;
-    var due = 0;
-    for (final id in allIds) {
-      final counts = await Future.wait([
-        _cardRepo.countByDeckId(id),
-        _cardRepo.countDueByDeckId(id),
-      ]);
-      cards += counts[0];
-      due += counts[1];
-    }
-    return (cards, due);
-  }
-
-  Future<void> _study() async {
-    if (_totalCardCount == 0 || _totalDueCount == 0) {
-      if (mounted) {
-        final empty = _totalCardCount == 0;
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(empty ? 'No cards yet' : 'All caught up!'),
-            content: Text(
-              empty
-                  ? 'Add some cards before studying.'
-                  : 'No cards are due right now.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
-      return;
-    }
-
-    final allIds = await _deckRepo.getDescendantIds(widget.deckId);
-    if (mounted) {
-      context.push(
-        Routes.studyPath(widget.deckId),
-        extra: {'name': _deck!.deckName, 'deckIds': allIds},
-      );
-    }
-  }
+  // ── Navigation helpers ──────────────────────────────────────────
 
   /// Rebuild the navigation stack to match the deck hierarchy.
-  ///
   /// Stack becomes: home → ancestorChain[0] → ... → target.
-  /// This ensures back button / swipe-back always goes up the tree.
   void _navigateWithAncestorStack(List<Deck> ancestorChain, Deck? target) {
     context.go(Routes.home);
     for (var i = 0; i < ancestorChain.length; i++) {
@@ -229,26 +88,61 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     }
   }
 
-  Future<void> _deleteDeck() async {
+  // ── Actions ─────────────────────────────────────────────────────
+
+  Future<void> _study(DeckDetailState detail) async {
+    if (detail.totalCardCount == 0 || detail.totalDueCount == 0) {
+      if (!mounted) return;
+      final empty = detail.totalCardCount == 0;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(empty ? 'No cards yet' : 'All caught up!'),
+          content: Text(
+            empty
+                ? 'Add some cards before studying.'
+                : 'No cards are due right now.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final allIds =
+        await ref.read(deckRepositoryProvider).getDescendantIds(widget.deckId);
+    if (mounted) {
+      context.push(
+        Routes.studyPath(widget.deckId),
+        extra: {'name': detail.deck.deckName, 'deckIds': allIds},
+      );
+    }
+  }
+
+  Future<void> _deleteDeck(DeckDetailState detail) async {
     final confirmed = await ConfirmDialog.show(
       context: context,
       title: 'Delete deck?',
-      message:
-          'This will delete "${_deck!.deckName}" and all its cards.',
+      message: 'This will delete "${detail.deck.deckName}" and all its cards.',
       confirmLabel: 'Delete',
       isDestructive: true,
     );
     if (!confirmed || !mounted) return;
-    await _deckRepo.delete(widget.deckId);
-    if (mounted) {
-      if (_ancestors.isNotEmpty) {
-        _navigateWithAncestorStack(
-          _ancestors.sublist(0, _ancestors.length - 1),
-          _ancestors.last,
-        );
-      } else {
-        context.go(Routes.home);
-      }
+    await ref.read(deckRepositoryProvider).delete(widget.deckId);
+    ref.invalidate(deckListProvider);
+    if (!mounted) return;
+    if (detail.ancestors.isNotEmpty) {
+      _navigateWithAncestorStack(
+        detail.ancestors.sublist(0, detail.ancestors.length - 1),
+        detail.ancestors.last,
+      );
+    } else {
+      context.go(Routes.home);
     }
   }
 
@@ -271,8 +165,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
             isDestructive: true,
           );
           if (!confirmed || !mounted) return;
-          await _deckRepo.delete(deck.deckId);
-          if (mounted) _loadData();
+          await ref
+              .read(deckDetailProvider(widget.deckId).notifier)
+              .deleteChildDeck(deck.deckId);
           break;
         case ContextMenuAction.move:
           if (!mounted) return;
@@ -311,8 +206,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
             isDestructive: true,
           );
           if (!confirmed || !mounted) return;
-          await _cardRepo.delete(card.cardId);
-          if (mounted) _loadData();
+          await ref
+              .read(deckDetailProvider(widget.deckId).notifier)
+              .deleteCard(card.cardId);
           break;
         case ContextMenuAction.move:
           if (!mounted) return;
@@ -330,30 +226,72 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     }
   }
 
+  // ── Build ───────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final deckName = _deck?.deckName ?? 'Deck';
+    final asyncDetail = ref.watch(deckDetailProvider(widget.deckId));
 
+    return asyncDetail.when(
+      loading: () => _buildScaffold(
+        deckName: widget.deck?.deckName ?? 'Deck',
+        deck: widget.deck,
+        body: widget.deck == null
+            ? const LoadingIndicator()
+            : _buildOptimisticBody(),
+      ),
+      error: (e, _) {
+        if (e is DeckNotFoundException) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Deck not found')),
+              );
+              context.pop();
+            }
+          });
+          return const SizedBox.shrink();
+        }
+        return _buildScaffold(
+          deckName: 'Deck',
+          body: Center(child: Text('Failed to load deck: $e')),
+        );
+      },
+      data: (detail) => _buildScaffold(
+        deckName: detail.deck.deckName,
+        deck: detail.deck,
+        detail: detail,
+        body: _buildBody(detail),
+      ),
+    );
+  }
+
+  Widget _buildScaffold({
+    required String deckName,
+    Deck? deck,
+    DeckDetailState? detail,
+    required Widget body,
+  }) {
     return Scaffold(
       appBar: AppBar(
         title: Text(deckName),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: _deck == null
+            onPressed: deck == null
                 ? null
                 : () => context.push(
                       Routes.deckEditPath(widget.deckId),
-                      extra: _deck,
+                      extra: deck,
                     ),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
-            onPressed: _deck == null ? null : _deleteDeck,
+            onPressed: detail == null ? null : () => _deleteDeck(detail),
           ),
         ],
       ),
-      body: _deck == null ? const LoadingIndicator() : _buildBody(),
+      body: body,
       floatingActionButton: SpeedDialFab(
         actions: [
           SpeedDialAction(
@@ -373,64 +311,89 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     );
   }
 
-  Widget _buildBody() {
-    final hasChildren = _children.isNotEmpty;
-    final hasCards = _cards.isNotEmpty;
+  /// Shown while the provider is loading, using optimistic data from
+  /// navigation extras so the header appears instantly.
+  Widget _buildOptimisticBody() {
+    final ancestors = widget.initialAncestors ?? [];
+    return Column(
+      children: [
+        _buildHeader(
+          ancestors: ancestors,
+          deckName: widget.deck?.deckName ?? '',
+          totalCardCount: widget.initialCardCount ?? 0,
+          totalDueCount: widget.initialDueCount ?? 0,
+          onStudy: null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody(DeckDetailState detail) {
+    final hasChildren = detail.children.isNotEmpty;
+    final hasCards = detail.cards.isNotEmpty;
     final isEmpty = !hasChildren && !hasCards;
 
     if (isEmpty) {
       return Column(
         children: [
-          _buildHeader(),
-          if (_hasLoaded)
-            const Expanded(
-              child: EmptyStateWidget(
-                icon: Icons.style_outlined,
-                title: 'No cards yet',
-                subtitle: 'Tap + to add your first card',
-              ),
+          _buildHeader(
+            ancestors: detail.ancestors,
+            deckName: detail.deck.deckName,
+            totalCardCount: detail.totalCardCount,
+            totalDueCount: detail.totalDueCount,
+            onStudy: () => _study(detail),
+          ),
+          const Expanded(
+            child: EmptyStateWidget(
+              icon: Icons.style_outlined,
+              title: 'No cards yet',
+              subtitle: 'Tap + to add your first card',
             ),
+          ),
         ],
       );
     }
 
     return CustomScrollView(
       slivers: [
-        // Header (breadcrumb + stats)
-        SliverToBoxAdapter(child: _buildHeader()),
-        // Sub-decks section
+        SliverToBoxAdapter(
+          child: _buildHeader(
+            ancestors: detail.ancestors,
+            deckName: detail.deck.deckName,
+            totalCardCount: detail.totalCardCount,
+            totalDueCount: detail.totalDueCount,
+            onStudy: () => _study(detail),
+          ),
+        ),
         if (hasChildren) ...[
           SliverPadding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
-                final child = _children[index];
-                final counts = _childCounts[child.deckId];
+                final child = detail.children[index];
                 return ContextMenuRegion(
                   onAction: (action) =>
-                      _handleDeckContextAction(child, action),
+                      _handleDeckContextAction(child.deck, action),
                   child: DeckCard(
-                    deck: child,
-                    cardCount: counts?.$1 ?? 0,
-                    dueCount: counts?.$2 ?? 0,
+                    deck: child.deck,
+                    cardCount: child.cardCount,
+                    dueCount: child.dueCount,
                     onTap: () {
-                      final counts = _childCounts[child.deckId];
                       context.push(
-                        Routes.deckPath(child.deckId),
+                        Routes.deckPath(child.deck.deckId),
                         extra: {
-                          'deck': child,
-                          'ancestors': [..._ancestors, _deck!],
-                          'cardCount': counts?.$1,
-                          'dueCount': counts?.$2,
+                          'deck': child.deck,
+                          'ancestors': [...detail.ancestors, detail.deck],
+                          'cardCount': child.cardCount,
+                          'dueCount': child.dueCount,
                         },
                       );
                     },
                   ),
                 );
-              }, childCount: _children.length),
+              }, childCount: detail.children.length),
             ),
           ),
-          // Divider between sub-decks and cards
           if (hasCards)
             SliverToBoxAdapter(
               child: Padding(
@@ -453,14 +416,13 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               ),
             ),
         ],
-        // Cards section
         if (hasCards)
           SliverPadding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildCardItem(_cards[index]),
-                childCount: _cards.length,
+                (context, index) => _buildCardItem(detail.cards[index]),
+                childCount: detail.cards.length,
               ),
             ),
           ),
@@ -468,11 +430,26 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     );
   }
 
-  Widget _buildHeader() {
-    return Column(children: [_buildBreadcrumb(), _buildStatsRow()]);
-  }
+  // ── Header (breadcrumb + stats) ─────────────────────────────────
 
-  final ScrollController _breadcrumbScrollController = ScrollController();
+  Widget _buildHeader({
+    required List<Deck> ancestors,
+    required String deckName,
+    required int totalCardCount,
+    required int totalDueCount,
+    required VoidCallback? onStudy,
+  }) {
+    return Column(
+      children: [
+        _buildBreadcrumb(ancestors: ancestors, deckName: deckName),
+        _buildStatsRow(
+          totalCardCount: totalCardCount,
+          totalDueCount: totalDueCount,
+          onStudy: onStudy,
+        ),
+      ],
+    );
+  }
 
   void _scrollBreadcrumbToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -486,7 +463,10 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     });
   }
 
-  Widget _buildBreadcrumb() {
+  Widget _buildBreadcrumb({
+    required List<Deck> ancestors,
+    required String deckName,
+  }) {
     _scrollBreadcrumbToEnd();
     return Container(
       width: double.infinity,
@@ -504,25 +484,26 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               label: 'Home',
               onTap: () => context.go(Routes.home),
             ),
-            for (var i = 0; i < _ancestors.length; i++)
+            for (var i = 0; i < ancestors.length; i++)
               _BreadcrumbItem(
-                label: _ancestors[i].deckName,
+                label: ancestors[i].deckName,
                 onTap: () => _navigateWithAncestorStack(
-                  _ancestors.sublist(0, i),
-                  _ancestors[i],
+                  ancestors.sublist(0, i),
+                  ancestors[i],
                 ),
               ),
-            _BreadcrumbItem(label: _deck?.deckName ?? '', isLast: true),
+            _BreadcrumbItem(label: deckName, isLast: true),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatsRow() {
-    final cardLabel = '$_totalCardCount cards';
-    final dueLabel = '$_totalDueCount due';
-
+  Widget _buildStatsRow({
+    required int totalCardCount,
+    required int totalDueCount,
+    required VoidCallback? onStudy,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: Spacing.lg,
@@ -530,18 +511,22 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
       ),
       child: Row(
         children: [
-          Text(cardLabel, style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            '$totalCardCount cards',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
             child: Text(
               '·',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: AppColors.textTertiary),
             ),
           ),
           Text(
-            dueLabel,
+            '$totalDueCount due',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w600,
@@ -549,7 +534,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           ),
           const Spacer(),
           FilledButton.tonalIcon(
-            onPressed: _study,
+            onPressed: onStudy,
             icon: const Icon(Icons.play_arrow, size: 18),
             label: const Text('Study'),
           ),
@@ -583,15 +568,17 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
                       ),
                       TextSpan(
                         text: '  →  ',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textTertiary,
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: AppColors.textTertiary),
                       ),
                       TextSpan(
                         text: card.back,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -618,7 +605,11 @@ class _BreadcrumbItem extends StatelessWidget {
   final bool isLast;
   final VoidCallback? onTap;
 
-  const _BreadcrumbItem({required this.label, this.isLast = false, this.onTap});
+  const _BreadcrumbItem({
+    required this.label,
+    this.isLast = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {

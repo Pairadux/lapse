@@ -10,14 +10,20 @@ import 'database_constants.dart';
 /// Singleton helper that owns the app's SQLite [Database] connection.
 class DatabaseHelper {
   final String _dbName;
+  final bool _forTesting;
 
   DatabaseHelper._({String? dbName})
-      : _dbName = dbName ?? DatabaseConstants.databaseName;
+      : _dbName = dbName ?? DatabaseConstants.databaseName,
+        _forTesting = false;
   static final DatabaseHelper instance = DatabaseHelper._();
 
   /// Creates an independent instance with its own DB file for testing.
+  /// Bypasses [getApplicationSupportDirectory] so tests run without
+  /// a Flutter engine.
   @visibleForTesting
-  DatabaseHelper.forTesting({String dbName = 'test.db'}) : _dbName = dbName;
+  DatabaseHelper.forTesting({String dbName = 'test.db'})
+      : _dbName = dbName,
+        _forTesting = true;
 
   Database? _database;
 
@@ -36,7 +42,7 @@ class DatabaseHelper {
   /// unwritable for packaged installs.
   Future<Database> _initDatabase() async {
     final String dbPath;
-    if (Platform.isAndroid) {
+    if (_forTesting || Platform.isAndroid) {
       dbPath = await getDatabasesPath();
     } else {
       final dir = await getApplicationSupportDirectory();

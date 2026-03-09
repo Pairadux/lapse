@@ -1,6 +1,7 @@
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/features/decks/domain/deck_with_counts.dart';
 
 class DeckRepository {
   final DatabaseHelper _dbHelper;
@@ -140,6 +141,101 @@ class DeckRepository {
       limit: 1,
     );
     return rows.isNotEmpty;
+  }
+
+  /// Returns decks at the given tree level with aggregated card/due counts
+  /// across all descendants in a single recursive query.
+  /// Pass [parentId] = null for root decks, or a deck ID for its children.
+  Future<List<DeckWithCounts>> getDecksWithCounts({String? parentId}) async {
+    final db = await _dbHelper.database;
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    final parentCondition = parentId != null
+        ? '${DatabaseConstants.colParentId} = ?'
+        : '${DatabaseConstants.colParentId} IS NULL';
+    final args = parentId != null ? [parentId, now] : [now];
+
+    final rows = await db.rawQuery('''
+      WITH RECURSIVE
+        anchor_decks(${DatabaseConstants.colDeckId}) AS (
+          SELECT ${DatabaseConstants.colDeckId}
+          FROM ${DatabaseConstants.tableDecks}
+          WHERE $parentCondition AND ${DatabaseConstants.colIsDeleted} = 0
+        ),
+        descendants(anchor_id, ${DatabaseConstants.colDeckId}) AS (
+          SELECT ${DatabaseConstants.colDeckId}, ${DatabaseConstants.colDeckId}
+          FROM anchor_decks
+          UNION ALL
+          SELECT dt.anchor_id, d.${DatabaseConstants.colDeckId}
+          FROM ${DatabaseConstants.tableDecks} d
+          INNER JOIN descendants dt
+            ON d.${DatabaseConstants.colParentId} = dt.${DatabaseConstants.colDeckId}
+          WHERE d.${DatabaseConstants.colIsDeleted} = 0
+        )
+      SELECT
+        d.*,
+        COALESCE(agg.card_count, 0) AS card_count,
+        COALESCE(agg.due_count, 0) AS due_count
+      FROM anchor_decks a
+      INNER JOIN ${DatabaseConstants.tableDecks} d
+        ON d.${DatabaseConstants.colDeckId} = a.${DatabaseConstants.colDeckId}
+      LEFT JOIN (
+        SELECT
+          dt.anchor_id,
+          COUNT(c.${DatabaseConstants.colCardId}) AS card_count,
+          SUM(CASE WHEN c.${DatabaseConstants.colDueDate} <= ? THEN 1 ELSE 0 END) AS due_count
+        FROM descendants dt
+        LEFT JOIN ${DatabaseConstants.tableCards} c
+          ON c.${DatabaseConstants.colDeckId} = dt.${DatabaseConstants.colDeckId}
+          AND c.${DatabaseConstants.colIsDeleted} = 0
+        GROUP BY dt.anchor_id
+      ) agg ON d.${DatabaseConstants.colDeckId} = agg.anchor_id
+      ORDER BY d.${DatabaseConstants.colCreatedAt}
+    ''', args);
+
+    return rows
+        .map((row) => DeckWithCounts(
+              deck: Deck.fromMap(row),
+              cardCount: row['card_count'] as int,
+              dueCount: row['due_count'] as int,
+            ))
+        .toList();
+  }
+
+  /// Returns (cardCount, dueCount) for a deck and all its descendants
+  /// in a single recursive query.
+  Future<({int cardCount, int dueCount})> getAggregatedCounts(
+    String deckId,
+  ) async {
+    final db = await _dbHelper.database;
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    final rows = await db.rawQuery('''
+      WITH RECURSIVE descendants(${DatabaseConstants.colDeckId}) AS (
+        SELECT ${DatabaseConstants.colDeckId}
+        FROM ${DatabaseConstants.tableDecks}
+        WHERE ${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colIsDeleted} = 0
+        UNION ALL
+        SELECT d.${DatabaseConstants.colDeckId}
+        FROM ${DatabaseConstants.tableDecks} d
+        INNER JOIN descendants dt
+          ON d.${DatabaseConstants.colParentId} = dt.${DatabaseConstants.colDeckId}
+        WHERE d.${DatabaseConstants.colIsDeleted} = 0
+      )
+      SELECT
+        COUNT(c.${DatabaseConstants.colCardId}) AS card_count,
+        COALESCE(SUM(CASE WHEN c.${DatabaseConstants.colDueDate} <= ? THEN 1 ELSE 0 END), 0) AS due_count
+      FROM descendants dt
+      LEFT JOIN ${DatabaseConstants.tableCards} c
+        ON c.${DatabaseConstants.colDeckId} = dt.${DatabaseConstants.colDeckId}
+        AND c.${DatabaseConstants.colIsDeleted} = 0
+    ''', [deckId, now]);
+
+    final row = rows.first;
+    return (
+      cardCount: row['card_count'] as int,
+      dueCount: row['due_count'] as int,
+    );
   }
 
   /// Soft-deletes [deckId], all descendant decks, and all their cards
