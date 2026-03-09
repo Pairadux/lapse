@@ -13,7 +13,6 @@ abstract final class DatabaseConstants {
   static const String colParentId = 'parent_id';
   static const String colDeckName = 'deck_name';
   static const String colUserId = 'user_id';
-  static const String syncStatus = 'sync_status';
 
   // -- Card columns --
   static const String colCardId = 'card_id';
@@ -40,6 +39,7 @@ abstract final class DatabaseConstants {
   static const String colCreatedAt = 'created_at';
   static const String colUpdatedAt = 'updated_at';
   static const String colIsDeleted = 'is_deleted';
+  static const String colSyncStatus = 'sync_status';
 
   // ── CREATE TABLE DDL ──────────────────────────────────────────────
 
@@ -52,8 +52,8 @@ abstract final class DatabaseConstants {
       $colUserId    TEXT NOT NULL,
       $colCreatedAt TEXT NOT NULL,
       $colUpdatedAt TEXT NOT NULL,
-      $colIsDeleted INTEGER NOT NULL DEFAULT 0
-      $syncStatus   TEXT NOT NULL DEFAULT 'synced'
+      $colIsDeleted INTEGER NOT NULL DEFAULT 0,
+      $colSyncStatus   TEXT NOT NULL DEFAULT 'synced'
     )
   ''';
 

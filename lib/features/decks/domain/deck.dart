@@ -67,7 +67,7 @@ class Deck extends Equatable {
       DatabaseConstants.colCreatedAt: createdAt.toUtc().toIso8601String(),
       DatabaseConstants.colUpdatedAt: updatedAt.toUtc().toIso8601String(),
       DatabaseConstants.colIsDeleted: isDeleted ? 1 : 0,
-      DatabaseConstants.syncStatus: syncStatus.name,
+      DatabaseConstants.colSyncStatus: syncStatus.name,
     };
   }
 
@@ -80,7 +80,7 @@ class Deck extends Equatable {
       createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
       updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),
       isDeleted: map[DatabaseConstants.colIsDeleted] == 1,
-      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.syncStatus] as String),
+      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
     );
   }
 
