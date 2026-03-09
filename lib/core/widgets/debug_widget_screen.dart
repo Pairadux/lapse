@@ -203,6 +203,28 @@ class DebugWidgetScreen extends StatelessWidget {
               ),
             ],
           ),
+          _buildSection(
+            context,
+            'Study Gradient',
+            [
+              _WidgetPreview(
+                label: 'Linear gradient (violet BL → pink TR)',
+                height: 400,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomLeft,
+                      end: Alignment.topRight,
+                      colors: [
+                        Color(0xBF8B5CF6),
+                        Color(0xBFF472B6),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: Spacing.xxl),
         ],
       ),

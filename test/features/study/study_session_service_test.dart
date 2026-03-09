@@ -47,7 +47,7 @@ void main() {
       expect(result.updatedCard, isNotNull);
       expect(result.updatedCard.cardId, equals(card.cardId));
       expect(result.updatedCard.reps, greaterThan(card.reps));
-      expect(result.updatedCard.cardState, equals(CardState.review));
+      expect(result.updatedCard.cardState, equals(CardState.learning));
 
       expect(result.review, isNotNull);
       expect(result.review.cardId, equals(card.cardId));

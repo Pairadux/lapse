@@ -1,35 +1,35 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/features/decks/domain/deck_with_counts.dart';
 
-final deckListProvider = AsyncNotifierProvider<DeckListNotifier, List<Deck>>(
+final deckListProvider =
+    AsyncNotifierProvider<DeckListNotifier, List<DeckWithCounts>>(
   DeckListNotifier.new,
 );
 
-class DeckListNotifier extends AsyncNotifier<List<Deck>> {
+class DeckListNotifier extends AsyncNotifier<List<DeckWithCounts>> {
   @override
-  Future<List<Deck>> build() {
-    return ref.read(deckRepositoryProvider).getAll();
+  Future<List<DeckWithCounts>> build() {
+    final repo = ref.watch(deckRepositoryProvider);
+    return repo.getDecksWithCounts();
   }
 
   Future<void> createDeck(Deck deck) async {
-    state = await AsyncValue.guard<List<Deck>>(() async {
-      await ref.read(deckRepositoryProvider).create(deck);
-      return ref.read(deckRepositoryProvider).getAll();
-    });
+    final repo = ref.read(deckRepositoryProvider);
+    await repo.create(deck);
+    ref.invalidateSelf();
   }
 
   Future<void> updateDeck(Deck deck) async {
-    state = await AsyncValue.guard<List<Deck>>(() async {
-      await ref.read(deckRepositoryProvider).update(deck);
-      return ref.read(deckRepositoryProvider).getAll();
-    });
+    final repo = ref.read(deckRepositoryProvider);
+    await repo.update(deck);
+    ref.invalidateSelf();
   }
 
   Future<void> deleteDeck(String deckId) async {
-    state = await AsyncValue.guard<List<Deck>>(() async {
-      await ref.read(deckRepositoryProvider).delete(deckId);
-      return ref.read(deckRepositoryProvider).getAll();
-    });
+    final repo = ref.read(deckRepositoryProvider);
+    await repo.delete(deckId);
+    ref.invalidateSelf();
   }
 }

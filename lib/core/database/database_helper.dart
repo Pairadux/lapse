@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'database_constants.dart';
@@ -7,14 +10,20 @@ import 'database_constants.dart';
 /// Singleton helper that owns the app's SQLite [Database] connection.
 class DatabaseHelper {
   final String _dbName;
+  final bool _forTesting;
 
   DatabaseHelper._({String? dbName})
-      : _dbName = dbName ?? DatabaseConstants.databaseName;
+      : _dbName = dbName ?? DatabaseConstants.databaseName,
+        _forTesting = false;
   static final DatabaseHelper instance = DatabaseHelper._();
 
   /// Creates an independent instance with its own DB file for testing.
+  /// Bypasses [getApplicationSupportDirectory] so tests run without
+  /// a Flutter engine.
   @visibleForTesting
-  DatabaseHelper.forTesting({String dbName = 'test.db'}) : _dbName = dbName;
+  DatabaseHelper.forTesting({String dbName = 'test.db'})
+      : _dbName = dbName,
+        _forTesting = true;
 
   Database? _database;
 
@@ -25,8 +34,20 @@ class DatabaseHelper {
     return _database!;
   }
 
+  /// On Android, [getDatabasesPath] returns the standard app database
+  /// directory. On iOS and desktop, [getApplicationSupportDirectory] returns
+  /// the platform-idiomatic location (Library/Application Support on
+  /// iOS/macOS, ~/.local/share on Linux, %APPDATA% on Windows). The desktop
+  /// FFI backend's [getDatabasesPath] returns "." (the CWD), which is
+  /// unwritable for packaged installs.
   Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
+    final String dbPath;
+    if (_forTesting || Platform.isAndroid) {
+      dbPath = await getDatabasesPath();
+    } else {
+      final dir = await getApplicationSupportDirectory();
+      dbPath = dir.path;
+    }
     final path = join(dbPath, _dbName);
     return openDatabase(
       path,

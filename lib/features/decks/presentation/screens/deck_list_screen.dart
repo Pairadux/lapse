@@ -1,82 +1,35 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
+import 'package:lapse/core/widgets/confirm_dialog.dart';
+import 'package:lapse/core/widgets/context_menu_region.dart';
 import 'package:lapse/core/widgets/dev_drawer.dart';
-import 'package:lapse/features/cards/data/card_repository.dart';
-import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/features/decks/domain/deck_with_counts.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 import 'package:lapse/features/decks/presentation/widgets/empty_deck_state.dart';
 
-class DeckListScreen extends StatefulWidget {
+class DeckListScreen extends ConsumerWidget {
   const DeckListScreen({super.key});
 
   @override
-  State<DeckListScreen> createState() => _DeckListScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncDecks = ref.watch(deckListProvider);
 
-class _DeckListScreenState extends State<DeckListScreen> {
-  // TODO: Replace with state management provider
-  final _deckRepo = DeckRepository();
-  final _cardRepo = CardRepository();
-
-  List<Deck> _rootDecks = [];
-  Map<String, (int, int)> _deckCounts = {};
-  bool _hasLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDecks();
-  }
-
-  Future<void> _loadDecks() async {
-    try {
-      final rootDecks = await _deckRepo.getRootDecks();
-
-      // Compute aggregated counts for all root decks in parallel
-      final countFutures = rootDecks.map((deck) async {
-        final allIds = await _deckRepo.getDescendantIds(deck.deckId);
-        var totalCards = 0;
-        var totalDue = 0;
-        for (final id in allIds) {
-          final counts = await Future.wait([
-            _cardRepo.countByDeckId(id),
-            _cardRepo.countDueByDeckId(id),
-          ]);
-          totalCards += counts[0];
-          totalDue += counts[1];
-        }
-        return (deck.deckId, totalCards, totalDue);
-      });
-
-      final results = await Future.wait(countFutures);
-      final countsMap = <String, (int, int)>{
-        for (final (id, cards, due) in results) id: (cards, due),
-      };
-
-      if (mounted) {
-        setState(() {
-          _rootDecks = rootDecks;
-          _deckCounts = countsMap;
-          _hasLoaded = true;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _hasLoaded = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load decks: $e')),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: kDebugMode
+                ? () => Scaffold.of(ctx).openDrawer()
+                : null,
+          ),
+        ),
         title: const Text('Decks'),
         actions: [
           IconButton(
@@ -85,45 +38,106 @@ class _DeckListScreenState extends State<DeckListScreen> {
           ),
         ],
       ),
-      drawer: DevDrawer(onDataChanged: _loadDecks),
-      body: (!_hasLoaded && _rootDecks.isEmpty)
-          ? const SizedBox.shrink()
-          : _buildDeckList(),
+      drawer: kDebugMode
+          ? DevDrawer(
+              onDataChanged: () => ref.invalidate(deckListProvider),
+            )
+          : null,
+      body: asyncDecks.when(
+        loading: () => const SizedBox.shrink(),
+        error: (e, _) => Center(child: Text('Failed to load decks: $e')),
+        data: (decks) => _DeckList(decks: decks),
+      ),
       floatingActionButton: FloatingActionButton(
         heroTag: 'deck_list_fab',
         onPressed: () async {
           await context.push(Routes.deckNew);
-          _loadDecks();
+          ref.invalidate(deckListProvider);
         },
         child: const Icon(Icons.add),
       ),
     );
   }
+}
 
-  Widget _buildDeckList() {
-    if (_rootDecks.isEmpty) {
-      return EmptyDeckState(onCreateDeck: () async {
-        await context.push(Routes.deckNew);
-        _loadDecks();
-      });
+class _DeckList extends ConsumerWidget {
+  final List<DeckWithCounts> decks;
+
+  const _DeckList({required this.decks});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (decks.isEmpty) {
+      return EmptyDeckState(
+        onCreateDeck: () async {
+          await context.push(Routes.deckNew);
+          ref.invalidate(deckListProvider);
+        },
+      );
     }
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-      itemCount: _rootDecks.length,
+      itemCount: decks.length,
       itemBuilder: (context, index) {
-        final deck = _rootDecks[index];
-        final counts = _deckCounts[deck.deckId];
-        return DeckCard(
-          deck: deck,
-          cardCount: counts?.$1 ?? 0,
-          dueCount: counts?.$2 ?? 0,
-          onTap: () async {
-            await context.push(Routes.deckPath(deck.deckId), extra: deck);
-            _loadDecks();
-          },
+        final item = decks[index];
+        return ContextMenuRegion(
+          onAction: (action) =>
+              _handleContextAction(context, ref, item.deck, action),
+          child: DeckCard(
+            deck: item.deck,
+            cardCount: item.cardCount,
+            dueCount: item.dueCount,
+            onTap: () async {
+              await context.push(
+                Routes.deckPath(item.deck.deckId),
+                extra: item.deck,
+              );
+              ref.invalidate(deckListProvider);
+            },
+          ),
         );
       },
     );
+  }
+
+  Future<void> _handleContextAction(
+    BuildContext context,
+    WidgetRef ref,
+    Deck deck,
+    ContextMenuAction action,
+  ) async {
+    try {
+      switch (action) {
+        case ContextMenuAction.edit:
+          await context.push(Routes.deckEditPath(deck.deckId), extra: deck);
+          ref.invalidate(deckListProvider);
+          break;
+        case ContextMenuAction.delete:
+          final confirmed = await ConfirmDialog.show(
+            context: context,
+            title: 'Delete deck?',
+            message:
+                'This will delete "${deck.deckName}" and all its cards.',
+            confirmLabel: 'Delete',
+            isDestructive: true,
+          );
+          if (!confirmed || !context.mounted) return;
+          await ref.read(deckListProvider.notifier).deleteDeck(deck.deckId);
+          break;
+        case ContextMenuAction.move:
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Move action is coming soon')),
+          );
+          break;
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Action failed: $e')),
+        );
+      }
+    }
   }
 }

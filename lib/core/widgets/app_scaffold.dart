@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../routing/routes.dart';
@@ -11,6 +12,7 @@ class AppScaffold extends StatelessWidget {
   final bool showBackButton;
   final bool showSettingsButton;
   final VoidCallback? onBack;
+  final VoidCallback? onDataChanged;
 
   const AppScaffold({
     super.key,
@@ -21,6 +23,7 @@ class AppScaffold extends StatelessWidget {
     this.showBackButton = false,
     this.showSettingsButton = true,
     this.onBack,
+    this.onDataChanged,
   });
 
   @override
@@ -39,7 +42,14 @@ class AppScaffold extends StatelessWidget {
                   }
                 },
               )
-            : null,
+            : Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: kDebugMode
+                      ? () => Scaffold.of(context).openDrawer()
+                      : null,
+                ),
+              ),
         actions: [
           ...?actions,
           if (showSettingsButton)
@@ -49,7 +59,7 @@ class AppScaffold extends StatelessWidget {
             ),
         ],
       ),
-      drawer: const DevDrawer(),
+      drawer: kDebugMode ? DevDrawer(onDataChanged: onDataChanged) : null,
       body: body,
       floatingActionButton: floatingActionButton,
     );

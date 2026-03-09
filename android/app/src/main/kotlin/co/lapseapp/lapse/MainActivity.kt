@@ -1,4 +1,4 @@
-package com.example.lapse
+package co.lapseapp.lapse
 
 import io.flutter.embedding.android.FlutterActivity
 
