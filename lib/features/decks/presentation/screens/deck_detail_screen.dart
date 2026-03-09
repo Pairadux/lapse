@@ -12,6 +12,7 @@ import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/features/decks/presentation/actions/deck_context_actions.dart';
 import 'package:lapse/core/widgets/speed_dial_fab.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 
@@ -171,8 +172,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
     final confirmed = await ConfirmDialog.show(
       context: context,
       title: 'Delete deck?',
-      message:
-          'This will delete "${_deck!.deckName}" and all its cards.',
+      message: 'This will delete "${_deck!.deckName}" and all its cards.',
       confirmLabel: 'Delete',
       isDestructive: true,
     );
@@ -184,45 +184,6 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
         context.go(Routes.deckPath(parent.deckId), extra: parent);
       } else {
         context.go(Routes.home);
-      }
-    }
-  }
-
-  Future<void> _handleDeckContextAction(
-    Deck deck,
-    ContextMenuAction action,
-  ) async {
-    try {
-      switch (action) {
-        case ContextMenuAction.edit:
-          await context.push(Routes.deckEditPath(deck.deckId), extra: deck);
-          if (mounted) _loadData();
-          break;
-        case ContextMenuAction.delete:
-          final confirmed = await ConfirmDialog.show(
-            context: context,
-            title: 'Delete deck?',
-            message:
-                'This will delete "${deck.deckName}" and all its cards.',
-            confirmLabel: 'Delete',
-            isDestructive: true,
-          );
-          if (!confirmed || !mounted) return;
-          await _deckRepo.delete(deck.deckId);
-          if (mounted) _loadData();
-          break;
-        case ContextMenuAction.move:
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Move action is coming soon')),
-          );
-          break;
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
       }
     }
   }
@@ -261,9 +222,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
       }
     }
   }
@@ -352,8 +313,13 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> {
                 final child = _children[index];
                 final counts = _childCounts[child.deckId];
                 return ContextMenuRegion(
-                  onAction: (action) =>
-                      _handleDeckContextAction(child, action),
+                  onAction: (action) => handleDeckContextAction(
+                    context: context,
+                    deck: child,
+                    action: action,
+                    deckRepository: _deckRepo,
+                    onChanged: _loadData,
+                  ),
                   child: DeckCard(
                     deck: child,
                     cardCount: counts?.$1 ?? 0,
