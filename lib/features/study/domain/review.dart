@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
+import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/core/database/database_constants.dart';
 
@@ -10,6 +11,8 @@ class Review extends Equatable {
   final int scheduledDays; // Interval assigned after this review
   final int elapsedDays; // Days since previous review
   final CardState state; // State at time of review
+  final String? userId; // For multi-user support (optional)
+  final Enum syncStatus; // Synced, pending, conflict
 
   const Review({
     required this.cardId,
@@ -18,6 +21,8 @@ class Review extends Equatable {
     required this.scheduledDays,
     required this.elapsedDays,
     required this.state,
+    this.userId,
+    this.syncStatus = SyncStatus.synced,
   });
 
   Review copyWith({DateTime? reviewedAt, Rating? rating, int? scheduledDays, int? elapsedDays, CardState? state}) {
@@ -28,6 +33,7 @@ class Review extends Equatable {
       scheduledDays: scheduledDays ?? this.scheduledDays,
       elapsedDays: elapsedDays ?? this.elapsedDays,
       state: state ?? this.state,
+      syncStatus: SyncStatus.pending, // Mark as pending on any change
     );
   }
 
@@ -40,6 +46,8 @@ class Review extends Equatable {
       DatabaseConstants.colScheduledDays: scheduledDays,
       DatabaseConstants.colElapsedDays: elapsedDays,
       DatabaseConstants.colState: state.index,
+      DatabaseConstants.colUserId: userId,
+      DatabaseConstants.colSyncStatus: syncStatus.name,
     };
   }
 
@@ -52,9 +60,11 @@ class Review extends Equatable {
       scheduledDays: map[DatabaseConstants.colScheduledDays] as int,
       elapsedDays: map[DatabaseConstants.colElapsedDays] as int,
       state: CardState.values[map[DatabaseConstants.colState] as int],
+      userId: map[DatabaseConstants.colUserId] as String?,
+      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
     );
   }
 
   @override
-  List<Object?> get props => [cardId, reviewedAt, rating, scheduledDays, elapsedDays, state];
+  List<Object?> get props => [cardId, reviewedAt, rating, scheduledDays, elapsedDays, state, userId, syncStatus];
 }
