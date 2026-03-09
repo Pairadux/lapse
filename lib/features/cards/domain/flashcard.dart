@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lapse/core/database/database_constants.dart';
 
@@ -25,8 +25,8 @@ class Flashcard extends Equatable {
   final DateTime? lastReview;
   final CardState cardState;
   final int? step; // Learning step progress (null for new/review cards, 0+ for learning/relearning)
-  final Enum syncStatus; // Synced, pending, conflict
-  final String? userId; // For multi-user support (optional)
+  final SyncStatus syncStatus; // Synced, pending, conflict
+  final String userId; // For multi-user support (optional)
 
   const Flashcard({
     required this.cardId,
@@ -47,7 +47,7 @@ class Flashcard extends Equatable {
     required this.cardState,
     this.step,
     this.syncStatus = SyncStatus.synced,
-    this.userId,
+    this.userId = '',
   });
 
   /// Creates a new card with auto-generated ID, timestamps, and FSRS defaults.
@@ -69,7 +69,7 @@ class Flashcard extends Equatable {
       createdAt: now,
       updatedAt: now,
       syncStatus: SyncStatus.synced,
-      userId: null,
+      userId: '',
     );
   }
 
@@ -80,7 +80,6 @@ class Flashcard extends Equatable {
     String? deckId,
     String? front,
     String? back,
-    DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
     DateTime? dueDate,
@@ -100,8 +99,8 @@ class Flashcard extends Equatable {
       deckId: deckId ?? this.deckId,
       front: front ?? this.front,
       back: back ?? this.back,
-      createdAt: createdAt ?? this.createdAt, // I dont know if this should be updatable
-      updatedAt: DateTime.now(), // Always update timestamp on change
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
       dueDate: dueDate ?? this.dueDate,
       stability: stability ?? this.stability,
@@ -113,7 +112,6 @@ class Flashcard extends Equatable {
       lastReview: lastReview ?? this.lastReview,
       cardState: cardState ?? this.cardState,
       step: step == _stepUnset ? this.step : step,
-      syncStatus: SyncStatus.pending, // Mark as pending on any change
     );
   }
 
@@ -163,7 +161,7 @@ class Flashcard extends Equatable {
       lastReview: lastReviewStr != null ? DateTime.parse(lastReviewStr) : null,
       cardState: CardState.values[map[DatabaseConstants.colCardState] as int],
       step: map[DatabaseConstants.colStep] as int?,
-      userId: map[DatabaseConstants.colUserId] as String?,
+      userId: map[DatabaseConstants.colUserId] as String,
       syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
     );
   }

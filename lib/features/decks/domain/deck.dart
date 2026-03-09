@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lapse/core/database/database_constants.dart';
 
@@ -9,7 +10,7 @@ class Deck extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted; // Soft delete for sync
-  final String? userId;
+  final String userId;
   final Enum syncStatus; // Synced, pending, conflict
 
   const Deck({
@@ -19,7 +20,7 @@ class Deck extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
-    this.userId,
+    this.userId = '',
     this.syncStatus = SyncStatus.synced,
   });
 
@@ -32,7 +33,7 @@ class Deck extends Equatable {
       deckName: deckName,
       createdAt: now,
       updatedAt: now,
-      userId: null,
+      userId: '',
     );
   }
 
@@ -50,9 +51,8 @@ class Deck extends Equatable {
           : this.parentId, // call using copyWith(parentId: Optional.value(null)) to set parentId to null
       deckName: deckName ?? this.deckName,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: DateTime.now(), // Always update timestamp on change
+      updatedAt: updatedAt ?? this.updatedAt, // Always update timestamp on change
       isDeleted: isDeleted ?? this.isDeleted,
-      syncStatus: SyncStatus.pending,
     );
   }
 
@@ -63,7 +63,7 @@ class Deck extends Equatable {
       DatabaseConstants.colDeckId: deckId,
       DatabaseConstants.colParentId: parentId,
       DatabaseConstants.colDeckName: deckName,
-      DatabaseConstants.colUserId: '', // placeholder until auth
+      DatabaseConstants.colUserId: userId, // placeholder until auth
       DatabaseConstants.colCreatedAt: createdAt.toUtc().toIso8601String(),
       DatabaseConstants.colUpdatedAt: updatedAt.toUtc().toIso8601String(),
       DatabaseConstants.colIsDeleted: isDeleted ? 1 : 0,
@@ -81,20 +81,12 @@ class Deck extends Equatable {
       updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),
       isDeleted: map[DatabaseConstants.colIsDeleted] == 1,
       syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
+      userId: map[DatabaseConstants.colUserId] as String,
     );
   }
 
   @override
   List<Object?> get props => [deckId, parentId, deckName, createdAt, updatedAt, isDeleted, userId, syncStatus];
-}
-
-enum SyncStatus {
-  synced('synced'),
-  pending('pending'),
-  conflict('conflict');
-
-  final String value;
-  const SyncStatus(this.value);
 }
 
 class Optional<T> {

@@ -1,7 +1,9 @@
+import 'package:sqflite/sqflite.dart';
+
 /// Compile-time constants for the SQLite schema.
 abstract final class DatabaseConstants {
   static const String databaseName = 'lapse.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
 
   // -- Table names --
   static const String tableDecks = 'decks';
@@ -12,7 +14,6 @@ abstract final class DatabaseConstants {
   static const String colDeckId = 'deck_id';
   static const String colParentId = 'parent_id';
   static const String colDeckName = 'deck_name';
-  static const String colUserId = 'user_id';
 
   // -- Card columns --
   static const String colCardId = 'card_id';
@@ -40,6 +41,7 @@ abstract final class DatabaseConstants {
   static const String colUpdatedAt = 'updated_at';
   static const String colIsDeleted = 'is_deleted';
   static const String colSyncStatus = 'sync_status';
+  static const String colUserId = 'user_id';
 
   // ── CREATE TABLE DDL ──────────────────────────────────────────────
 
@@ -53,7 +55,6 @@ abstract final class DatabaseConstants {
       $colCreatedAt TEXT NOT NULL,
       $colUpdatedAt TEXT NOT NULL,
       $colIsDeleted INTEGER NOT NULL DEFAULT 0,
-      $colUserId      TEXT NOT NULL,
       $colSyncStatus   TEXT NOT NULL DEFAULT 'synced'
     )
   ''';
@@ -146,4 +147,30 @@ abstract final class DatabaseConstants {
     createIndexReviewsCardId,
     createIndexReviewsReviewedAt,
   ];
+
+  Future<void> onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 3) {
+      // decks
+      await db.execute(
+        "ALTER TABLE ${DatabaseConstants.tableDecks} ADD COLUMN ${DatabaseConstants.colUserId} TEXT NOT NULL DEFAULT ''",
+      );
+      await db.execute(
+        "ALTER TABLE ${DatabaseConstants.tableDecks} ADD COLUMN ${DatabaseConstants.colSyncStatus} TEXT NOT NULL DEFAULT 'synced'",
+      );
+
+      // cards
+      await db.execute(
+        "ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colUserId} TEXT NOT NULL DEFAULT ''",
+      );
+      await db.execute(
+        "ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colSyncStatus} TEXT NOT NULL DEFAULT 'synced'",
+      );
+
+      // reviews
+      await db.execute("ALTER TABLE ${DatabaseConstants.tableReviews} ADD COLUMN ${DatabaseConstants.colUserId} TEXT");
+      await db.execute(
+        "ALTER TABLE ${DatabaseConstants.tableReviews} ADD COLUMN ${DatabaseConstants.colSyncStatus} TEXT NOT NULL DEFAULT 'synced'",
+      );
+    }
+  }
 }

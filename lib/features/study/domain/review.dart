@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
-import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/core/database/database_constants.dart';
 
@@ -12,7 +12,7 @@ class Review extends Equatable {
   final int elapsedDays; // Days since previous review
   final CardState state; // State at time of review
   final String? userId; // For multi-user support (optional)
-  final Enum syncStatus; // Synced, pending, conflict
+  final SyncStatus syncStatus; // Synced, pending, conflict
 
   const Review({
     required this.cardId,
@@ -33,7 +33,6 @@ class Review extends Equatable {
       scheduledDays: scheduledDays ?? this.scheduledDays,
       elapsedDays: elapsedDays ?? this.elapsedDays,
       state: state ?? this.state,
-      syncStatus: SyncStatus.pending, // Mark as pending on any change
     );
   }
 
