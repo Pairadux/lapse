@@ -334,11 +334,40 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
               : null,
         ),
         const SizedBox(height: Spacing.md),
-        Text(
-          '**bold**  *italic*  `code`  # heading  - list  > quote  [link](url)',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textTertiary,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '**bold**  *italic*  `code`  # heading  - list  > quote',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textTertiary,
+                    ),
               ),
+            ),
+            const SizedBox(width: Spacing.sm),
+            GestureDetector(
+              onTap: () => setState(() => _showPreview = true),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.visibility_outlined,
+                    size: 14,
+                    color: AppColors.textTertiary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Preview',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textTertiary,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.textTertiary,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -432,13 +461,23 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
           children: [
             if (!widget.isEditing) ...[
               OutlinedButton(
-                onPressed: _saving ? null : _saveAndAddAnother,
+                onPressed: _saving
+                    ? null
+                    : () {
+                        HapticFeedback.lightImpact();
+                        _saveAndAddAnother();
+                      },
                 child: const Text('Save & Add Another'),
               ),
               const SizedBox(height: Spacing.sm),
             ],
             ElevatedButton(
-              onPressed: _saving ? null : _save,
+              onPressed: _saving
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      _save();
+                    },
               child: Text(widget.isEditing ? 'Save' : 'Create'),
             ),
           ],
