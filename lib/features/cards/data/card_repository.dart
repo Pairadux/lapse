@@ -6,7 +6,7 @@ class CardRepository {
   final DatabaseHelper _dbHelper;
 
   CardRepository({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+    : _dbHelper = dbHelper ?? DatabaseHelper.instance;
 
   Future<Flashcard> create(Flashcard card) async {
     final db = await _dbHelper.database;
@@ -26,20 +26,47 @@ class CardRepository {
     return Flashcard.fromMap(rows.first);
   }
 
-  Future<List<Flashcard>> getByDeckId(String deckId) async {
+  /// Returns non-deleted cards for [deckId], ordered by creation time.
+  /// Optional [limit]/[offset] support pagination.
+  Future<List<Flashcard>> getByDeckId(
+    String deckId, {
+    int? limit,
+    int? offset,
+  }) async {
+    if (limit != null && limit <= 0) {
+      throw ArgumentError.value(limit, 'limit', 'must be > 0');
+    }
+    if (offset != null && offset < 0) {
+      throw ArgumentError.value(offset, 'offset', 'must be >= 0');
+    }
     final db = await _dbHelper.database;
     final rows = await db.query(
       DatabaseConstants.tableCards,
       where:
           '${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
       whereArgs: [deckId],
+      orderBy: DatabaseConstants.colCreatedAt,
+      limit: limit,
+      offset: offset,
     );
     return rows.map(Flashcard.fromMap).toList();
   }
 
   /// Returns non-deleted cards due on or before [asOf] (defaults to now),
-  /// ordered by due date. Uses the `idx_cards_deck_due` composite index.
-  Future<List<Flashcard>> getDueCards(String deckId, {DateTime? asOf}) async {
+  /// ordered by due date. Optional [limit]/[offset] support pagination.
+  /// Uses the `idx_cards_deck_due` composite index.
+  Future<List<Flashcard>> getDueCards(
+    String deckId, {
+    DateTime? asOf,
+    int? limit,
+    int? offset,
+  }) async {
+    if (limit != null && limit <= 0) {
+      throw ArgumentError.value(limit, 'limit', 'must be > 0');
+    }
+    if (offset != null && offset < 0) {
+      throw ArgumentError.value(offset, 'offset', 'must be >= 0');
+    }
     final db = await _dbHelper.database;
     final cutoff = (asOf ?? DateTime.now()).toUtc().toIso8601String();
     final rows = await db.query(
@@ -48,6 +75,8 @@ class CardRepository {
           '${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colIsDeleted} = 0 AND ${DatabaseConstants.colDueDate} <= ?',
       whereArgs: [deckId, cutoff],
       orderBy: DatabaseConstants.colDueDate,
+      limit: limit,
+      offset: offset,
     );
     return rows.map(Flashcard.fromMap).toList();
   }
@@ -138,10 +167,7 @@ class CardRepository {
     final now = DateTime.now().toUtc().toIso8601String();
     await db.update(
       DatabaseConstants.tableCards,
-      {
-        DatabaseConstants.colIsDeleted: 1,
-        DatabaseConstants.colUpdatedAt: now,
-      },
+      {DatabaseConstants.colIsDeleted: 1, DatabaseConstants.colUpdatedAt: now},
       where: '${DatabaseConstants.colCardId} = ?',
       whereArgs: [cardId],
     );

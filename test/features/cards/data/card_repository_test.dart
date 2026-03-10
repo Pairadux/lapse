@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -8,15 +9,38 @@ import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathProviderChannel, (methodCall) async {
+          switch (methodCall.method) {
+            case 'getApplicationSupportDirectory':
+            case 'getDatabasesPath':
+              return '/tmp';
+            default:
+              return '/tmp';
+          }
+        });
+  });
+
+  tearDownAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathProviderChannel, null);
+  });
+
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
   late DatabaseHelper helper;
   late DeckRepository deckRepo;
   late CardRepository cardRepo;
+  late String dbName;
 
   setUp(() {
-    helper = DatabaseHelper.forTesting(dbName: 'test_card_repo.db');
+    dbName = 'test_card_repo_${DateTime.now().microsecondsSinceEpoch}.db';
+    helper = DatabaseHelper.forTesting(dbName: dbName);
     deckRepo = DeckRepository(dbHelper: helper);
     cardRepo = CardRepository(dbHelper: helper);
   });
@@ -24,18 +48,15 @@ void main() {
   tearDown(() async {
     await helper.close();
     final dbPath = await getDatabasesPath();
-    await deleteDatabase(join(dbPath, 'test_card_repo.db'));
+    await deleteDatabase(join(dbPath, dbName));
   });
 
   /// Insert a parent deck to satisfy FK constraints.
   Future<void> insertParentDeck({String id = 'deck-1'}) async {
     final now = DateTime.now();
-    await deckRepo.create(Deck(
-      deckId: id,
-      deckName: 'Parent',
-      createdAt: now,
-      updatedAt: now,
-    ));
+    await deckRepo.create(
+      Deck(deckId: id, deckName: 'Parent', createdAt: now, updatedAt: now),
+    );
   }
 
   Flashcard makeCard({
@@ -44,16 +65,19 @@ void main() {
     String front = 'Q',
     String back = 'A',
     DateTime? dueDate,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     final now = DateTime.now();
+    final created = createdAt ?? now;
     return Flashcard(
       cardId: id,
       deckId: deckId,
       front: front,
       back: back,
-      createdAt: now,
-      updatedAt: now,
-      dueDate: dueDate ?? now,
+      createdAt: created,
+      updatedAt: updatedAt ?? created,
+      dueDate: dueDate ?? created,
       stability: 0.0,
       difficulty: 0.0,
       elapsedDays: 0,
@@ -89,6 +113,23 @@ void main() {
     expect(cards.every((c) => c.deckId == 'deck-a'), isTrue);
   });
 
+  test('getByDeckId supports limit and offset pagination', () async {
+    await insertParentDeck(id: 'deck-a');
+    final base = DateTime(2026, 1, 1, 0, 0, 0);
+    for (var i = 1; i <= 5; i++) {
+      await cardRepo.create(
+        makeCard(
+          id: 'c$i',
+          deckId: 'deck-a',
+          createdAt: base.add(Duration(seconds: i)),
+        ),
+      );
+    }
+
+    final page = await cardRepo.getByDeckId('deck-a', limit: 2, offset: 1);
+    expect(page.map((c) => c.cardId).toList(), ['c2', 'c3']);
+  });
+
   test('getDueCards includes past-due and excludes future-due', () async {
     await insertParentDeck();
     final now = DateTime.now();
@@ -101,6 +142,31 @@ void main() {
     final due = await cardRepo.getDueCards('deck-1', asOf: now);
     expect(due, hasLength(1));
     expect(due.first.cardId, 'past');
+  });
+
+  test('getDueCards supports limit and offset pagination', () async {
+    await insertParentDeck();
+    final now = DateTime.now();
+    final dueDates = [
+      now.subtract(const Duration(hours: 4)),
+      now.subtract(const Duration(hours: 3)),
+      now.subtract(const Duration(hours: 2)),
+      now.subtract(const Duration(hours: 1)),
+    ];
+
+    for (var i = 0; i < dueDates.length; i++) {
+      await cardRepo.create(
+        makeCard(id: 'd${i + 1}', dueDate: dueDates[i], createdAt: dueDates[i]),
+      );
+    }
+
+    final page = await cardRepo.getDueCards(
+      'deck-1',
+      asOf: now,
+      limit: 2,
+      offset: 1,
+    );
+    expect(page.map((c) => c.cardId).toList(), ['d2', 'd3']);
   });
 
   test('update persists changes and bumps updatedAt', () async {
