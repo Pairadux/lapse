@@ -79,6 +79,9 @@ class DatabaseHelper {
         case 2:
           await _migrateV2(db);
           break;
+        case 3:
+          await _migrateV3(db);
+          break;
         default:
           break;
       }
@@ -96,6 +99,36 @@ class DatabaseHelper {
         'ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colStep} INTEGER',
       );
     }
+  }
+
+  /// v3: Add sync_status and user_id columns to all tables.
+  /// Decks already has user_id from v1, so only sync_status is added there.
+  Future<void> _migrateV3(Database db) async {
+    // decks — user_id already exists from v1 schema, only add sync_status
+    await db.execute(
+      "ALTER TABLE ${DatabaseConstants.tableDecks} ADD COLUMN ${DatabaseConstants.colSyncStatus} TEXT NOT NULL DEFAULT 'synced'",
+    );
+
+    // cards
+    await db.execute(
+      "ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colUserId} TEXT NOT NULL DEFAULT ''",
+    );
+    await db.execute(
+      "ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colSyncStatus} TEXT NOT NULL DEFAULT 'synced'",
+    );
+
+    // reviews
+    await db.execute(
+      "ALTER TABLE ${DatabaseConstants.tableReviews} ADD COLUMN ${DatabaseConstants.colUserId} TEXT",
+    );
+    await db.execute(
+      "ALTER TABLE ${DatabaseConstants.tableReviews} ADD COLUMN ${DatabaseConstants.colSyncStatus} TEXT NOT NULL DEFAULT 'synced'",
+    );
+
+    // partial indexes — only index non-synced rows for efficient sync queries
+    await db.execute(DatabaseConstants.createIndexDecksSyncStatus);
+    await db.execute(DatabaseConstants.createIndexCardsSyncStatus);
+    await db.execute(DatabaseConstants.createIndexReviewsSyncStatus);
   }
 
   /// Deletes all rows from every table, preserving the schema.

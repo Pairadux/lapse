@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lapse/core/database/database_constants.dart';
 
@@ -9,6 +10,8 @@ class Deck extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted; // Soft delete for sync
+  final String userId;
+  final SyncStatus syncStatus; // Synced, pending, conflict
 
   const Deck({
     required this.deckId,
@@ -17,13 +20,12 @@ class Deck extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
+    this.userId = '',
+    this.syncStatus = SyncStatus.synced,
   });
 
   /// Creates a new deck with auto-generated ID and timestamps.
-  factory Deck.create({
-    required String deckName,
-    String? parentId,
-  }) {
+  factory Deck.create({required String deckName, String? parentId}) {
     final now = DateTime.now();
     return Deck(
       deckId: const Uuid().v4(),
@@ -31,6 +33,7 @@ class Deck extends Equatable {
       deckName: deckName,
       createdAt: now,
       updatedAt: now,
+      userId: '',
     );
   }
 
@@ -40,6 +43,7 @@ class Deck extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
+    SyncStatus? syncStatus,
   }) {
     return Deck(
       deckId: deckId, // Deck Id cannot be changed
@@ -48,8 +52,10 @@ class Deck extends Equatable {
           : this.parentId, // call using copyWith(parentId: Optional.value(null)) to set parentId to null
       deckName: deckName ?? this.deckName,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      updatedAt: updatedAt ?? this.updatedAt, // Always update timestamp on change
       isDeleted: isDeleted ?? this.isDeleted,
+      userId: userId, // immutable — set at creation
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -60,10 +66,11 @@ class Deck extends Equatable {
       DatabaseConstants.colDeckId: deckId,
       DatabaseConstants.colParentId: parentId,
       DatabaseConstants.colDeckName: deckName,
-      DatabaseConstants.colUserId: '', // placeholder until auth
+      DatabaseConstants.colUserId: userId, // placeholder until auth
       DatabaseConstants.colCreatedAt: createdAt.toUtc().toIso8601String(),
       DatabaseConstants.colUpdatedAt: updatedAt.toUtc().toIso8601String(),
       DatabaseConstants.colIsDeleted: isDeleted ? 1 : 0,
+      DatabaseConstants.colSyncStatus: syncStatus.name,
     };
   }
 
@@ -76,11 +83,13 @@ class Deck extends Equatable {
       createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
       updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),
       isDeleted: map[DatabaseConstants.colIsDeleted] == 1,
+      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
+      userId: map[DatabaseConstants.colUserId] as String,
     );
   }
 
   @override
-  List<Object?> get props => [deckId, parentId, deckName, createdAt, updatedAt, isDeleted];
+  List<Object?> get props => [deckId, parentId, deckName, createdAt, updatedAt, isDeleted, userId, syncStatus];
 }
 
 class Optional<T> {

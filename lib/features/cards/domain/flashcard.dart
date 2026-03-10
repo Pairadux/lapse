@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:uuid/uuid.dart';
 import 'package:lapse/core/database/database_constants.dart';
 
@@ -24,6 +25,8 @@ class Flashcard extends Equatable {
   final DateTime? lastReview;
   final CardState cardState;
   final int? step; // Learning step progress (null for new/review cards, 0+ for learning/relearning)
+  final SyncStatus syncStatus; // Synced, pending, conflict
+  final String userId; // For multi-user support (optional)
 
   const Flashcard({
     required this.cardId,
@@ -43,14 +46,12 @@ class Flashcard extends Equatable {
     this.lastReview,
     required this.cardState,
     this.step,
+    this.syncStatus = SyncStatus.synced,
+    this.userId = '',
   });
 
   /// Creates a new card with auto-generated ID, timestamps, and FSRS defaults.
-  factory Flashcard.newCard({
-    required String deckId,
-    required String front,
-    required String back,
-  }) {
+  factory Flashcard.newCard({required String deckId, required String front, required String back}) {
     final now = DateTime.now();
     return Flashcard(
       cardId: const Uuid().v4(),
@@ -67,6 +68,8 @@ class Flashcard extends Equatable {
       cardState: CardState.newCard,
       createdAt: now,
       updatedAt: now,
+      syncStatus: SyncStatus.synced,
+      userId: '',
     );
   }
 
@@ -77,7 +80,6 @@ class Flashcard extends Equatable {
     String? deckId,
     String? front,
     String? back,
-    DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
     DateTime? dueDate,
@@ -90,13 +92,14 @@ class Flashcard extends Equatable {
     DateTime? lastReview,
     CardState? cardState,
     int? step = _stepUnset,
+    SyncStatus? syncStatus,
   }) {
     return Flashcard(
       cardId: cardId, // cardId cannot be changed
       deckId: deckId ?? this.deckId,
       front: front ?? this.front,
       back: back ?? this.back,
-      createdAt: createdAt ?? this.createdAt,
+      createdAt: createdAt, // immutable — set at creation
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
       dueDate: dueDate ?? this.dueDate,
@@ -109,6 +112,8 @@ class Flashcard extends Equatable {
       lastReview: lastReview ?? this.lastReview,
       cardState: cardState ?? this.cardState,
       step: step == _stepUnset ? this.step : step,
+      userId: userId, // immutable — set at creation
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -132,6 +137,8 @@ class Flashcard extends Equatable {
       DatabaseConstants.colLastReview: lastReview?.toUtc().toIso8601String(),
       DatabaseConstants.colCardState: cardState.index,
       DatabaseConstants.colStep: step,
+      DatabaseConstants.colUserId: userId,
+      DatabaseConstants.colSyncStatus: syncStatus.name,
     };
   }
 
@@ -156,6 +163,8 @@ class Flashcard extends Equatable {
       lastReview: lastReviewStr != null ? DateTime.parse(lastReviewStr) : null,
       cardState: CardState.values[map[DatabaseConstants.colCardState] as int],
       step: map[DatabaseConstants.colStep] as int?,
+      userId: map[DatabaseConstants.colUserId] as String,
+      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
     );
   }
 
@@ -178,5 +187,7 @@ class Flashcard extends Equatable {
     lastReview,
     cardState,
     step,
+    userId,
+    syncStatus,
   ];
 }

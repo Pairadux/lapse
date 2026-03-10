@@ -1,7 +1,7 @@
 /// Compile-time constants for the SQLite schema.
 abstract final class DatabaseConstants {
   static const String databaseName = 'lapse.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
 
   // -- Table names --
   static const String tableDecks = 'decks';
@@ -12,7 +12,6 @@ abstract final class DatabaseConstants {
   static const String colDeckId = 'deck_id';
   static const String colParentId = 'parent_id';
   static const String colDeckName = 'deck_name';
-  static const String colUserId = 'user_id';
 
   // -- Card columns --
   static const String colCardId = 'card_id';
@@ -39,10 +38,13 @@ abstract final class DatabaseConstants {
   static const String colCreatedAt = 'created_at';
   static const String colUpdatedAt = 'updated_at';
   static const String colIsDeleted = 'is_deleted';
+  static const String colSyncStatus = 'sync_status';
+  static const String colUserId = 'user_id';
 
   // ── CREATE TABLE DDL ──────────────────────────────────────────────
 
-  static const String createDecksTable = '''
+  static const String createDecksTable =
+      '''
     CREATE TABLE $tableDecks (
       $colDeckId    TEXT PRIMARY KEY,
       $colParentId  TEXT,
@@ -50,11 +52,13 @@ abstract final class DatabaseConstants {
       $colUserId    TEXT NOT NULL,
       $colCreatedAt TEXT NOT NULL,
       $colUpdatedAt TEXT NOT NULL,
-      $colIsDeleted INTEGER NOT NULL DEFAULT 0
+      $colIsDeleted INTEGER NOT NULL DEFAULT 0,
+      $colSyncStatus   TEXT NOT NULL DEFAULT 'synced'
     )
   ''';
 
-  static const String createCardsTable = '''
+  static const String createCardsTable =
+      '''
     CREATE TABLE $tableCards (
       $colCardId        TEXT PRIMARY KEY,
       $colDeckId        TEXT NOT NULL REFERENCES $tableDecks($colDeckId) ON DELETE CASCADE,
@@ -72,11 +76,14 @@ abstract final class DatabaseConstants {
       $colLapses        INTEGER NOT NULL DEFAULT 0,
       $colLastReview    TEXT,
       $colCardState     INTEGER NOT NULL DEFAULT 0,
-      $colStep          INTEGER
+      $colStep          INTEGER,
+      $colUserId        TEXT NOT NULL,
+      $colSyncStatus    TEXT NOT NULL DEFAULT 'synced'
     )
   ''';
 
-  static const String createReviewsTable = '''
+  static const String createReviewsTable =
+      '''
     CREATE TABLE $tableReviews (
       $colId            INTEGER PRIMARY KEY AUTOINCREMENT,
       $colCardId        TEXT NOT NULL REFERENCES $tableCards($colCardId) ON DELETE CASCADE,
@@ -84,38 +91,64 @@ abstract final class DatabaseConstants {
       $colRating        INTEGER NOT NULL,
       $colScheduledDays INTEGER NOT NULL,
       $colElapsedDays   INTEGER NOT NULL,
-      $colState         INTEGER NOT NULL
+      $colState         INTEGER NOT NULL,
+      $colUserId        TEXT,
+      $colSyncStatus    TEXT NOT NULL DEFAULT 'synced'
     )
   ''';
 
   // ── CREATE INDEX DDL ──────────────────────────────────────────────
 
-  static const String createIndexDecksParentId = '''
+  static const String createIndexDecksParentId =
+      '''
     CREATE INDEX idx_decks_parent_id ON $tableDecks($colParentId)
       WHERE $colIsDeleted = 0 AND $colParentId IS NOT NULL
   ''';
 
-  static const String createIndexDecksUserId = '''
+  static const String createIndexDecksUserId =
+      '''
     CREATE INDEX idx_decks_user_id ON $tableDecks($colUserId)
       WHERE $colIsDeleted = 0
   ''';
 
-  static const String createIndexCardsDueDate = '''
+  static const String createIndexCardsDueDate =
+      '''
     CREATE INDEX idx_cards_due_date ON $tableCards($colDueDate)
       WHERE $colIsDeleted = 0
   ''';
 
-  static const String createIndexCardsDeckDue = '''
+  static const String createIndexCardsDeckDue =
+      '''
     CREATE INDEX idx_cards_deck_due ON $tableCards($colDeckId, $colDueDate)
       WHERE $colIsDeleted = 0
   ''';
 
-  static const String createIndexReviewsCardId = '''
+  static const String createIndexReviewsCardId =
+      '''
     CREATE INDEX idx_reviews_card_id ON $tableReviews($colCardId)
   ''';
 
-  static const String createIndexReviewsReviewedAt = '''
+  static const String createIndexReviewsReviewedAt =
+      '''
     CREATE INDEX idx_reviews_reviewed_at ON $tableReviews($colReviewedAt)
+  ''';
+
+  static const String createIndexDecksSyncStatus =
+      '''
+    CREATE INDEX idx_decks_sync_status ON $tableDecks($colSyncStatus)
+      WHERE $colSyncStatus != 'synced'
+  ''';
+
+  static const String createIndexCardsSyncStatus =
+      '''
+    CREATE INDEX idx_cards_sync_status ON $tableCards($colSyncStatus)
+      WHERE $colSyncStatus != 'synced'
+  ''';
+
+  static const String createIndexReviewsSyncStatus =
+      '''
+    CREATE INDEX idx_reviews_sync_status ON $tableReviews($colSyncStatus)
+      WHERE $colSyncStatus != 'synced'
   ''';
 
   /// All DDL statements executed during [onCreate], in order.
@@ -129,5 +162,8 @@ abstract final class DatabaseConstants {
     createIndexCardsDeckDue,
     createIndexReviewsCardId,
     createIndexReviewsReviewedAt,
+    createIndexDecksSyncStatus,
+    createIndexCardsSyncStatus,
+    createIndexReviewsSyncStatus,
   ];
 }
