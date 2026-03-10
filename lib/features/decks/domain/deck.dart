@@ -11,7 +11,7 @@ class Deck extends Equatable {
   final DateTime updatedAt;
   final bool isDeleted; // Soft delete for sync
   final String userId;
-  final Enum syncStatus; // Synced, pending, conflict
+  final SyncStatus syncStatus; // Synced, pending, conflict
 
   const Deck({
     required this.deckId,
@@ -43,6 +43,7 @@ class Deck extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
+    SyncStatus? syncStatus,
   }) {
     return Deck(
       deckId: deckId, // Deck Id cannot be changed
@@ -53,6 +54,8 @@ class Deck extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt, // Always update timestamp on change
       isDeleted: isDeleted ?? this.isDeleted,
+      userId: userId, // immutable — set at creation
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 

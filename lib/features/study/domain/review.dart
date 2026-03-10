@@ -25,7 +25,14 @@ class Review extends Equatable {
     this.syncStatus = SyncStatus.synced,
   });
 
-  Review copyWith({DateTime? reviewedAt, Rating? rating, int? scheduledDays, int? elapsedDays, CardState? state}) {
+  Review copyWith({
+    DateTime? reviewedAt,
+    Rating? rating,
+    int? scheduledDays,
+    int? elapsedDays,
+    CardState? state,
+    SyncStatus? syncStatus,
+  }) {
     return Review(
       cardId: cardId,
       reviewedAt: reviewedAt ?? this.reviewedAt,
@@ -33,6 +40,8 @@ class Review extends Equatable {
       scheduledDays: scheduledDays ?? this.scheduledDays,
       elapsedDays: elapsedDays ?? this.elapsedDays,
       state: state ?? this.state,
+      userId: userId, // immutable — set at creation
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 

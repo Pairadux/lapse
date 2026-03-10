@@ -99,7 +99,7 @@ class Flashcard extends Equatable {
       deckId: deckId ?? this.deckId,
       front: front ?? this.front,
       back: back ?? this.back,
-      createdAt: createdAt,
+      createdAt: createdAt, // immutable — set at creation
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
       dueDate: dueDate ?? this.dueDate,
@@ -112,6 +112,8 @@ class Flashcard extends Equatable {
       lastReview: lastReview ?? this.lastReview,
       cardState: cardState ?? this.cardState,
       step: step == _stepUnset ? this.step : step,
+      userId: userId, // immutable — set at creation
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
