@@ -23,6 +23,7 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
 
   // Realtime echo
   RealtimeChannel? _channel;
+  _RealtimeStatus _realtimeStatus = _RealtimeStatus.disconnected;
   final List<_EchoMessage> _messages = [];
   final String _deviceName = _buildDeviceName();
 
@@ -74,37 +75,59 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
   void _subscribeToEcho() {
     if (!SupabaseConfig.isConfigured) return;
 
+    setState(() => _realtimeStatus = _RealtimeStatus.connecting);
+
     _channel = SupabaseConfig.client.channel('dev-echo');
     _channel!
         .onBroadcast(
           event: 'ping',
           callback: (payload) {
             if (!mounted) return;
-            setState(() {
-              _messages.insert(
-                0,
-                _EchoMessage(
-                  device: payload['device'] as String? ?? 'unknown',
-                  message: payload['message'] as String? ?? '',
-                  timestamp: DateTime.now(),
-                ),
-              );
-              // Cap the list to avoid unbounded growth
-              if (_messages.length > 50) _messages.removeLast();
-            });
+            _addMessage(
+              device: payload['device'] as String? ?? 'unknown',
+              message: payload['message'] as String? ?? '',
+            );
           },
         )
-        .subscribe();
+        .subscribe((status, _) {
+          if (!mounted) return;
+          setState(() {
+            _realtimeStatus = switch (status) {
+              RealtimeSubscribeStatus.subscribed => _RealtimeStatus.subscribed,
+              RealtimeSubscribeStatus.closed => _RealtimeStatus.disconnected,
+              _ => _RealtimeStatus.connecting,
+            };
+          });
+        });
+  }
+
+  void _addMessage({required String device, required String message}) {
+    setState(() {
+      _messages.insert(
+        0,
+        _EchoMessage(
+          device: device,
+          message: message,
+          timestamp: DateTime.now(),
+        ),
+      );
+      if (_messages.length > 50) _messages.removeLast();
+    });
   }
 
   Future<void> _sendPing() async {
     if (_channel == null) return;
 
+    final message = 'Hello from $_deviceName';
+
+    // Self-echo so the sender sees their own ping immediately
+    _addMessage(device: _deviceName, message: message);
+
     await _channel!.sendBroadcastMessage(
       event: 'ping',
       payload: {
         'device': _deviceName,
-        'message': 'Hello from $_deviceName',
+        'message': message,
       },
     );
   }
@@ -318,6 +341,35 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
           children: [
             Row(
               children: [
+                Icon(
+                  switch (_realtimeStatus) {
+                    _RealtimeStatus.subscribed => Icons.wifi,
+                    _RealtimeStatus.connecting => Icons.wifi_find,
+                    _RealtimeStatus.disconnected => Icons.wifi_off,
+                  },
+                  size: 16,
+                  color: switch (_realtimeStatus) {
+                    _RealtimeStatus.subscribed => AppColors.success,
+                    _RealtimeStatus.connecting => AppColors.warning,
+                    _RealtimeStatus.disconnected => AppColors.error,
+                  },
+                ),
+                const SizedBox(width: Spacing.sm),
+                Text(
+                  switch (_realtimeStatus) {
+                    _RealtimeStatus.subscribed => 'Channel subscribed',
+                    _RealtimeStatus.connecting => 'Connecting...',
+                    _RealtimeStatus.disconnected => 'Disconnected',
+                  },
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: Spacing.sm),
+            Row(
+              children: [
                 const Icon(Icons.devices, size: 16, color: AppColors.textTertiary),
                 const SizedBox(width: Spacing.sm),
                 Expanded(
@@ -401,6 +453,8 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
 }
 
 enum _ConnectionStatus { checking, connected, error, notConfigured }
+
+enum _RealtimeStatus { disconnected, connecting, subscribed }
 
 class _EchoMessage {
   final String device;
