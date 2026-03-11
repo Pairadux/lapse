@@ -45,5 +45,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Supabase secrets
+# Supabase
 env.json
+supabase/.temp/
