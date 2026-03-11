@@ -304,6 +304,33 @@ The following were confirmed working correctly by an external tester:
 
 ---
 
+### Soft-Delete Purge Strategy (Pending Team Review)
+
+**Status:** Design proposal, not yet implemented. Needs team discussion.
+
+**Problem:** Soft-deleted decks, cards, and reviews accumulate forever. Reviews are immutable append-only records with `ON DELETE CASCADE` on `card_id`, so they clean up automatically when cards are hard-deleted.
+
+**Proposed purge rule (on app launch):**
+```
+is_deleted = 1
+AND updated_at < (now - threshold)
+AND (sync_status = 'synced' OR user_id = '')
+```
+
+- `sync_status = 'synced'` — server knows about the deletion, safe to purge
+- `user_id = ''` — created while logged out (local-only), server never knew, safe to purge
+- Items with `sync_status = 'pending'` and a `user_id` are **never purged** — they need to sync first
+
+**Account states:**
+- **Not logged in (local-only):** `user_id = ''`, purge freely on timer
+- **Logged in, online:** deletions sync, then purge on next cycle
+- **Logged in, offline:** `sync_status` stays `'pending'`, purge skips them until they sync
+- **Signs out with unsynced deletes:** pending items stay until user signs back in and syncs (data safety over minor bloat)
+
+**Future:** threshold will be a user setting (default TBD, e.g. 7-30 days). Server-side can independently purge via pg_cron or edge function on its own schedule.
+
+---
+
 ### DeckDetailScreen Layout Decision
 
 **Chosen approach:** Unified list (folders-first), no tabs or toggles.
