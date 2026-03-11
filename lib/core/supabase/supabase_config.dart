@@ -8,6 +8,9 @@ class SupabaseConfig {
   static const _publishableKey =
       String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
+  /// The project URL, for display or diagnostics.
+  static String get url => _url;
+
   /// Whether Supabase credentials were provided at build time.
   static bool get isConfigured => _url.isNotEmpty && _publishableKey.isNotEmpty;
 

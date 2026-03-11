@@ -2,6 +2,7 @@ abstract class Routes {
   static const home = '/';
   static const debug = '/debug';
   static const devStats = '/dev/stats';
+  static const devSupabase = '/dev/supabase';
   static const settings = '/settings';
   static const deckNew = '/deck/new';
   static const deck = '/deck/:deckId';

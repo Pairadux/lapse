@@ -8,6 +8,7 @@ import 'package:lapse/features/decks/presentation/screens/deck_form_screen.dart'
 import 'package:lapse/features/decks/presentation/screens/deck_list_screen.dart';
 import 'package:lapse/features/study/presentation/screens/study_session_screen.dart';
 import 'package:lapse/features/study/presentation/screens/review_stats_screen.dart';
+import '../supabase/supabase_dev_screen.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/debug_widget_screen.dart';
 import 'page_transitions.dart';
@@ -32,6 +33,11 @@ final appRouter = GoRouter(
       path: Routes.devStats,
       pageBuilder: (context, state) =>
           buildPage(state, const ReviewStatsScreen()),
+    ),
+    GoRoute(
+      path: Routes.devSupabase,
+      pageBuilder: (context, state) =>
+          buildPage(state, const SupabaseDevScreen()),
     ),
     GoRoute(
       path: Routes.settings,

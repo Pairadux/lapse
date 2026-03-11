@@ -206,6 +206,11 @@ class DevDrawer extends StatelessWidget {
             label: 'Review Stats',
             route: Routes.devStats,
           ),
+          _DrawerItem(
+            icon: Icons.cloud_outlined,
+            label: 'Supabase Dev',
+            route: Routes.devSupabase,
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.dataset_outlined),
