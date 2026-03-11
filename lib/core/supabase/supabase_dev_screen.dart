@@ -77,11 +77,15 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
 
     setState(() => _realtimeStatus = _RealtimeStatus.connecting);
 
-    _channel = SupabaseConfig.client.channel('dev-echo');
+    _channel = SupabaseConfig.client.channel(
+      'dev-echo',
+      opts: const RealtimeChannelConfig(self: true),
+    );
     _channel!
         .onBroadcast(
           event: 'ping',
           callback: (payload) {
+            debugPrint('Broadcast received: $payload');
             if (!mounted) return;
             _addMessage(
               device: payload['device'] as String? ?? 'unknown',
@@ -89,7 +93,8 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
             );
           },
         )
-        .subscribe((status, _) {
+        .subscribe((status, error) {
+          debugPrint('Realtime status: $status, error: $error');
           if (!mounted) return;
           setState(() {
             _realtimeStatus = switch (status) {
@@ -118,16 +123,11 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
   Future<void> _sendPing() async {
     if (_channel == null) return;
 
-    final message = 'Hello from $_deviceName';
-
-    // Self-echo so the sender sees their own ping immediately
-    _addMessage(device: _deviceName, message: message);
-
     await _channel!.sendBroadcastMessage(
       event: 'ping',
       payload: {
         'device': _deviceName,
-        'message': message,
+        'message': 'Hello from $_deviceName',
       },
     );
   }
@@ -391,13 +391,8 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
             ),
             if (_messages.isNotEmpty) ...[
               const Divider(height: Spacing.xl),
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _messages.length,
-                separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
-                itemBuilder: (context, index) {
-                  final msg = _messages[index];
+              for (final msg in _messages) ...[
+                Builder(builder: (_) {
                   final isLocal = msg.device == _deviceName;
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,8 +430,9 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
                       ),
                     ],
                   );
-                },
-              ),
+                }),
+                const SizedBox(height: Spacing.sm),
+              ],
             ],
           ],
         ),
