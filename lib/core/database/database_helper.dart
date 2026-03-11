@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 import 'database_constants.dart';
 
@@ -82,6 +83,9 @@ class DatabaseHelper {
         case 3:
           await _migrateV3(db);
           break;
+        case 4:
+          await _migrateV4(db);
+          break;
         default:
           break;
       }
@@ -128,6 +132,57 @@ class DatabaseHelper {
     // partial indexes — only index non-synced rows for efficient sync queries
     await db.execute(DatabaseConstants.createIndexDecksSyncStatus);
     await db.execute(DatabaseConstants.createIndexCardsSyncStatus);
+    await db.execute(DatabaseConstants.createIndexReviewsSyncStatus);
+  }
+
+  /// v4: Replace reviews auto-increment integer PK with UUID text PK.
+  /// Existing rows get a generated UUID; the column is renamed from
+  /// `id` to `review_id` to match the deck_id/card_id convention.
+  Future<void> _migrateV4(Database db) async {
+    const uuid = Uuid();
+
+    // Create the new table with UUID primary key
+    await db.execute('''
+      CREATE TABLE reviews_v2 (
+        ${DatabaseConstants.colReviewId}      TEXT PRIMARY KEY,
+        ${DatabaseConstants.colCardId}        TEXT NOT NULL REFERENCES ${DatabaseConstants.tableCards}(${DatabaseConstants.colCardId}) ON DELETE CASCADE,
+        ${DatabaseConstants.colReviewedAt}    TEXT NOT NULL,
+        ${DatabaseConstants.colRating}        INTEGER NOT NULL,
+        ${DatabaseConstants.colScheduledDays} INTEGER NOT NULL,
+        ${DatabaseConstants.colElapsedDays}   INTEGER NOT NULL,
+        ${DatabaseConstants.colState}         INTEGER NOT NULL,
+        ${DatabaseConstants.colUserId}        TEXT,
+        ${DatabaseConstants.colSyncStatus}    TEXT NOT NULL DEFAULT 'synced'
+      )
+    ''');
+
+    // Copy existing rows, generating a UUID for each
+    final rows = await db.query(DatabaseConstants.tableReviews);
+    if (rows.isNotEmpty) {
+      final batch = db.batch();
+      for (final row in rows) {
+        batch.insert('reviews_v2', {
+          DatabaseConstants.colReviewId: uuid.v4(),
+          DatabaseConstants.colCardId: row[DatabaseConstants.colCardId],
+          DatabaseConstants.colReviewedAt: row[DatabaseConstants.colReviewedAt],
+          DatabaseConstants.colRating: row[DatabaseConstants.colRating],
+          DatabaseConstants.colScheduledDays: row[DatabaseConstants.colScheduledDays],
+          DatabaseConstants.colElapsedDays: row[DatabaseConstants.colElapsedDays],
+          DatabaseConstants.colState: row[DatabaseConstants.colState],
+          DatabaseConstants.colUserId: row[DatabaseConstants.colUserId],
+          DatabaseConstants.colSyncStatus: row[DatabaseConstants.colSyncStatus],
+        });
+      }
+      await batch.commit(noResult: true);
+    }
+
+    // Swap tables
+    await db.execute('DROP TABLE ${DatabaseConstants.tableReviews}');
+    await db.execute('ALTER TABLE reviews_v2 RENAME TO ${DatabaseConstants.tableReviews}');
+
+    // Recreate indexes
+    await db.execute(DatabaseConstants.createIndexReviewsCardId);
+    await db.execute(DatabaseConstants.createIndexReviewsReviewedAt);
     await db.execute(DatabaseConstants.createIndexReviewsSyncStatus);
   }
 

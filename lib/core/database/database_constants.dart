@@ -1,7 +1,7 @@
 /// Compile-time constants for the SQLite schema.
 abstract final class DatabaseConstants {
   static const String databaseName = 'lapse.db';
-  static const int databaseVersion = 3;
+  static const int databaseVersion = 4;
 
   // -- Table names --
   static const String tableDecks = 'decks';
@@ -29,7 +29,7 @@ abstract final class DatabaseConstants {
   static const String colStep = 'step';
 
   // -- Review columns --
-  static const String colId = 'id';
+  static const String colReviewId = 'review_id';
   static const String colReviewedAt = 'reviewed_at';
   static const String colRating = 'rating';
   static const String colState = 'state';
@@ -85,7 +85,7 @@ abstract final class DatabaseConstants {
   static const String createReviewsTable =
       '''
     CREATE TABLE $tableReviews (
-      $colId            INTEGER PRIMARY KEY AUTOINCREMENT,
+      $colReviewId      TEXT PRIMARY KEY,
       $colCardId        TEXT NOT NULL REFERENCES $tableCards($colCardId) ON DELETE CASCADE,
       $colReviewedAt    TEXT NOT NULL,
       $colRating        INTEGER NOT NULL,

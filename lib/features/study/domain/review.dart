@@ -3,8 +3,10 @@ import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/core/database/database_constants.dart';
+import 'package:uuid/uuid.dart';
 
 class Review extends Equatable {
+  final String reviewId; // UUID primary key
   final String cardId;
   final DateTime reviewedAt;
   final Rating rating; // 1=Again, 2=Hard, 3=Good, 4=Easy
@@ -14,7 +16,10 @@ class Review extends Equatable {
   final String? userId; // For multi-user support (optional)
   final SyncStatus syncStatus; // Synced, pending, conflict
 
-  const Review({
+  static const _uuid = Uuid();
+
+  Review({
+    String? reviewId,
     required this.cardId,
     required this.reviewedAt,
     required this.rating,
@@ -23,7 +28,7 @@ class Review extends Equatable {
     required this.state,
     this.userId,
     this.syncStatus = SyncStatus.synced,
-  });
+  }) : reviewId = reviewId ?? _uuid.v4();
 
   Review copyWith({
     DateTime? reviewedAt,
@@ -34,6 +39,7 @@ class Review extends Equatable {
     SyncStatus? syncStatus,
   }) {
     return Review(
+      reviewId: reviewId, // immutable — set at creation
       cardId: cardId,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       rating: rating ?? this.rating,
@@ -45,9 +51,10 @@ class Review extends Equatable {
     );
   }
 
-  // Converts Review object into a Map for SQLite
+  /// Converts Review object into a Map for SQLite.
   Map<String, dynamic> toMap() {
     return {
+      DatabaseConstants.colReviewId: reviewId,
       DatabaseConstants.colCardId: cardId,
       DatabaseConstants.colReviewedAt: reviewedAt.toIso8601String(),
       DatabaseConstants.colRating: rating.index,
@@ -59,9 +66,10 @@ class Review extends Equatable {
     };
   }
 
-  // Creates a Review object from Map retrieved for SQLite
+  /// Creates a Review object from a Map retrieved from SQLite.
   factory Review.fromMap(Map<String, dynamic> map) {
     return Review(
+      reviewId: map[DatabaseConstants.colReviewId] as String,
       cardId: map[DatabaseConstants.colCardId] as String,
       reviewedAt: DateTime.parse(map[DatabaseConstants.colReviewedAt] as String),
       rating: Rating.values[map[DatabaseConstants.colRating] as int],
@@ -74,5 +82,5 @@ class Review extends Equatable {
   }
 
   @override
-  List<Object?> get props => [cardId, reviewedAt, rating, scheduledDays, elapsedDays, state, userId, syncStatus];
+  List<Object?> get props => [reviewId, cardId, reviewedAt, rating, scheduledDays, elapsedDays, state, userId, syncStatus];
 }

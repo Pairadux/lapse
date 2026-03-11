@@ -131,6 +131,7 @@ void main() {
       });
 
       await db.insert(DatabaseConstants.tableReviews, {
+        DatabaseConstants.colReviewId: 'review-1',
         DatabaseConstants.colCardId: 'card-1',
         DatabaseConstants.colReviewedAt: now,
         DatabaseConstants.colRating: 3,
@@ -142,7 +143,7 @@ void main() {
       final rows = await db.query(DatabaseConstants.tableReviews);
       expect(rows, hasLength(1));
       expect(rows.first[DatabaseConstants.colRating], 3);
-      expect(rows.first[DatabaseConstants.colId], isNotNull);
+      expect(rows.first[DatabaseConstants.colReviewId], 'review-1');
     });
   });
 

@@ -22,15 +22,7 @@ class ReviewRepository {
 
     final db = await _dbHelper.database;
 
-    // Use fields from constants as table name and column keys
-    await db.insert(DatabaseConstants.tableReviews, {
-      DatabaseConstants.colCardId: review.cardId,
-      DatabaseConstants.colReviewedAt: review.reviewedAt.toIso8601String(),
-      DatabaseConstants.colRating: _ratingToInt(review.rating),
-      DatabaseConstants.colScheduledDays: review.scheduledDays,
-      DatabaseConstants.colElapsedDays: review.elapsedDays,
-      DatabaseConstants.colState: _stateToInt(review.state),
-    });
+    await db.insert(DatabaseConstants.tableReviews, review.toMap());
   }
 
   /// Fetches all historical reviews for cardId from the database.
@@ -49,7 +41,4 @@ class ReviewRepository {
     return maps.map((map) => Review.fromMap(map)).toList();
   }
 
-  // Helpers to match the INT. types in the schema
-  int _ratingToInt(dynamic rating) => rating.index;
-  int _stateToInt(dynamic state) => state.index;
 }
