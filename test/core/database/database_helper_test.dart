@@ -26,17 +26,22 @@ void main() {
     expect(db.isOpen, isTrue);
   });
 
-  test('all 3 tables exist', () async {
+  test('all 4 tables exist', () async {
     final db = await helper.database;
     final tables = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'android_%'",
     );
     final names = tables.map((r) => r['name'] as String).toSet();
 
-    expect(names, containsAll(['decks', 'cards', 'reviews']));
+    expect(names, containsAll([
+      'decks',
+      'cards',
+      'reviews',
+      'review_session_summary',
+    ]));
   });
 
-  test('all 6 indexes exist', () async {
+  test('all 12 indexes exist', () async {
     final db = await helper.database;
     final indexes = await db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%'",
@@ -46,10 +51,16 @@ void main() {
     expect(names, containsAll([
       'idx_decks_parent_id',
       'idx_decks_user_id',
+      'idx_decks_sync_status',
       'idx_cards_due_date',
       'idx_cards_deck_due',
+      'idx_cards_sync_status',
       'idx_reviews_card_id',
       'idx_reviews_reviewed_at',
+      'idx_reviews_sync_status',
+      'idx_session_summary_user_id',
+      'idx_session_summary_user_date',
+      'idx_session_summary_sync_status',
     ]));
   });
 
@@ -95,6 +106,7 @@ void main() {
       await db.insert(DatabaseConstants.tableCards, {
         DatabaseConstants.colCardId: 'card-1',
         DatabaseConstants.colDeckId: 'deck-1',
+        DatabaseConstants.colUserId: 'user-1',
         DatabaseConstants.colFront: 'Q',
         DatabaseConstants.colBack: 'A',
         DatabaseConstants.colCreatedAt: now,
@@ -123,6 +135,7 @@ void main() {
       await db.insert(DatabaseConstants.tableCards, {
         DatabaseConstants.colCardId: 'card-1',
         DatabaseConstants.colDeckId: 'deck-1',
+        DatabaseConstants.colUserId: 'user-1',
         DatabaseConstants.colFront: 'Q',
         DatabaseConstants.colBack: 'A',
         DatabaseConstants.colCreatedAt: now,
@@ -155,6 +168,7 @@ void main() {
       () => db.insert(DatabaseConstants.tableCards, {
         DatabaseConstants.colCardId: 'card-orphan',
         DatabaseConstants.colDeckId: 'nonexistent-deck',
+        DatabaseConstants.colUserId: 'user-1',
         DatabaseConstants.colFront: 'Q',
         DatabaseConstants.colBack: 'A',
         DatabaseConstants.colCreatedAt: now,
@@ -179,6 +193,7 @@ void main() {
     await db.insert(DatabaseConstants.tableCards, {
       DatabaseConstants.colCardId: 'card-1',
       DatabaseConstants.colDeckId: 'deck-1',
+      DatabaseConstants.colUserId: 'user-1',
       DatabaseConstants.colFront: 'Q',
       DatabaseConstants.colBack: 'A',
       DatabaseConstants.colCreatedAt: now,

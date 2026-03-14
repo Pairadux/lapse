@@ -1,5 +1,6 @@
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/database/database_constants.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/study/domain/review_session_summary.dart';
 
 class ReviewSessionSummaryRepository {
@@ -11,9 +12,10 @@ class ReviewSessionSummaryRepository {
   /// Persists a completed session summary.
   Future<void> add(ReviewSessionSummary summary) async {
     final db = await _dbHelper.database;
+    final syncReady = summary.copyWith(syncStatus: SyncStatus.pending);
     await db.insert(
       DatabaseConstants.tableReviewSessionSummary,
-      summary.toMap(),
+      syncReady.toMap(),
     );
   }
 
@@ -52,6 +54,30 @@ class ReviewSessionSummaryRepository {
       orderBy: '${DatabaseConstants.colStartedAt} DESC',
     );
     return maps.map(ReviewSessionSummary.fromMap).toList();
+  }
+
+  /// Returns all session summaries with pending sync status.
+  Future<List<ReviewSessionSummary>> getUnsynced() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      DatabaseConstants.tableReviewSessionSummary,
+      where: '${DatabaseConstants.colSyncStatus} != ?',
+      whereArgs: [SyncStatus.synced.name],
+    );
+    return rows.map(ReviewSessionSummary.fromMap).toList();
+  }
+
+  /// Marks the given session summary IDs as synced.
+  Future<void> markSynced(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final db = await _dbHelper.database;
+    final placeholders = List.filled(ids.length, '?').join(', ');
+    await db.update(
+      DatabaseConstants.tableReviewSessionSummary,
+      {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
+      where: '${DatabaseConstants.colSessionId} IN ($placeholders)',
+      whereArgs: ids,
+    );
   }
 
   /// Returns aggregate daily stats: total reviews, duration, and rating
