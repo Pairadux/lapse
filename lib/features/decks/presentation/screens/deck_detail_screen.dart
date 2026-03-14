@@ -80,7 +80,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     final extentAfter = _cardsScrollController.position.extentAfter;
     if (extentAfter > loadMoreThreshold) return;
 
-    final detail = ref.read(deckDetailProvider(widget.deckId)).valueOrNull;
+    final detail = ref.read(deckDetailProvider(widget.deckId)).asData?.value;
     if (detail == null ||
         !detail.hasMoreCards ||
         detail.isLoadingMoreCards) {

@@ -43,7 +43,7 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
   }
 
   Future<void> loadMoreCards() async {
-    final current = state.valueOrNull;
+    final current = state.asData?.value;
     if (current == null ||
         current.isLoadingMoreCards ||
         !current.hasMoreCards) {
