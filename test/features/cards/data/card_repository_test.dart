@@ -2,6 +2,7 @@ import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lapse/core/database/database_helper.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
@@ -176,5 +177,69 @@ void main() {
   test('getById with unknown ID returns null', () async {
     final fetched = await cardRepo.getById('nonexistent');
     expect(fetched, isNull);
+  });
+
+  group('sync status', () {
+    test('create sets syncStatus to pending', () async {
+      await insertParentDeck();
+      final card = makeCard();
+      final created = await cardRepo.create(card);
+      expect(created.syncStatus, SyncStatus.pending);
+
+      final fetched = await cardRepo.getById('card-1');
+      expect(fetched!.syncStatus, SyncStatus.pending);
+    });
+
+    test('update sets syncStatus to pending', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard());
+      final card = (await cardRepo.getById('card-1'))!;
+      final updated = await cardRepo.update(card.copyWith(front: 'New Q'));
+      expect(updated.syncStatus, SyncStatus.pending);
+    });
+
+    test('delete sets syncStatus to pending', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard());
+      await cardRepo.delete('card-1');
+
+      final db = await helper.database;
+      final rows = await db.query('cards',
+          where: 'card_id = ?', whereArgs: ['card-1']);
+      expect(rows.first['sync_status'], 'pending');
+    });
+
+    test('getUnsynced returns pending items only', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard(id: 'c1'));
+      await cardRepo.create(makeCard(id: 'c2'));
+
+      await cardRepo.markSynced(['c1']);
+
+      final unsynced = await cardRepo.getUnsynced();
+      expect(unsynced, hasLength(1));
+      expect(unsynced.first.cardId, 'c2');
+    });
+
+    test('markSynced updates sync status', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard(id: 'c1'));
+      await cardRepo.create(makeCard(id: 'c2'));
+
+      await cardRepo.markSynced(['c1', 'c2']);
+
+      final unsynced = await cardRepo.getUnsynced();
+      expect(unsynced, isEmpty);
+    });
+
+    test('getUnsynced includes deleted items', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard());
+      await cardRepo.delete('card-1');
+
+      final unsynced = await cardRepo.getUnsynced();
+      expect(unsynced, hasLength(1));
+      expect(unsynced.first.isDeleted, isTrue);
+    });
   });
 }

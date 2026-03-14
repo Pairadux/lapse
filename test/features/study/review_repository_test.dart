@@ -197,4 +197,74 @@ void main() {
       expect(() => repository.addReview(review), throwsA(isA<ArgumentError>()));
     });
   });
+
+  group('sync status', () {
+    test('addReview sets syncStatus to pending', () async {
+      final review = Review(
+        cardId: 'sync_test',
+        reviewedAt: DateTime.now(),
+        rating: Rating.good,
+        scheduledDays: 1,
+        elapsedDays: 0,
+        state: CardState.review,
+      );
+      await repository.addReview(review);
+
+      final db = await dbHelper.database;
+      final rows = await db.query(DatabaseConstants.tableReviews,
+          where: '${DatabaseConstants.colCardId} = ?',
+          whereArgs: ['sync_test']);
+      expect(rows.first[DatabaseConstants.colSyncStatus], 'pending');
+    });
+
+    test('getUnsynced returns pending reviews only', () async {
+      final r1 = Review(
+        reviewId: 'r1',
+        cardId: 'card_a',
+        reviewedAt: DateTime.now(),
+        rating: Rating.good,
+        scheduledDays: 1,
+        elapsedDays: 0,
+        state: CardState.review,
+      );
+      final r2 = Review(
+        reviewId: 'r2',
+        cardId: 'card_b',
+        reviewedAt: DateTime.now(),
+        rating: Rating.hard,
+        scheduledDays: 1,
+        elapsedDays: 0,
+        state: CardState.review,
+      );
+      await repository.addReview(r1);
+      await repository.addReview(r2);
+
+      await repository.markSynced(['r1']);
+
+      final unsynced = await repository.getUnsynced();
+      expect(unsynced, hasLength(1));
+      expect(unsynced.first.reviewId, 'r2');
+    });
+
+    test('markSynced updates sync status', () async {
+      final review = Review(
+        reviewId: 'r1',
+        cardId: 'card_a',
+        reviewedAt: DateTime.now(),
+        rating: Rating.good,
+        scheduledDays: 1,
+        elapsedDays: 0,
+        state: CardState.review,
+      );
+      await repository.addReview(review);
+      await repository.markSynced(['r1']);
+
+      final unsynced = await repository.getUnsynced();
+      expect(unsynced, isEmpty);
+    });
+
+    test('markSynced with empty list is a no-op', () async {
+      await repository.markSynced([]);
+    });
+  });
 }

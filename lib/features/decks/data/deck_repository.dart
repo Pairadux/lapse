@@ -1,5 +1,6 @@
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
 
@@ -11,8 +12,9 @@ class DeckRepository {
 
   Future<Deck> create(Deck deck) async {
     final db = await _dbHelper.database;
-    await db.insert(DatabaseConstants.tableDecks, deck.toMap());
-    return deck;
+    final syncReady = deck.copyWith(syncStatus: SyncStatus.pending);
+    await db.insert(DatabaseConstants.tableDecks, syncReady.toMap());
+    return syncReady;
   }
 
   Future<Deck?> getById(String deckId) async {
@@ -50,7 +52,10 @@ class DeckRepository {
 
   Future<Deck> update(Deck deck) async {
     final db = await _dbHelper.database;
-    final updated = deck.copyWith(updatedAt: DateTime.now());
+    final updated = deck.copyWith(
+      updatedAt: DateTime.now(),
+      syncStatus: SyncStatus.pending,
+    );
     await db.update(
       DatabaseConstants.tableDecks,
       updated.toMap(),
@@ -238,6 +243,30 @@ class DeckRepository {
     );
   }
 
+  /// Returns all decks with pending sync status.
+  Future<List<Deck>> getUnsynced() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      DatabaseConstants.tableDecks,
+      where: '${DatabaseConstants.colSyncStatus} != ?',
+      whereArgs: [SyncStatus.synced.name],
+    );
+    return rows.map(Deck.fromMap).toList();
+  }
+
+  /// Marks the given deck IDs as synced.
+  Future<void> markSynced(List<String> deckIds) async {
+    if (deckIds.isEmpty) return;
+    final db = await _dbHelper.database;
+    final placeholders = List.filled(deckIds.length, '?').join(', ');
+    await db.update(
+      DatabaseConstants.tableDecks,
+      {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
+      where: '${DatabaseConstants.colDeckId} IN ($placeholders)',
+      whereArgs: deckIds,
+    );
+  }
+
   /// Soft-deletes [deckId], all descendant decks, and all their cards
   /// in a single transaction.
   Future<void> delete(String deckId) async {
@@ -247,6 +276,7 @@ class DeckRepository {
     final deletedFields = {
       DatabaseConstants.colIsDeleted: 1,
       DatabaseConstants.colUpdatedAt: now,
+      DatabaseConstants.colSyncStatus: SyncStatus.pending.name,
     };
     final placeholders = List.filled(allIds.length, '?').join(', ');
 

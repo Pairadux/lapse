@@ -13,6 +13,28 @@
 - Theme constants in `core/theme/` — use `AppColors`, `Spacing` everywhere
 - Database constants in `DatabaseConstants` — never use raw column name strings
 - Repositories accept optional `DatabaseHelper` for testability
+- Use snackbars/toasts to surface errors to the user — never fail silently
+
+## Supabase & Security Rules
+
+- **RLS is critical.** Never assume RLS policies are correct — always verify against Supabase docs before writing or modifying any policy. Confirm details before making any change that involves or affects RLS.
+- **Never store auth tokens, passwords, or PII** outside of what the Supabase SDK manages internally. We only persist non-sensitive metadata (user_id UUID, sync flags) via SharedPreferences.
+- **Never log or print tokens** — no `print(session.accessToken)` or similar in debug output.
+- **Never read or commit `env.json`** — contains Supabase secrets. Reference `env.example.json` for the expected shape.
+- **Supabase project config is our responsibility** — email confirmation, OTP expiry, CAPTCHA, custom SMTP. These are dashboard settings but must be enabled before production.
+- **The anon key ships in the app binary** (publicly visible). RLS + privilege revocation are the real security layer, not key secrecy.
+
+### Supabase Migration & Schema Guidelines
+
+- **Wrap migrations in `BEGIN; ... COMMIT;`** — Supabase CLI does NOT auto-wrap migrations in transactions. A partial failure leaves the schema in a broken state without explicit transaction wrapping.
+- **RLS policies: always use `(select auth.uid())`** — wrap in a subquery, never bare `auth.uid()`. The subquery lets Postgres cache the result per-statement instead of calling it per-row (benchmarked 94-99% improvement).
+- **RLS policies: always specify `TO authenticated`** — without it, the policy evaluates for all roles including `anon`, wasting cycles (benchmarked 99.78% improvement).
+- **Privilege pattern: REVOKE ALL → explicit GRANT** — never rely on Supabase's default broad grants. Revoke everything from both `anon` and `authenticated`, then grant back only the exact operations needed. This future-proofs against default changes.
+- **Index columns used in RLS policies** — any column referenced in a `USING` or `WITH CHECK` clause (e.g., `user_id`) must be indexed, or every policy check triggers a sequential scan.
+- **Use custom PL/pgSQL for `updated_at` triggers** — don't use the `moddatetime` extension (docs 404, potential deprecation risk). A simple `set_updated_at()` function has zero dependency.
+- **Install extensions in `extensions` schema** — never in `public`. Supabase's `extra_search_path` includes `extensions` by default.
+- **Views bypass RLS by default** — they run as the `postgres` owner. If we add views, use `security_invoker = true` (Postgres 15+).
+- **`config.toml` is for local dev only** — production auth settings (SMTP, CAPTCHA, password requirements) are managed via the Supabase dashboard or `supabase config push`.
 
 ---
 
@@ -168,6 +190,8 @@ Material 3 tints the AppBar when content scrolls beneath it (elevation effect). 
 
 ### Known Bugs
 
+- **Database not ready on first launch (#131):** Tester reported the app doesn't work on first open after fresh install, but works after relaunch. Root cause: `DatabaseHelper` is lazily initialized — no eager `await` in `main()`. The migration chain (v1→v4) runs during the first screen's data load, which may cause the UI to render an error/empty state before the DB is ready. Fix: eagerly await `DatabaseHelper.instance.database` in `main()` before `runApp()`, or add retry/loading logic at the app shell level.
+
 - **Card count aggregation sometimes off (#44):** Aggregated card/due counts on parent decks occasionally show stale or incorrect numbers. Likely a timing issue with parallel Future.wait queries or stale state after mutations. Needs investigation.
 
 - ~~**"Save & Add Another" not clearing fields (#45):**~~ **Resolved.** Fields clear and focus returns to front field via post-frame callback.
@@ -268,6 +292,8 @@ The `isDesktop` getter lives in `page_transitions.dart` and is also imported by 
 
 ~~**Haptic feedback on touch devices.**~~ **Implemented.** Light impact on card flip, medium impact on swipe commit and rating button press. Uses `HapticFeedback` from `flutter/services.dart`.
 
+**Planned: Undo button (#132).** Reverses the user's last review — deletes the review record, reverts card FSRS state, smooth fly-back animation pushing the shadow stack back down. Only the single most recent review, not a full undo stack.
+
 **Shadow card content decision:** Keep shadow cards blank (Option B). Future improvement: crossfade new card content in over ~150ms after the shadow promotes to top position, so the blank→content transition feels intentional rather than jarring. No spoilers during drag.
 
 ~~**Known UX issue (resolved):** Card creation preview pane pushed save button off-screen on mobile.~~ Replaced with app bar edit/preview toggle; buttons pinned at bottom.
@@ -304,30 +330,145 @@ The following were confirmed working correctly by an external tester:
 
 ---
 
-### Soft-Delete Purge Strategy (Pending Team Review)
+### Soft-Delete Purge Strategy
 
-**Status:** Design proposal, not yet implemented. Needs team discussion.
+**Status:** Design finalized, not yet implemented.
 
-**Problem:** Soft-deleted decks, cards, and reviews accumulate forever. Reviews are immutable append-only records with `ON DELETE CASCADE` on `card_id`, so they clean up automatically when cards are hard-deleted.
+**Server:** Never hard-delete decks, cards, or session summaries. Tombstones (`is_deleted = true`) are tiny and kept forever. This ensures any device — no matter how long offline — always pulls the deletion marker and never resurrects deleted data.
 
-**Proposed purge rule (on app launch):**
+**Client local purge rule (on app launch):**
 ```
 is_deleted = 1
-AND updated_at < (now - threshold)
+AND updated_at < (now - 7 days)
 AND (sync_status = 'synced' OR user_id = '')
 ```
 
-- `sync_status = 'synced'` — server knows about the deletion, safe to purge
-- `user_id = ''` — created while logged out (local-only), server never knew, safe to purge
+- `sync_status = 'synced'` — server has the tombstone, safe to purge locally
+- `user_id = ''` — local-only data, server never knew, safe to purge
 - Items with `sync_status = 'pending'` and a `user_id` are **never purged** — they need to sync first
+- The 7-day grace period prevents race conditions between pull and local purge
+
+**Reviews:** Not soft-deleted. Pruned independently — server to 10K, client to 11K per user. `ON DELETE CASCADE` from cards handles cleanup when cards are purged.
 
 **Account states:**
-- **Not logged in (local-only):** `user_id = ''`, purge freely on timer
-- **Logged in, online:** deletions sync, then purge on next cycle
+- **Not logged in (local-only):** `user_id = ''`, purge freely after 7 days
+- **Logged in, online:** deletions sync, then purge locally after 7 days
 - **Logged in, offline:** `sync_status` stays `'pending'`, purge skips them until they sync
 - **Signs out with unsynced deletes:** pending items stay until user signs back in and syncs (data safety over minor bloat)
 
-**Future:** threshold will be a user setting (default TBD, e.g. 7-30 days). Server-side can independently purge via pg_cron or edge function on its own schedule.
+---
+
+### Review Data & Sync Strategy
+
+**Status:** Design finalized, not yet implemented.
+
+**Problem:** Reviews are append-only and the highest-volume table. A power user studying 200-300 cards/day generates ~100K reviews/year. Syncing the full log is wasteful — most of it is never read, and uncapped growth bloats device storage unnecessarily.
+
+**Decision:** Two tables, both synced, serving different purposes.
+
+#### `reviews` table — capped at 10K most recent per user
+- Exists in both local SQLite and server-side Postgres, synced normally.
+- After each study session, prune local rows exceeding 10K by deleting the oldest.
+- Server-side does the same via scheduled job or on push.
+- 10K rows at ~300 bytes each = ~3MB max. Negligible storage impact.
+- **Purpose:** Per-card review history and FSRS optimizer fuel (needs 1K-10K reviews to fit parameters).
+- **Pruning query:**
+  ```sql
+  DELETE FROM reviews
+  WHERE review_id NOT IN (
+    SELECT review_id FROM reviews
+    ORDER BY reviewed_at DESC
+    LIMIT 10000
+  )
+  ```
+
+#### `review_session_summary` table — never pruned, synced
+- One row per study session (not per day). Aggregated when the session ends — this is a clear, deterministic event. We cannot aggregate per-day because we don't know when the user's last session of the day is.
+- Multiple sessions in a day produce multiple rows. Daily rollups are derived via `GROUP BY date` at query time.
+- Volume is negligible: ~1-3 rows/day, ~365-1000 rows/year.
+- **Purpose:** Powers all historical stats UI across devices — heatmaps, streaks, rating trends, time-studied graphs.
+- **Schema:**
+  - `id` (UUID PK)
+  - `user_id` (TEXT)
+  - `date` (TEXT, YYYY-MM-DD) — for fast daily grouping without timestamp parsing
+  - `started_at` (TEXT, ISO 8601)
+  - `ended_at` (TEXT, ISO 8601)
+  - `total_reviews` (INTEGER)
+  - `again_count`, `hard_count`, `good_count`, `easy_count` (INTEGER — rating breakdown)
+  - `new_count`, `learning_count`, `review_count` (INTEGER — card state breakdown)
+  - `duration_ms` (INTEGER)
+  - `sync_status` (TEXT)
+  - `updated_at` (TEXT)
+
+#### FSRS optimizer
+- Not MVP scope. When implemented, runs **locally** against the 10K review window.
+- The optimizer is ML-based — it replays the full review log to fit 19 weight parameters. It needs the full history (1K+ reviews, ideally 10K), so it cannot run incrementally on a single day's data.
+- Only the resulting 19 floats (parameters) are synced as user settings, not the review data that produced them.
+
+---
+
+### Sync & Auth — Design Decisions
+
+**Status:** Schema phase in progress. Auth and sync engine are future phases.
+
+**Core principle: Offline-first.** The app must work fully without network. Sync is optional — creating an account is never required. No network calls happen until the user explicitly signs in.
+
+#### Auth approach
+- **No anonymous sign-in.** Users start with `user_id = ''` (local-only). When they create an account, a one-time atomic SQLite transaction stamps all local rows with their auth `user_id` and sets `sync_status = 'pending'`.
+- **Email + password** as the baseline auth method.
+- **Google + Apple OAuth** alongside email auth. Apple Sign-In is required by App Store if offering any social login.
+- **Platform-conditional auth flows:**
+  - Mobile (iOS/Android): deep links for OAuth callbacks and email confirmation
+  - Desktop (Linux/macOS/Windows): localhost callback for OAuth; polling for email confirmation (1s intervals for 60s, then 5s intervals for 30min, then "resend" prompt)
+- **Email confirmation polling** on all platforms — avoids deep link complexity on desktop.
+
+#### Sync engine (manual, not PowerSync)
+- Manual sync is correct for single-user data — no extra dependency or cost.
+- **Push on every local write** (debounced ~2-5s), not just on app open.
+- **Pull on app open/foreground** (catch up from offline) + **Supabase Realtime** subscription for near-real-time pull when online.
+- **Manual sync button** (cloud icon tap) to force sync on demand.
+- **Connectivity listener** flushes pending changes when network is restored.
+- **Conflict resolution:** Last-write-wins on `updated_at` — sufficient for single-user app.
+- **Initial sync** (first upload): background with auto-opening sync panel (Obsidian-style). User can close panel and keep using app — cloud icon shows progress.
+
+#### Sign-out / session handling
+- On sign-out: store `user_id` in SharedPreferences. New data still stamped with that `user_id`. Show non-blocking banner: "You're signed out. Sign in to sync."
+- On sign-back-in (same account): sync resumes seamlessly.
+- On sign-in (different account): prompt — "This device has data from another account. Remove it or keep it?" Kept data is invisible (filtered by `user_id`), removable later from settings.
+- **Desktop session expiry:** Sync pauses silently. On next user interaction, attempt token refresh. If truly expired, show banner: "Session expired. Sign in to resume sync."
+
+#### Account deletion
+- **Server:** `ON DELETE CASCADE` wipes all Postgres data automatically.
+- **Local:** Prompt with confirmation — "Your account has been deleted. Keep your study data locally or delete everything?" Default to keeping (users may have months of study progress). If kept, `user_id` reverts to `''`, app returns to offline-only mode. If they make a new account later, data re-uploads cleanly (no UUID conflicts — PKs are globally unique).
+
+#### Settings structure (Obsidian-style, not a dedicated account page)
+```
+Settings
+├── Account
+│   ├── Sign in / Sign up (or email + sign out if logged in)
+│   └── Delete account
+├── Sync
+│   ├── Sync status (cloud icon + last synced time)
+│   ├── Sync now (manual trigger)
+│   ├── Sync activity log (scrollable history of push/pull/conflict events)
+│   └── Local data management (per-account deletion with confirmation)
+├── Study
+│   └── (FSRS settings, daily limits, etc.)
+└── About
+```
+
+#### Local data management
+- **"Delete all data" in settings** — essential on desktop where uninstall doesn't clean up app data.
+- **Per-account deletion**: settings shows accounts that have data on this device (by email or UUID) with individual delete options. Requires confirmation prompt + reminder they can clear later from settings.
+- **Uninstall behavior varies by platform:** iOS/Android auto-clean; macOS/Linux/Windows may leave data in Application Support / .local/share / AppData.
+
+#### Error UX
+- Use **snackbars/toasts** for sync errors, auth failures, and any user-facing errors — never fail silently.
+- Sync log in settings provides detailed history for debugging.
+
+#### Testing considerations
+- Multiple test accounts needed (email accounts) to test multi-user scenarios.
+- Test edge cases: sign out mid-sync, kill app during initial upload, different account sign-in on same device, account deletion from another device.
 
 ---
 

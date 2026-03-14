@@ -1,12 +1,13 @@
 /// Compile-time constants for the SQLite schema.
 abstract final class DatabaseConstants {
   static const String databaseName = 'lapse.db';
-  static const int databaseVersion = 4;
+  static const int databaseVersion = 5;
 
   // -- Table names --
   static const String tableDecks = 'decks';
   static const String tableCards = 'cards';
   static const String tableReviews = 'reviews';
+  static const String tableReviewSessionSummary = 'review_session_summary';
 
   // -- Deck columns --
   static const String colDeckId = 'deck_id';
@@ -33,6 +34,21 @@ abstract final class DatabaseConstants {
   static const String colReviewedAt = 'reviewed_at';
   static const String colRating = 'rating';
   static const String colState = 'state';
+
+  // -- Review session summary columns --
+  static const String colSessionId = 'id';
+  static const String colDate = 'date';
+  static const String colStartedAt = 'started_at';
+  static const String colEndedAt = 'ended_at';
+  static const String colTotalReviews = 'total_reviews';
+  static const String colAgainCount = 'again_count';
+  static const String colHardCount = 'hard_count';
+  static const String colGoodCount = 'good_count';
+  static const String colEasyCount = 'easy_count';
+  static const String colNewCount = 'new_count';
+  static const String colLearningCount = 'learning_count';
+  static const String colReviewCount = 'review_count';
+  static const String colDurationMs = 'duration_ms';
 
   // -- Shared columns --
   static const String colCreatedAt = 'created_at';
@@ -97,6 +113,28 @@ abstract final class DatabaseConstants {
     )
   ''';
 
+  static const String createReviewSessionSummaryTable =
+      '''
+    CREATE TABLE $tableReviewSessionSummary (
+      $colSessionId       TEXT PRIMARY KEY,
+      $colUserId          TEXT NOT NULL DEFAULT '',
+      $colDate            TEXT NOT NULL,
+      $colStartedAt       TEXT NOT NULL,
+      $colEndedAt         TEXT NOT NULL,
+      $colTotalReviews    INTEGER NOT NULL DEFAULT 0,
+      $colAgainCount      INTEGER NOT NULL DEFAULT 0,
+      $colHardCount       INTEGER NOT NULL DEFAULT 0,
+      $colGoodCount       INTEGER NOT NULL DEFAULT 0,
+      $colEasyCount       INTEGER NOT NULL DEFAULT 0,
+      $colNewCount        INTEGER NOT NULL DEFAULT 0,
+      $colLearningCount   INTEGER NOT NULL DEFAULT 0,
+      $colReviewCount     INTEGER NOT NULL DEFAULT 0,
+      $colDurationMs      INTEGER NOT NULL DEFAULT 0,
+      $colSyncStatus      TEXT NOT NULL DEFAULT 'synced',
+      $colUpdatedAt       TEXT NOT NULL
+    )
+  ''';
+
   // ── CREATE INDEX DDL ──────────────────────────────────────────────
 
   static const String createIndexDecksParentId =
@@ -151,11 +189,28 @@ abstract final class DatabaseConstants {
       WHERE $colSyncStatus != 'synced'
   ''';
 
+  static const String createIndexSessionSummaryUserId =
+      '''
+    CREATE INDEX idx_session_summary_user_id ON $tableReviewSessionSummary($colUserId)
+  ''';
+
+  static const String createIndexSessionSummaryUserDate =
+      '''
+    CREATE INDEX idx_session_summary_user_date ON $tableReviewSessionSummary($colUserId, $colDate)
+  ''';
+
+  static const String createIndexSessionSummarySyncStatus =
+      '''
+    CREATE INDEX idx_session_summary_sync_status ON $tableReviewSessionSummary($colSyncStatus)
+      WHERE $colSyncStatus != 'synced'
+  ''';
+
   /// All DDL statements executed during [onCreate], in order.
   static const List<String> createStatements = [
     createDecksTable,
     createCardsTable,
     createReviewsTable,
+    createReviewSessionSummaryTable,
     createIndexDecksParentId,
     createIndexDecksUserId,
     createIndexCardsDueDate,
@@ -165,5 +220,8 @@ abstract final class DatabaseConstants {
     createIndexDecksSyncStatus,
     createIndexCardsSyncStatus,
     createIndexReviewsSyncStatus,
+    createIndexSessionSummaryUserId,
+    createIndexSessionSummaryUserDate,
+    createIndexSessionSummarySyncStatus,
   ];
 }

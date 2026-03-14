@@ -1,5 +1,6 @@
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
 class CardRepository {
@@ -10,8 +11,9 @@ class CardRepository {
 
   Future<Flashcard> create(Flashcard card) async {
     final db = await _dbHelper.database;
-    await db.insert(DatabaseConstants.tableCards, card.toMap());
-    return card;
+    final syncReady = card.copyWith(syncStatus: SyncStatus.pending);
+    await db.insert(DatabaseConstants.tableCards, syncReady.toMap());
+    return syncReady;
   }
 
   Future<Flashcard?> getById(String cardId) async {
@@ -152,7 +154,10 @@ class CardRepository {
 
   Future<Flashcard> update(Flashcard card) async {
     final db = await _dbHelper.database;
-    final updated = card.copyWith(updatedAt: DateTime.now());
+    final updated = card.copyWith(
+      updatedAt: DateTime.now(),
+      syncStatus: SyncStatus.pending,
+    );
     await db.update(
       DatabaseConstants.tableCards,
       updated.toMap(),
@@ -167,9 +172,37 @@ class CardRepository {
     final now = DateTime.now().toUtc().toIso8601String();
     await db.update(
       DatabaseConstants.tableCards,
-      {DatabaseConstants.colIsDeleted: 1, DatabaseConstants.colUpdatedAt: now},
+      {
+        DatabaseConstants.colIsDeleted: 1,
+        DatabaseConstants.colUpdatedAt: now,
+        DatabaseConstants.colSyncStatus: SyncStatus.pending.name,
+      },
       where: '${DatabaseConstants.colCardId} = ?',
       whereArgs: [cardId],
+    );
+  }
+
+  /// Returns all cards with pending sync status.
+  Future<List<Flashcard>> getUnsynced() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      DatabaseConstants.tableCards,
+      where: '${DatabaseConstants.colSyncStatus} != ?',
+      whereArgs: [SyncStatus.synced.name],
+    );
+    return rows.map(Flashcard.fromMap).toList();
+  }
+
+  /// Marks the given card IDs as synced.
+  Future<void> markSynced(List<String> cardIds) async {
+    if (cardIds.isEmpty) return;
+    final db = await _dbHelper.database;
+    final placeholders = List.filled(cardIds.length, '?').join(', ');
+    await db.update(
+      DatabaseConstants.tableCards,
+      {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
+      where: '${DatabaseConstants.colCardId} IN ($placeholders)',
+      whereArgs: cardIds,
     );
   }
 }
