@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:lapse/core/database/database_helper.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 
@@ -97,5 +98,73 @@ void main() {
   test('getById with unknown ID returns null', () async {
     final fetched = await repo.getById('nonexistent');
     expect(fetched, isNull);
+  });
+
+  group('sync status', () {
+    test('create sets syncStatus to pending', () async {
+      final deck = makeDeck();
+      final created = await repo.create(deck);
+      expect(created.syncStatus, SyncStatus.pending);
+
+      final fetched = await repo.getById('deck-1');
+      expect(fetched!.syncStatus, SyncStatus.pending);
+    });
+
+    test('update sets syncStatus to pending', () async {
+      await repo.create(makeDeck());
+      final deck = (await repo.getById('deck-1'))!;
+      final updated = await repo.update(deck.copyWith(deckName: 'Renamed'));
+      expect(updated.syncStatus, SyncStatus.pending);
+    });
+
+    test('delete sets syncStatus to pending', () async {
+      await repo.create(makeDeck());
+      await repo.delete('deck-1');
+
+      // Query raw to see deleted row
+      final db = await helper.database;
+      final rows = await db.query('decks',
+          where: 'deck_id = ?', whereArgs: ['deck-1']);
+      expect(rows.first['sync_status'], 'pending');
+    });
+
+    test('getUnsynced returns pending items only', () async {
+      await repo.create(makeDeck(id: 'a'));
+      await repo.create(makeDeck(id: 'b'));
+
+      // Mark 'a' as synced
+      await repo.markSynced(['a']);
+
+      final unsynced = await repo.getUnsynced();
+      expect(unsynced, hasLength(1));
+      expect(unsynced.first.deckId, 'b');
+    });
+
+    test('markSynced updates sync status', () async {
+      await repo.create(makeDeck(id: 'a'));
+      await repo.create(makeDeck(id: 'b'));
+
+      await repo.markSynced(['a', 'b']);
+
+      final unsynced = await repo.getUnsynced();
+      expect(unsynced, isEmpty);
+
+      final a = await repo.getById('a');
+      expect(a!.syncStatus, SyncStatus.synced);
+    });
+
+    test('markSynced with empty list is a no-op', () async {
+      await repo.markSynced([]);
+      // Should not throw
+    });
+
+    test('getUnsynced includes deleted items', () async {
+      await repo.create(makeDeck(id: 'a'));
+      await repo.delete('a');
+
+      final unsynced = await repo.getUnsynced();
+      expect(unsynced, hasLength(1));
+      expect(unsynced.first.isDeleted, isTrue);
+    });
   });
 }
