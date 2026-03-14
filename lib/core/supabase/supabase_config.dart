@@ -18,7 +18,13 @@ class SupabaseConfig {
   static Future<void> initialize() async {
     if (!isConfigured) return;
 
-    await Supabase.initialize(url: _url, anonKey: _publishableKey);
+    await Supabase.initialize(
+      url: _url,
+      anonKey: _publishableKey,
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.pkce,
+      ),
+    );
   }
 
   /// The Supabase client instance. Only valid after [initialize] completes
