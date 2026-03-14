@@ -1,7 +1,6 @@
-import 'package:flutter/services.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
@@ -9,27 +8,6 @@ import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-  const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
-
-  setUpAll(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(pathProviderChannel, (methodCall) async {
-          switch (methodCall.method) {
-            case 'getApplicationSupportDirectory':
-            case 'getDatabasesPath':
-              return '/tmp';
-            default:
-              return '/tmp';
-          }
-        });
-  });
-
-  tearDownAll(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(pathProviderChannel, null);
-  });
-
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
