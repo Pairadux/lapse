@@ -24,6 +24,18 @@
 - **Supabase project config is our responsibility** — email confirmation, OTP expiry, CAPTCHA, custom SMTP. These are dashboard settings but must be enabled before production.
 - **The anon key ships in the app binary** (publicly visible). RLS + privilege revocation are the real security layer, not key secrecy.
 
+### Supabase Migration & Schema Guidelines
+
+- **Wrap migrations in `BEGIN; ... COMMIT;`** — Supabase CLI does NOT auto-wrap migrations in transactions. A partial failure leaves the schema in a broken state without explicit transaction wrapping.
+- **RLS policies: always use `(select auth.uid())`** — wrap in a subquery, never bare `auth.uid()`. The subquery lets Postgres cache the result per-statement instead of calling it per-row (benchmarked 94-99% improvement).
+- **RLS policies: always specify `TO authenticated`** — without it, the policy evaluates for all roles including `anon`, wasting cycles (benchmarked 99.78% improvement).
+- **Privilege pattern: REVOKE ALL → explicit GRANT** — never rely on Supabase's default broad grants. Revoke everything from both `anon` and `authenticated`, then grant back only the exact operations needed. This future-proofs against default changes.
+- **Index columns used in RLS policies** — any column referenced in a `USING` or `WITH CHECK` clause (e.g., `user_id`) must be indexed, or every policy check triggers a sequential scan.
+- **Use custom PL/pgSQL for `updated_at` triggers** — don't use the `moddatetime` extension (docs 404, potential deprecation risk). A simple `set_updated_at()` function has zero dependency.
+- **Install extensions in `extensions` schema** — never in `public`. Supabase's `extra_search_path` includes `extensions` by default.
+- **Views bypass RLS by default** — they run as the `postgres` owner. If we add views, use `security_invoker = true` (Postgres 15+).
+- **`config.toml` is for local dev only** — production auth settings (SMTP, CAPTCHA, password requirements) are managed via the Supabase dashboard or `supabase config push`.
+
 ---
 
 ## Future Work & Design Decisions
