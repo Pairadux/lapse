@@ -86,6 +86,9 @@ class DatabaseHelper {
         case 4:
           await _migrateV4(db);
           break;
+        case 5:
+          await _migrateV5(db);
+          break;
         default:
           break;
       }
@@ -186,11 +189,20 @@ class DatabaseHelper {
     await db.execute(DatabaseConstants.createIndexReviewsSyncStatus);
   }
 
+  /// v5: Add review_session_summary table for persistent session tracking.
+  Future<void> _migrateV5(Database db) async {
+    await db.execute(DatabaseConstants.createReviewSessionSummaryTable);
+    await db.execute(DatabaseConstants.createIndexSessionSummaryUserId);
+    await db.execute(DatabaseConstants.createIndexSessionSummaryUserDate);
+    await db.execute(DatabaseConstants.createIndexSessionSummarySyncStatus);
+  }
+
   /// Deletes all rows from every table, preserving the schema.
   Future<void> clearAllData() async {
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete(DatabaseConstants.tableReviews);
+      await txn.delete(DatabaseConstants.tableReviewSessionSummary);
       await txn.delete(DatabaseConstants.tableCards);
       await txn.delete(DatabaseConstants.tableDecks);
     });
