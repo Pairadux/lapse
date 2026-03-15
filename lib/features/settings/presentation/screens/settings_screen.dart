@@ -53,6 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isAuthLoading = false;
   bool _obscurePassword = true;
   String? _pendingEmail;
+  String? _pendingPassword;
   Timer? _confirmationTimer;
   int _confirmationElapsed = 0;
 
@@ -183,12 +184,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _showSignUpDialog() async {
-    final emailCtrl = TextEditingController();
-    final passwordCtrl = TextEditingController();
+    final emailCtrl = TextEditingController(text: _emailController.text.trim());
+    final passwordCtrl = TextEditingController(text: _passwordController.text);
     final confirmCtrl = TextEditingController();
     bool obscurePassword = true;
     bool obscureConfirm = true;
     bool isLoading = false;
+    String? errorText;
 
     await showDialog<void>(
       context: context,
@@ -247,6 +249,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                 ),
+                if (errorText != null) ...[
+                  const SizedBox(height: Spacing.md),
+                  Text(
+                    errorText!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.error,
+                        ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -264,19 +275,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final confirm = confirmCtrl.text;
 
                       if (email.isEmpty || password.isEmpty) {
-                        _showError('Please fill in all fields.');
+                        setDialogState(
+                            () => errorText = 'Please fill in all fields.');
                         return;
                       }
-                      if (password.length < 6) {
-                        _showError('Password must be at least 6 characters.');
+                      final passwordErr = _validatePassword(password);
+                      if (passwordErr != null) {
+                        setDialogState(() => errorText = passwordErr);
                         return;
                       }
                       if (password != confirm) {
-                        _showError('Passwords do not match.');
+                        setDialogState(
+                            () => errorText = 'Passwords do not match.');
                         return;
                       }
 
-                      setDialogState(() => isLoading = true);
+                      setDialogState(() {
+                        isLoading = true;
+                        errorText = null;
+                      });
                       try {
                         final response = await _authService.signUpWithEmail(
                             email, password);
@@ -293,14 +310,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           // Email confirmation required
                           setState(() {
                             _pendingEmail = email;
+                            _pendingPassword = password;
                             _authDisplayState =
                                 _AuthDisplayState.confirmingEmail;
                           });
                           _startConfirmationPolling(email);
                         }
                       } on AuthException catch (e) {
-                        setDialogState(() => isLoading = false);
-                        if (mounted) _showError(e.message);
+                        setDialogState(() {
+                          isLoading = false;
+                          errorText = e.message;
+                        });
                       }
                     },
               child: isLoading
@@ -325,25 +345,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final emailCtrl = TextEditingController(text: _emailController.text.trim());
     bool isLoading = false;
     bool sent = false;
+    String? errorText;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(sent ? 'Check your email' : 'Reset password'),
-          content: sent
-              ? Text(
-                  'We sent a password reset link to ${emailCtrl.text.trim()}.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                )
-              : TextField(
-                  controller: emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
-                ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 340),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (sent)
+                    Text(
+                      'We sent a password reset link to ${emailCtrl.text.trim()}.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    )
+                  else
+                    TextField(
+                      controller: emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                    ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: Spacing.md),
+                    Text(
+                      errorText!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.error,
+                          ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -356,10 +397,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : () async {
                         final email = emailCtrl.text.trim();
                         if (email.isEmpty) {
-                          _showError('Please enter your email.');
+                          setDialogState(
+                              () => errorText = 'Please enter your email.');
                           return;
                         }
-                        setDialogState(() => isLoading = true);
+                        setDialogState(() {
+                          isLoading = true;
+                          errorText = null;
+                        });
                         try {
                           await _authService.resetPassword(email);
                           setDialogState(() {
@@ -367,8 +412,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             sent = true;
                           });
                         } on AuthException catch (e) {
-                          setDialogState(() => isLoading = false);
-                          if (mounted) _showError(e.message);
+                          setDialogState(() {
+                            isLoading = false;
+                            errorText = e.message;
+                          });
                         }
                       },
                 child: isLoading
@@ -404,10 +451,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       try {
         final response =
-            await _authService.signInWithEmail(email, _passwordController.text);
+            await _authService.signInWithEmail(email, _pendingPassword ?? '');
         if (response.session != null && mounted) {
           _confirmationTimer?.cancel();
-          _passwordController.clear();
+          _pendingPassword = null;
           setState(() {
             _pendingEmail = null;
             _authDisplayState = _AuthDisplayState.accountInfo;
@@ -422,6 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _cancelConfirmation() {
     _confirmationTimer?.cancel();
+    _pendingPassword = null;
     setState(() {
       _pendingEmail = null;
       _authDisplayState = _AuthDisplayState.signInForm;
@@ -450,6 +498,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } on AuthException catch (e) {
       if (mounted) _showError(e.message);
     }
+  }
+
+  /// Returns an error message if the password doesn't meet requirements,
+  /// or null if valid.
+  String? _validatePassword(String password) {
+    if (password.length < 8) return 'Password must be at least 8 characters.';
+    if (!password.contains(RegExp(r'[A-Z]'))) {
+      return 'Password must contain at least one uppercase letter.';
+    }
+    if (!password.contains(RegExp(r'[a-z]'))) {
+      return 'Password must contain at least one lowercase letter.';
+    }
+    if (!password.contains(RegExp(r'[0-9]'))) {
+      return 'Password must contain at least one number.';
+    }
+    if (!password.contains(RegExp(r'[^A-Za-z0-9]'))) {
+      return 'Password must contain at least one special character.';
+    }
+    return null;
   }
 
   void _showError(String message) {
@@ -883,21 +950,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle: 'Signed in',
         ),
         const SizedBox(height: Spacing.xl),
-        OutlinedButton.icon(
-          onPressed: _signOut,
-          icon: const Icon(Icons.logout),
-          label: const Text('Sign out'),
-        ),
-        const SizedBox(height: Spacing.md),
-        TextButton.icon(
-          onPressed: () {
-            _showError('Account deletion is not yet available.');
-          },
-          icon: const Icon(Icons.delete_outline, color: AppColors.error),
-          label: const Text(
-            'Delete account',
-            style: TextStyle(color: AppColors.error),
-          ),
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: _signOut,
+              icon: const Icon(Icons.logout),
+              label: const Text('Sign out'),
+            ),
+            const SizedBox(width: Spacing.md),
+            OutlinedButton.icon(
+              onPressed: () {
+                _showError('Account deletion is not yet available.');
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textTertiary,
+                side: const BorderSide(color: AppColors.outline),
+              ).copyWith(
+                foregroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.hovered)) {
+                    return AppColors.error;
+                  }
+                  return AppColors.textTertiary;
+                }),
+                side: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.hovered)) {
+                    return const BorderSide(color: AppColors.error);
+                  }
+                  return const BorderSide(color: AppColors.outline);
+                }),
+              ),
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Delete account'),
+            ),
+          ],
         ),
       ],
     );
