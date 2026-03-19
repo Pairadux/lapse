@@ -12,31 +12,30 @@ void main() {
 
   late DatabaseHelper helper;
   late DeckRepository repo;
+  late String dbName;
 
   setUp(() {
-    helper = DatabaseHelper.forTesting(dbName: 'test_deck_repo.db');
+    dbName = 'test_deck_repo_${DateTime.now().microsecondsSinceEpoch}.db';
+    helper = DatabaseHelper.forTesting(dbName: dbName);
     repo = DeckRepository(dbHelper: helper);
   });
 
   tearDown(() async {
     await helper.close();
     final dbPath = await getDatabasesPath();
-    await deleteDatabase(join(dbPath, 'test_deck_repo.db'));
+    await deleteDatabase(join(dbPath, dbName));
   });
 
   Deck makeDeck({
     String id = 'deck-1',
     String? parentId,
     String name = 'Test Deck',
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     final now = DateTime.now();
-    return Deck(
-      deckId: id,
-      parentId: parentId,
-      deckName: name,
-      createdAt: now,
-      updatedAt: now,
-    );
+    final created = createdAt ?? now;
+    return Deck(deckId: id, parentId: parentId, deckName: name, createdAt: created, updatedAt: updatedAt ?? created);
   }
 
   test('create + getById round-trip', () async {
@@ -206,12 +205,7 @@ void main() {
 
       final descendants = await repo.getDescendantIds('parent');
       expect(descendants.length, 4); // parent + 2 children + 1 grandchild
-      expect(descendants.toSet(), {
-        'parent',
-        'child-1',
-        'child-2',
-        'grandchild'
-      });
+      expect(descendants.toSet(), {'parent', 'child-1', 'child-2', 'grandchild'});
     });
 
     test('returns only the deck itself if it has no children', () async {
@@ -228,7 +222,7 @@ void main() {
       await repo.delete('child-1');
 
       final descendants = await repo.getDescendantIds('parent');
-      expect(descendants, {'parent', 'child-2'});
+      expect(descendants.toSet(), {'parent', 'child-2'});
     });
 
     test('returns empty list for non-existent deck ID', () async {
@@ -247,8 +241,7 @@ void main() {
       }
 
       final descendants = await repo.getDescendantIds('level-0');
-      expect(descendants,
-          hasLength(6)); // level-0 through level-5
+      expect(descendants, hasLength(6)); // level-0 through level-5
     });
   });
 

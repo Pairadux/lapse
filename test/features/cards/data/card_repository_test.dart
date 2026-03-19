@@ -1,6 +1,6 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
@@ -15,9 +15,11 @@ void main() {
   late DatabaseHelper helper;
   late DeckRepository deckRepo;
   late CardRepository cardRepo;
+  late String dbName;
 
   setUp(() {
-    helper = DatabaseHelper.forTesting(dbName: 'test_card_repo.db');
+    dbName = 'test_card_repo_${DateTime.now().microsecondsSinceEpoch}.db';
+    helper = DatabaseHelper.forTesting(dbName: dbName);
     deckRepo = DeckRepository(dbHelper: helper);
     cardRepo = CardRepository(dbHelper: helper);
   });
@@ -25,18 +27,13 @@ void main() {
   tearDown(() async {
     await helper.close();
     final dbPath = await getDatabasesPath();
-    await deleteDatabase(join(dbPath, 'test_card_repo.db'));
+    await deleteDatabase(join(dbPath, dbName));
   });
 
   /// Insert a parent deck to satisfy FK constraints.
   Future<void> insertParentDeck({String id = 'deck-1'}) async {
     final now = DateTime.now();
-    await deckRepo.create(Deck(
-      deckId: id,
-      deckName: 'Parent',
-      createdAt: now,
-      updatedAt: now,
-    ));
+    await deckRepo.create(Deck(deckId: id, deckName: 'Parent', createdAt: now, updatedAt: now));
   }
 
   Flashcard makeCard({
@@ -45,16 +42,19 @@ void main() {
     String front = 'Q',
     String back = 'A',
     DateTime? dueDate,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     final now = DateTime.now();
+    final created = createdAt ?? now;
     return Flashcard(
       cardId: id,
       deckId: deckId,
       front: front,
       back: back,
-      createdAt: now,
-      updatedAt: now,
-      dueDate: dueDate ?? now,
+      createdAt: created,
+      updatedAt: updatedAt ?? created,
+      dueDate: dueDate ?? created,
       stability: 0.0,
       difficulty: 0.0,
       elapsedDays: 0,
@@ -355,12 +355,9 @@ void main() {
       await insertParentDeck();
       final now = DateTime.now();
 
-      await cardRepo.create(
-          makeCard(id: 'c1', dueDate: now.subtract(const Duration(hours: 3))));
-      await cardRepo.create(
-          makeCard(id: 'c2', dueDate: now.subtract(const Duration(hours: 1))));
-      await cardRepo.create(
-          makeCard(id: 'c3', dueDate: now.subtract(const Duration(hours: 2))));
+      await cardRepo.create(makeCard(id: 'c1', dueDate: now.subtract(const Duration(hours: 3))));
+      await cardRepo.create(makeCard(id: 'c2', dueDate: now.subtract(const Duration(hours: 1))));
+      await cardRepo.create(makeCard(id: 'c3', dueDate: now.subtract(const Duration(hours: 2))));
 
       final due = await cardRepo.getDueCards('deck-1');
       expect(due.map((c) => c.cardId).toList(), ['c1', 'c3', 'c2']);

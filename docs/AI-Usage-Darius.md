@@ -115,4 +115,4 @@ Approach: Provided the AI with a list of Sprint 3 testing issues, requested comp
 Input Summary: Supplied the full list of required FSRS and repository test cases, shared failing test outputs, and provided code context for test files.
 Output Summary: Received detailed test plans, code snippets for missing/incorrect tests, and targeted advice for fixing test logic to match FSRS and repository behaviors. All test files were updated and passing after applying the AI’s recommendations.
 Modifications: Expanded and corrected test suites for FSRS service, CardRepository, and DeckRepository. Adjusted test logic for FSRS state transitions, interval calculations, and edge cases to match actual implementation.
-Files Referenced: test/features/study/fsrs_service_test.dart, test/features/cards/data/card_repository_test.dart, deck_repository_test.dart
+Files Referenced: test/features/study/fsrs_service_test.dart, test/features/cards/data/card_repository_test.dart, test/features/decks/data/deck_repository_test.dart
