@@ -490,8 +490,15 @@ AND (sync_status = 'synced' OR user_id = '')
 - During study: pushes queued but not sent, Realtime events buffered in memory
 - On session end: flush queue, process buffered events
 
+**Serialization adapter (SQLite ↔ Supabase):**
+- `toMap()`/`fromMap()` on models are SQLite-specific (booleans as `1`/`0`, includes `sync_status`)
+- Supabase needs native booleans (`true`/`false`) and no `sync_status` column
+- A single `toSupabaseRow()` utility handles push: removes `sync_status`, converts `is_deleted` `1`/`0` → `true`/`false`
+- A single `fromSupabaseRow()` utility handles pull: converts `is_deleted` `true`/`false` → `1`/`0`, sets `sync_status = 'synced'`
+- Adapter lives at the Supabase boundary (in sync services), not on the models — avoids touching every repository and test
+
 **Build order:**
-1. Core `SyncPushService` + `SyncPullService`
+1. Core `SyncPushService` + `SyncPullService` (includes serialization adapter)
 2. `SyncService` orchestrator — debounced push, pull on open, manual sync wiring
 3. `SyncRealtimeService` + connectivity listener
 4. Study session isolation
