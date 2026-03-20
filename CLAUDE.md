@@ -36,6 +36,22 @@
 - **Views bypass RLS by default** — they run as the `postgres` owner. If we add views, use `security_invoker = true` (Postgres 15+).
 - **`config.toml` is for local dev only** — production auth settings (SMTP, CAPTCHA, password requirements) are managed via the Supabase dashboard or `supabase config push`.
 
+### Rate Limits & Abuse Prevention
+
+- **Row count limits (per user, server-enforced via Postgres triggers):**
+  - Decks: 100 (active, non-deleted)
+  - Cards: 10,000 (active, non-deleted)
+  - Reviews: 10,000 (total — append-only, no soft-delete)
+  - Session summaries: 5,000 (total — never deleted)
+  - Soft-deleted rows don't count toward limits — deleting frees a slot immediately.
+  - Limits are intentionally strict for early access. Raise via migration when needed — lowering retroactively is hard.
+- **Payload size constraints (server-side CHECK):**
+  - Deck name: 100 chars (client: 50)
+  - Card front/back: 2,000 chars each (client: 300 — server buffer for future card types)
+- **`app_config` table:** Key-value store for server-side settings (e.g., `min_app_version`). Read-only for `authenticated`, writable only by `postgres`/admin.
+- **CAPTCHA:** Enable hCaptcha on sign-up in the Supabase dashboard before production. Client widget deferred to Phase 7.
+- **CI secrets for releases:** `env.json` must be generated at build time from GitHub secrets — never committed. Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` as repository secrets and create the file in the release workflow.
+
 ---
 
 ## Future Work & Design Decisions
