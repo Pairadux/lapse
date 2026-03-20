@@ -123,31 +123,6 @@ void main() {
     expect(due.first.cardId, 'past');
   });
 
-  test('getDueCards supports limit and offset pagination', () async {
-    await insertParentDeck();
-    final now = DateTime.now();
-    final dueDates = [
-      now.subtract(const Duration(hours: 4)),
-      now.subtract(const Duration(hours: 3)),
-      now.subtract(const Duration(hours: 2)),
-      now.subtract(const Duration(hours: 1)),
-    ];
-
-    for (var i = 0; i < dueDates.length; i++) {
-      await cardRepo.create(
-        makeCard(id: 'd${i + 1}', dueDate: dueDates[i], createdAt: dueDates[i]),
-      );
-    }
-
-    final page = await cardRepo.getDueCards(
-      'deck-1',
-      asOf: now,
-      limit: 2,
-      offset: 1,
-    );
-    expect(page.map((c) => c.cardId).toList(), ['d2', 'd3']);
-  });
-
   test('update persists changes and bumps updatedAt', () async {
     await insertParentDeck();
     final original = makeCard();

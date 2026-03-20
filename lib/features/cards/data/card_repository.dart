@@ -55,20 +55,11 @@ class CardRepository {
   }
 
   /// Returns non-deleted cards due on or before [asOf] (defaults to now),
-  /// ordered by due date. Optional [limit]/[offset] support pagination.
-  /// Uses the `idx_cards_deck_due` composite index.
+  /// ordered by due date. Uses the `idx_cards_deck_due` composite index.
   Future<List<Flashcard>> getDueCards(
     String deckId, {
     DateTime? asOf,
-    int? limit,
-    int? offset,
   }) async {
-    if (limit != null && limit <= 0) {
-      throw ArgumentError.value(limit, 'limit', 'must be > 0');
-    }
-    if (offset != null && offset < 0) {
-      throw ArgumentError.value(offset, 'offset', 'must be >= 0');
-    }
     final db = await _dbHelper.database;
     final cutoff = (asOf ?? DateTime.now()).toUtc().toIso8601String();
     final rows = await db.query(
@@ -77,8 +68,6 @@ class CardRepository {
           '${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colIsDeleted} = 0 AND ${DatabaseConstants.colDueDate} <= ?',
       whereArgs: [deckId, cutoff],
       orderBy: DatabaseConstants.colDueDate,
-      limit: limit,
-      offset: offset,
     );
     return rows.map(Flashcard.fromMap).toList();
   }

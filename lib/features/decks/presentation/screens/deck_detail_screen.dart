@@ -581,13 +581,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     }
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: Spacing.lg),
-      child: Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
+      child: LoadingIndicator(size: 20),
     );
   }
 

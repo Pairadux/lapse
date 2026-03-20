@@ -81,7 +81,6 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
       );
     } catch (_) {
       state = AsyncData(current.copyWith(isLoadingMoreCards: false));
-      rethrow;
     }
   }
 
@@ -93,7 +92,29 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
 
   Future<void> deleteCard(String cardId) async {
     await ref.read(cardRepositoryProvider).delete(cardId);
-    ref.invalidateSelf();
     ref.invalidate(deckListProvider);
+
+    final current = state.asData?.value;
+    if (current == null) return;
+
+    final cardIndex = current.cards.indexWhere((c) => c.cardId == cardId);
+    if (cardIndex == -1) return;
+
+    final deletedCard = current.cards[cardIndex];
+    final updatedCards = [...current.cards]..removeAt(cardIndex);
+    final now = DateTime.now();
+    final wasDue = !deletedCard.dueDate.isAfter(now);
+
+    state = AsyncData(
+      current.copyWith(
+        cards: updatedCards,
+        totalCardCount: current.totalCardCount > 0
+            ? current.totalCardCount - 1
+            : 0,
+        totalDueCount: wasDue && current.totalDueCount > 0
+            ? current.totalDueCount - 1
+            : current.totalDueCount,
+      ),
+    );
   }
 }
