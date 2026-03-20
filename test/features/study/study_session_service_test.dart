@@ -130,30 +130,11 @@ void main() {
       });
     }
 
-    test('rateCard throws on error', () {
+    test('empty session is immediately complete', () {
       final service = StudySessionService();
-      final card = Flashcard(
-        cardId: 'test-id',
-        deckId: 'deck-1',
-        front: 'Front',
-        back: 'Back',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        isDeleted: false,
-        dueDate: DateTime.now(),
-        stability: 0.0,
-        difficulty: 0.0,
-        elapsedDays: 0,
-        scheduledDays: 0,
-        reps: 0,
-        lapses: 0,
-        lastReview: null,
-        cardState: CardState.newCard,
-      );
-      final session = service.startSession('deck-1', [card]);
+      final session = service.startSession('deck-1', []);
 
-      // Simulate error by passing an invalid rating (if possible)
-      expect(() => service.rateCard(session, card, null as Rating), throwsA(anything));
+      expect(session.isComplete, isTrue);
     });
   });
 }

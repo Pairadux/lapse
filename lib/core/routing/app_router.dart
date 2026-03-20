@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/cards/presentation/screens/card_form_screen.dart';
@@ -6,18 +5,28 @@ import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_detail_screen.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_form_screen.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_list_screen.dart';
+import 'package:lapse/features/settings/presentation/screens/settings_screen.dart';
 import 'package:lapse/features/study/presentation/screens/study_session_screen.dart';
 import 'package:lapse/features/study/presentation/screens/review_stats_screen.dart';
 import '../supabase/supabase_dev_screen.dart';
-import '../widgets/app_scaffold.dart';
 import '../widgets/debug_widget_screen.dart';
+import 'auth_notifier.dart';
 import 'page_transitions.dart';
 import 'route_observer.dart';
 import 'routes.dart';
 
+final _authNotifier = AuthNotifier();
+
 final appRouter = GoRouter(
   initialLocation: Routes.home,
   observers: [routeObserver],
+  refreshListenable: _authNotifier,
+  redirect: (context, state) {
+    // Offline-first: no forced auth redirects. The app is fully usable
+    // without an account. The redirect only prevents signed-in users from
+    // seeing auth-specific routes (if we add any in the future).
+    return null;
+  },
   routes: [
     GoRoute(
       path: Routes.home,
@@ -42,7 +51,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: Routes.settings,
       pageBuilder: (context, state) =>
-          buildPage(state, const _SettingsPlaceholder()),
+          buildPage(state, const SettingsScreen()),
     ),
     GoRoute(
       path: Routes.deckNew,
@@ -128,25 +137,3 @@ final appRouter = GoRouter(
   ],
 );
 
-class _SettingsPlaceholder extends StatelessWidget {
-  const _SettingsPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      title: 'Settings',
-      showBackButton: true,
-      showSettingsButton: false,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Settings', style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 16),
-            const Text('Screen not implemented yet'),
-          ],
-        ),
-      ),
-    );
-  }
-}
