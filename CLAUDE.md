@@ -452,6 +452,50 @@ AND (sync_status = 'synced' OR user_id = '')
 - **Conflict resolution:** Last-write-wins on `updated_at` — sufficient for single-user app.
 - **Initial sync** (first upload): background with auto-opening sync panel (Obsidian-style). User can close panel and keep using app — cloud icon shows progress.
 
+##### Phase 6 implementation plan
+
+**Architecture — four classes:**
+- `SyncService` — orchestrator, owns debounce timer, connectivity listener, pause/resume
+- `SyncPushService` — push logic for all tables
+- `SyncPullService` — pull logic for all tables
+- `SyncRealtimeService` — Supabase Realtime subscription management
+
+**Push flow (local → Supabase):**
+1. Query each table for `sync_status = 'pending'`
+2. Sequential order: decks → cards → reviews → session_summaries (FK dependency)
+3. One upsert request per table — no batching (row count limits keep payloads reasonable, max ~27 MB worst case)
+4. Supabase upserts atomically per table — all rows land or none do
+5. On success: `markSynced()` locally. On failure: log error, rows stay `pending`, retry next cycle.
+6. Soft-deleted rows push too (`is_deleted = true` propagates to server).
+7. If a table fails mid-sequence, already-synced tables keep their `synced` status. Next cycle resumes from the first table with pending rows.
+
+**Pull flow (Supabase → local):**
+1. Store `last_pull_timestamp` in SharedPreferences
+2. Query each table: `WHERE user_id = auth.uid() AND updated_at > last_pull`
+3. Sequential order: decks → cards → reviews → session_summaries (FK dependency)
+4. Conflict resolution per row: remote `updated_at` > local → overwrite; otherwise skip
+5. No local row → insert
+6. Update `last_pull_timestamp` after all tables complete
+7. First sync (no timestamp): pull everything
+
+**Trigger points:**
+- Debounced push 2-5s after any local write (repositories notify SyncService)
+- Pull on app open/foreground + after each successful push
+- Manual sync button: push then pull
+- Connectivity restore: flush pending pushes
+- Realtime: Postgres changes trigger targeted pull
+
+**Study session isolation:**
+- `SyncService.pause()` / `resume()`
+- During study: pushes queued but not sent, Realtime events buffered in memory
+- On session end: flush queue, process buffered events
+
+**Build order:**
+1. Core `SyncPushService` + `SyncPullService`
+2. `SyncService` orchestrator — debounced push, pull on open, manual sync wiring
+3. `SyncRealtimeService` + connectivity listener
+4. Study session isolation
+
 #### Sign-out / session handling
 - On sign-out: store `user_id` in SharedPreferences. New data still stamped with that `user_id`. Show non-blocking banner: "You're signed out. Sign in to sync."
 - On sign-back-in (same account): sync resumes seamlessly.
