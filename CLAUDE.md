@@ -435,11 +435,11 @@ AND (sync_status = 'synced' OR user_id = '')
 - **Password requirements:** Current minimum is 6 characters (Supabase default). Needs strengthening — at minimum: 8+ characters, at least one uppercase, one lowercase, one digit. Enforce client-side before calling Supabase, and configure matching requirements in Supabase dashboard.
 - **Sign-in → sign-up continuity:** If a user fills out the sign-in form and clicks "Create account", the sign-up dialog should pre-fill with the email and password they already entered. Also consider: if sign-in fails because the account doesn't exist, offer to create one with the same credentials instead of just showing an error.
 - **Google + Apple OAuth** alongside email auth. Apple Sign-In is required by App Store if offering any social login.
+- **Email confirmation: OTP code (not link-based).** After sign-up, user enters a 6-digit code from their email. No redirect URLs, no polling, no cross-device issues. Supabase supports this via `verifyOTP(type: OtpType.signup)`. Resend via `resend(type: OtpType.signup)`. This replaces the previous polling-based approach entirely.
 - **Platform-conditional auth flows:**
-  - Mobile (iOS/Android): deep links for OAuth callbacks and email confirmation
-  - Desktop (Linux/macOS/Windows): localhost callback for OAuth; polling for email confirmation (1s intervals for 60s, then 5s intervals for 30min, then "resend" prompt)
-- **Email confirmation polling** on all platforms — avoids deep link complexity on desktop.
-- **Supabase redirect URLs:** Email confirmation and password reset links both redirect to the Site URL configured in Supabase dashboard. Currently set to localhost, which fails on mobile and shows a broken page. Before production: set Site URL to a hosted page (e.g., project landing page or a simple "You're confirmed, return to the app" page). Alternatively, configure custom email templates in the Supabase dashboard to use deep links for mobile.
+  - Mobile (iOS/Android): deep links for OAuth callbacks
+  - Desktop (Linux/macOS/Windows): localhost callback for OAuth
+- **Supabase redirect URLs:** Password reset links redirect to the Site URL configured in Supabase dashboard. Currently set to localhost, which fails on mobile. Before production: set Site URL to a hosted page (e.g., "You're confirmed, return to the app"). Email confirmation no longer uses redirect URLs (OTP flow).
 - **Duplicate email sign-up:** Supabase intentionally returns a fake success (user object, no session, no email sent) when signing up with an already-registered email — this prevents email enumeration attacks. Our app currently shows "check your email" even though no email was sent. The correct fix is a generic message regardless of outcome: "If an account with this email doesn't exist, we'll send a confirmation link." Do NOT detect or reveal whether the email is already registered — that would subvert Supabase's anti-enumeration protection.
 - **2FA/MFA:** Not implemented. Supabase supports TOTP-based MFA. Should be added before production — consider making it optional in settings with QR code setup flow.
 
