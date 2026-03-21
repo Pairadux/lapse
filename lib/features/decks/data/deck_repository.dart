@@ -1,18 +1,27 @@
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/domain/sync_status.dart';
+import 'package:lapse/features/auth/application/auth_service.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
 
 class DeckRepository {
   final DatabaseHelper _dbHelper;
+  final AuthService _authService;
 
-  DeckRepository({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+  DeckRepository({DatabaseHelper? dbHelper, AuthService? authService})
+      : _dbHelper = dbHelper ?? DatabaseHelper.instance,
+        _authService = authService ?? AuthService();
 
   Future<Deck> create(Deck deck) async {
     final db = await _dbHelper.database;
-    final syncReady = deck.copyWith(syncStatus: SyncStatus.pending);
+    final userId = deck.userId.isEmpty
+        ? await _authService.getCurrentUserId()
+        : deck.userId;
+    final syncReady = deck.copyWith(
+      syncStatus: SyncStatus.pending,
+      userId: userId,
+    );
     await db.insert(DatabaseConstants.tableDecks, syncReady.toMap());
     return syncReady;
   }

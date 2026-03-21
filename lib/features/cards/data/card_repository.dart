@@ -1,17 +1,26 @@
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/domain/sync_status.dart';
+import 'package:lapse/features/auth/application/auth_service.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
 class CardRepository {
   final DatabaseHelper _dbHelper;
+  final AuthService _authService;
 
-  CardRepository({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+  CardRepository({DatabaseHelper? dbHelper, AuthService? authService})
+      : _dbHelper = dbHelper ?? DatabaseHelper.instance,
+        _authService = authService ?? AuthService();
 
   Future<Flashcard> create(Flashcard card) async {
     final db = await _dbHelper.database;
-    final syncReady = card.copyWith(syncStatus: SyncStatus.pending);
+    final userId = card.userId.isEmpty
+        ? await _authService.getCurrentUserId()
+        : card.userId;
+    final syncReady = card.copyWith(
+      syncStatus: SyncStatus.pending,
+      userId: userId,
+    );
     await db.insert(DatabaseConstants.tableCards, syncReady.toMap());
     return syncReady;
   }

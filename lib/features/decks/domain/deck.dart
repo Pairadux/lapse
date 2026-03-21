@@ -43,6 +43,7 @@ class Deck extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
+    String? userId,
     SyncStatus? syncStatus,
   }) {
     return Deck(
@@ -54,7 +55,7 @@ class Deck extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt, // Always update timestamp on change
       isDeleted: isDeleted ?? this.isDeleted,
-      userId: userId, // immutable — set at creation
+      userId: userId ?? this.userId,
       syncStatus: syncStatus ?? this.syncStatus,
     );
   }

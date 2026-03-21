@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
@@ -16,6 +17,7 @@ void main() {
   late CardRepository cardRepo;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     helper = DatabaseHelper.forTesting(dbName: 'test_deck_counts.db');
     deckRepo = DeckRepository(dbHelper: helper);
     cardRepo = CardRepository(dbHelper: helper);

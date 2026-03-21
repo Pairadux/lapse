@@ -92,6 +92,7 @@ class Flashcard extends Equatable {
     DateTime? lastReview,
     CardState? cardState,
     int? step = _stepUnset,
+    String? userId,
     SyncStatus? syncStatus,
   }) {
     return Flashcard(
@@ -112,7 +113,7 @@ class Flashcard extends Equatable {
       lastReview: lastReview ?? this.lastReview,
       cardState: cardState ?? this.cardState,
       step: step == _stepUnset ? this.step : step,
-      userId: userId, // immutable — set at creation
+      userId: userId ?? this.userId,
       syncStatus: syncStatus ?? this.syncStatus,
     );
   }
