@@ -11,10 +11,15 @@ import 'package:lapse/features/study/data/review_session_summary_repository.dart
 /// Pushes locally-changed rows to Supabase.
 ///
 /// Tables are pushed sequentially (decks → cards → reviews → summaries)
-/// to satisfy foreign-key constraints. One upsert per table — no batching.
-/// On failure, already-synced tables keep their status; unsynced rows
-/// remain pending and retry on the next cycle.
+/// to satisfy foreign-key constraints. Each table's rows are paginated
+/// (1000 per request) so large offline-accumulated changes don't produce
+/// oversized payloads. On failure, already-synced pages/tables keep their
+/// status; unsynced rows remain pending and retry on the next cycle.
 class SyncPushService {
+  /// Page size for chunked upserts. Keeps payloads reasonable and allows
+  /// partial progress if the connection drops mid-sync.
+  static const _pageSize = 1000;
+
   final DeckRepository _deckRepo;
   final CardRepository _cardRepo;
   final ReviewRepository _reviewRepo;
@@ -50,8 +55,11 @@ class SyncPushService {
           (await _deckRepo.getUnsynced()).map((d) => d.toMap()).toList(),
       upsert: (rows) =>
           client.from(DatabaseConstants.tableDecks).upsert(rows, onConflict: DatabaseConstants.colDeckId),
-      markSynced: (rows) => _deckRepo.markSynced(
-          rows.map((r) => r[DatabaseConstants.colDeckId] as String).toList()),
+      markSynced: (rows) => _deckRepo.markSynced({
+        for (final r in rows)
+          r[DatabaseConstants.colDeckId] as String:
+              r[DatabaseConstants.colUpdatedAt] as String,
+      }),
     )) {
       return false;
     }
@@ -62,8 +70,11 @@ class SyncPushService {
           (await _cardRepo.getUnsynced()).map((c) => c.toMap()).toList(),
       upsert: (rows) =>
           client.from(DatabaseConstants.tableCards).upsert(rows, onConflict: DatabaseConstants.colCardId),
-      markSynced: (rows) => _cardRepo.markSynced(
-          rows.map((r) => r[DatabaseConstants.colCardId] as String).toList()),
+      markSynced: (rows) => _cardRepo.markSynced({
+        for (final r in rows)
+          r[DatabaseConstants.colCardId] as String:
+              r[DatabaseConstants.colUpdatedAt] as String,
+      }),
     )) {
       return false;
     }
@@ -96,11 +107,12 @@ class SyncPushService {
     return true;
   }
 
-  /// Pushes a single table's pending rows.
+  /// Pushes a single table's pending rows in pages of [_pageSize].
   ///
   /// [getUnsynced] returns SQLite-format maps. They are converted via
-  /// [SyncAdapter.toSupabaseRow] before upserting. [markSynced] receives
-  /// the original SQLite maps (for ID extraction).
+  /// [SyncAdapter.toSupabaseRow] before upserting. Each page is upserted
+  /// and marked synced independently — if a page fails, prior pages keep
+  /// their synced status and only the remaining rows retry next cycle.
   Future<bool> _pushTable({
     required String label,
     required Future<List<Map<String, dynamic>>> Function() getUnsynced,
@@ -111,9 +123,13 @@ class SyncPushService {
       final localMaps = await getUnsynced();
       if (localMaps.isEmpty) return true;
 
-      final supabaseRows = localMaps.map(SyncAdapter.toSupabaseRow).toList();
-      await upsert(supabaseRows);
-      await markSynced(localMaps);
+      for (var i = 0; i < localMaps.length; i += _pageSize) {
+        final end = (i + _pageSize).clamp(0, localMaps.length);
+        final chunk = localMaps.sublist(i, end);
+        final supabaseRows = chunk.map(SyncAdapter.toSupabaseRow).toList();
+        await upsert(supabaseRows);
+        await markSynced(chunk);
+      }
 
       dev.log('Pushed ${localMaps.length} $label', name: 'SyncPush');
       return true;
