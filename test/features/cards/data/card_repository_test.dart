@@ -170,7 +170,10 @@ void main() {
       await cardRepo.create(makeCard(id: 'c1'));
       await cardRepo.create(makeCard(id: 'c2'));
 
-      await cardRepo.markSynced(['c1']);
+      final c1 = await cardRepo.getById('c1');
+      await cardRepo.markSynced({
+        'c1': c1!.updatedAt.toUtc().toIso8601String(),
+      });
 
       final unsynced = await cardRepo.getUnsynced();
       expect(unsynced, hasLength(1));
@@ -182,10 +185,62 @@ void main() {
       await cardRepo.create(makeCard(id: 'c1'));
       await cardRepo.create(makeCard(id: 'c2'));
 
-      await cardRepo.markSynced(['c1', 'c2']);
+      final c1 = await cardRepo.getById('c1');
+      final c2 = await cardRepo.getById('c2');
+      await cardRepo.markSynced({
+        'c1': c1!.updatedAt.toUtc().toIso8601String(),
+        'c2': c2!.updatedAt.toUtc().toIso8601String(),
+      });
 
       final unsynced = await cardRepo.getUnsynced();
       expect(unsynced, isEmpty);
+    });
+
+    test('markSynced with empty map is a no-op', () async {
+      await cardRepo.markSynced({});
+      // Should not throw
+    });
+
+    test('markSynced skips rows modified after push (TOCTOU guard)', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard(id: 'c1'));
+      final original = await cardRepo.getById('c1');
+      final pushedTimestamp = original!.updatedAt.toUtc().toIso8601String();
+
+      // Simulate user editing the card after push read it but before markSynced
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await cardRepo.update(original.copyWith(front: 'Edited'));
+
+      // markSynced with the OLD timestamp should not mark as synced
+      await cardRepo.markSynced({'c1': pushedTimestamp});
+
+      final card = await cardRepo.getById('c1');
+      expect(card!.syncStatus, SyncStatus.pending);
+      expect(card.front, 'Edited');
+    });
+
+    test('markSynced applies only to matching timestamps', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard(id: 'c1'));
+      await cardRepo.create(makeCard(id: 'c2'));
+
+      final c1 = await cardRepo.getById('c1');
+      final c2 = await cardRepo.getById('c2');
+      final c1Timestamp = c1!.updatedAt.toUtc().toIso8601String();
+
+      // Edit 'c2' so its timestamp no longer matches
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await cardRepo.update(c2!.copyWith(front: 'Edited'));
+
+      await cardRepo.markSynced({
+        'c1': c1Timestamp,
+        'c2': c2.updatedAt.toUtc().toIso8601String(), // stale
+      });
+
+      final c1After = await cardRepo.getById('c1');
+      final c2After = await cardRepo.getById('c2');
+      expect(c1After!.syncStatus, SyncStatus.synced); // matched
+      expect(c2After!.syncStatus, SyncStatus.pending); // stale, skipped
     });
 
     test('getUnsynced includes deleted items', () async {

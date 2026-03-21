@@ -254,17 +254,23 @@ class DeckRepository {
     return rows.map(Deck.fromMap).toList();
   }
 
-  /// Marks the given deck IDs as synced.
-  Future<void> markSynced(List<String> deckIds) async {
-    if (deckIds.isEmpty) return;
+  /// Marks the given decks as synced, guarded by [updated_at] to prevent
+  /// a TOCTOU race: if a row was modified between push and markSynced,
+  /// the guard ensures it stays pending for the next sync cycle.
+  Future<void> markSynced(Map<String, String> idToUpdatedAt) async {
+    if (idToUpdatedAt.isEmpty) return;
     final db = await _dbHelper.database;
-    final placeholders = List.filled(deckIds.length, '?').join(', ');
-    await db.update(
-      DatabaseConstants.tableDecks,
-      {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
-      where: '${DatabaseConstants.colDeckId} IN ($placeholders)',
-      whereArgs: deckIds,
-    );
+    await db.transaction((txn) async {
+      for (final entry in idToUpdatedAt.entries) {
+        await txn.update(
+          DatabaseConstants.tableDecks,
+          {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
+          where:
+              '${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colUpdatedAt} = ?',
+          whereArgs: [entry.key, entry.value],
+        );
+      }
+    });
   }
 
   /// Soft-deletes [deckId], all descendant decks, and all their cards
