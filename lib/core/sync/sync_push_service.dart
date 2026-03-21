@@ -113,8 +113,11 @@ class SyncPushService {
         upsert: (rows) => client
             .from(DatabaseConstants.tableReviewSessionSummary)
             .upsert(rows, onConflict: DatabaseConstants.colSessionId),
-        markSynced: (rows) => _summaryRepo.markSynced(
-            rows.map((r) => r[DatabaseConstants.colSessionId] as String).toList()),
+        markSynced: (rows) => _summaryRepo.markSynced({
+          for (final r in rows)
+            r[DatabaseConstants.colSessionId] as String:
+                r[DatabaseConstants.colUpdatedAt] as String,
+        }),
       ),
     ];
 

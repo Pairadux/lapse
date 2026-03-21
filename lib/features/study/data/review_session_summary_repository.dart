@@ -67,17 +67,22 @@ class ReviewSessionSummaryRepository {
     return rows.map(ReviewSessionSummary.fromMap).toList();
   }
 
-  /// Marks the given session summary IDs as synced.
-  Future<void> markSynced(List<String> ids) async {
-    if (ids.isEmpty) return;
+  /// Marks the given session summaries as synced, guarded by `updated_at`
+  /// to prevent a TOCTOU race (local edit between push read and markSynced).
+  Future<void> markSynced(Map<String, String> idToUpdatedAt) async {
+    if (idToUpdatedAt.isEmpty) return;
     final db = await _dbHelper.database;
-    final placeholders = List.filled(ids.length, '?').join(', ');
-    await db.update(
-      DatabaseConstants.tableReviewSessionSummary,
-      {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
-      where: '${DatabaseConstants.colSessionId} IN ($placeholders)',
-      whereArgs: ids,
-    );
+    await db.transaction((txn) async {
+      for (final entry in idToUpdatedAt.entries) {
+        await txn.update(
+          DatabaseConstants.tableReviewSessionSummary,
+          {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
+          where:
+              '${DatabaseConstants.colSessionId} = ? AND ${DatabaseConstants.colUpdatedAt} = ?',
+          whereArgs: [entry.key, entry.value],
+        );
+      }
+    });
   }
 
   /// Returns aggregate daily stats: total reviews, duration, and rating

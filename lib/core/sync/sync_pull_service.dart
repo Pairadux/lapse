@@ -270,7 +270,7 @@ class SyncPullService {
         );
       }
       final results = await batch.commit();
-      totalInserted += results.where((r) => r != 0).length;
+      totalInserted += results.where((r) => r is int && r > 0).length;
 
       if (remoteRows.length < _pageSize) break;
       offset += _pageSize;

@@ -126,7 +126,9 @@ void main() {
       await repo.add(makeSummary(id: 's1'));
       await repo.add(makeSummary(id: 's2'));
 
-      await repo.markSynced(['s1']);
+      final all = await repo.getAll();
+      final s1 = all.firstWhere((s) => s.id == 's1');
+      await repo.markSynced({s1.id!: s1.updatedAt.toIso8601String()});
 
       final unsynced = await repo.getUnsynced();
       expect(unsynced, hasLength(1));
@@ -135,14 +137,16 @@ void main() {
 
     test('markSynced updates sync status', () async {
       await repo.add(makeSummary(id: 's1'));
-      await repo.markSynced(['s1']);
+      final all = await repo.getAll();
+      final s1 = all.first;
+      await repo.markSynced({s1.id!: s1.updatedAt.toIso8601String()});
 
       final unsynced = await repo.getUnsynced();
       expect(unsynced, isEmpty);
     });
 
-    test('markSynced with empty list is a no-op', () async {
-      await repo.markSynced([]);
+    test('markSynced with empty map is a no-op', () async {
+      await repo.markSynced({});
     });
   });
 }
