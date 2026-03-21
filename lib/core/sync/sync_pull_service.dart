@@ -1,5 +1,4 @@
-import 'dart:developer' as dev;
-
+import 'package:flutter/foundation.dart';
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/domain/sync_status.dart';
@@ -33,28 +32,57 @@ class SyncPullService {
   ///
   /// Returns `true` if all tables pulled successfully, `false` if any failed.
   /// The pull timestamp is only updated when all tables succeed.
-  Future<bool> pull() async {
+  Future<bool> pull() async => (await pullWithDetail()).ok;
+
+  /// Like [pull], but returns a [SyncResult] with error detail on failure.
+  Future<SyncResult> pullWithDetail() async {
     final client = _clientOverride;
     if (client == null) {
-      if (!SupabaseConfig.isConfigured) return false;
-      if (SupabaseConfig.client.auth.currentSession == null) return false;
+      if (!SupabaseConfig.isConfigured) {
+        debugPrint('[SyncPull] Supabase not configured — skipping pull');
+        return const SyncResult.failure('Supabase not configured');
+      }
+      if (SupabaseConfig.client.auth.currentSession == null) {
+        debugPrint('[SyncPull] No active session — skipping pull');
+        return const SyncResult.failure('Not signed in');
+      }
       return _pullAll(SupabaseConfig.client);
     }
     return _pullAll(client);
   }
 
   /// Executes the sequential pull across all tables using [client].
-  Future<bool> _pullAll(SupabaseClient client) async {
+  Future<SyncResult> _pullAll(SupabaseClient client) async {
     final prefs = await SharedPreferences.getInstance();
-    final lastPull = prefs.getString(_lastPullKey);
+    var lastPull = prefs.getString(_lastPullKey);
+
+    // If we have a stored timestamp but the local DB is empty, the DB was
+    // likely cleared without resetting the timestamp (e.g. reinstall, release
+    // build without dev tools). Force a full pull so we don't miss data that
+    // was pushed before the stale timestamp.
+    if (lastPull != null) {
+      final db = await _dbHelper.database;
+      final result = await db.rawQuery(
+        'SELECT COUNT(*) AS c FROM ${DatabaseConstants.tableDecks}',
+      );
+      final deckCount = result.first['c'] as int;
+      if (deckCount == 0) {
+        debugPrint('[SyncPull] Local DB is empty but last_pull_timestamp exists — forcing full sync');
+        lastPull = null;
+      }
+    }
+
+    debugPrint('[SyncPull] Starting pull (lastPull: ${lastPull ?? 'NEVER — full sync'})');
 
     // Capture timestamp before querying so changes during pull are
     // re-fetched next cycle (safe, idempotent) rather than missed.
     final pullTimestamp = DateTime.now().toUtc().toIso8601String();
 
+    final stats = <String, int>{};
+
     // Sequential pull in FK-dependency order.
     try {
-      await _pullTable(
+      stats['decks'] = await _pullTable(
         client: client,
         table: DatabaseConstants.tableDecks,
         pkColumn: DatabaseConstants.colDeckId,
@@ -62,7 +90,7 @@ class SyncPullService {
         lastPull: lastPull,
       );
 
-      await _pullTable(
+      stats['cards'] = await _pullTable(
         client: client,
         table: DatabaseConstants.tableCards,
         pkColumn: DatabaseConstants.colCardId,
@@ -70,9 +98,9 @@ class SyncPullService {
         lastPull: lastPull,
       );
 
-      await _pullReviews(client: client, lastPull: lastPull);
+      stats['reviews'] = await _pullReviews(client: client, lastPull: lastPull);
 
-      await _pullTable(
+      stats['summaries'] = await _pullTable(
         client: client,
         table: DatabaseConstants.tableReviewSessionSummary,
         pkColumn: DatabaseConstants.colSessionId,
@@ -81,11 +109,20 @@ class SyncPullService {
       );
 
       await prefs.setString(_lastPullKey, pullTimestamp);
-      dev.log('Pull complete (since $lastPull)', name: 'SyncPull');
-      return true;
+
+      final totalPulled = stats.values.fold(0, (a, b) => a + b);
+      final parts = stats.entries
+          .where((e) => e.value > 0)
+          .map((e) => '${e.value} ${e.key}')
+          .toList();
+      final message = totalPulled == 0
+          ? 'Nothing new to pull'
+          : 'Pulled ${parts.join(', ')}';
+      debugPrint('[SyncPull] $message');
+      return SyncResult.success(message);
     } catch (e, st) {
-      dev.log('Pull failed: $e', name: 'SyncPull', error: e, stackTrace: st);
-      return false;
+      debugPrint('[SyncPull] Pull failed: $e\n$st');
+      return SyncResult.failure(e.toString());
     }
   }
 
@@ -110,15 +147,17 @@ class SyncPullService {
   }
 
   /// Pulls and merges rows for a standard table (decks, cards, summaries).
-  /// Fetches pages sequentially and processes each page before fetching
-  /// the next to bound memory usage.
+  /// Returns the number of *new* rows merged (inserts + conflict wins).
+  /// Rows that already exist locally as `synced` are silently refreshed
+  /// but not counted — they're typically echoes of data we just pushed
+  /// (the server's `set_updated_at` trigger changes the timestamp).
   ///
   /// Conflict resolution per row:
-  /// - No local row → insert
-  /// - Local `synced` → overwrite (server is authoritative)
-  /// - Local `pending` + remote newer → overwrite (remote wins)
+  /// - No local row → insert (counted)
+  /// - Local `synced` → overwrite silently (server is authoritative)
+  /// - Local `pending` + remote newer → overwrite (counted)
   /// - Local `pending` + local newer → skip (local wins, pushes next cycle)
-  Future<void> _pullTable({
+  Future<int> _pullTable({
     required SupabaseClient client,
     required String table,
     required String pkColumn,
@@ -126,14 +165,19 @@ class SyncPullService {
     required String? lastPull,
   }) async {
     final db = await _dbHelper.database;
-    var totalMerged = 0;
-    var totalSkipped = 0;
+    var newRows = 0;
+    var refreshed = 0;
+    var conflictWins = 0;
+    var skipped = 0;
     var offset = 0;
+
+    debugPrint('[SyncPull] Fetching $table...');
 
     while (true) {
       final remoteRows = await _fetchPage(
         client, table, pkColumn, timestampColumn, lastPull, offset,
       );
+      debugPrint('[SyncPull]   $table page at offset $offset: ${remoteRows.length} rows from Supabase');
       if (remoteRows.isEmpty) break;
 
       // Batch-fetch local state for this page's PKs to avoid N+1 queries.
@@ -149,15 +193,16 @@ class SyncPullService {
 
         if (localInfo == null) {
           await db.insert(table, localRow);
-          totalMerged++;
+          newRows++;
           continue;
         }
 
         if (localInfo.syncStatus == SyncStatus.synced.name) {
+          // Already synced — silent refresh (likely echo of our own push).
           await db.insert(
             table, localRow, conflictAlgorithm: ConflictAlgorithm.replace,
           );
-          totalMerged++;
+          refreshed++;
           continue;
         }
 
@@ -170,9 +215,9 @@ class SyncPullService {
           await db.insert(
             table, localRow, conflictAlgorithm: ConflictAlgorithm.replace,
           );
-          totalMerged++;
+          conflictWins++;
         } else {
-          totalSkipped++;
+          skipped++;
         }
       }
 
@@ -181,23 +226,27 @@ class SyncPullService {
       offset += _pageSize;
     }
 
-    if (totalMerged > 0 || totalSkipped > 0) {
-      dev.log(
-        'Pulled $table: $totalMerged merged, $totalSkipped skipped (local wins)',
-        name: 'SyncPull',
-      );
+    final total = newRows + refreshed + conflictWins + skipped;
+    if (total > 0) {
+      debugPrint('[SyncPull]   $table: $newRows new, $refreshed refreshed, '
+          '$conflictWins conflict wins, $skipped skipped (local wins)');
     }
+
+    // Only count genuinely new data for the user-facing message.
+    return newRows + conflictWins;
   }
 
   /// Pulls reviews — insert-only since reviews are immutable.
-  /// Uses batched inserts with ConflictAlgorithm.ignore for performance.
-  Future<void> _pullReviews({
+  /// Returns the number of rows inserted.
+  Future<int> _pullReviews({
     required SupabaseClient client,
     required String? lastPull,
   }) async {
     final db = await _dbHelper.database;
     var totalInserted = 0;
     var offset = 0;
+
+    debugPrint('[SyncPull] Fetching reviews...');
 
     while (true) {
       final remoteRows = await _fetchPage(
@@ -208,6 +257,7 @@ class SyncPullService {
         lastPull,
         offset,
       );
+      debugPrint('[SyncPull]   reviews page at offset $offset: ${remoteRows.length} rows from Supabase');
       if (remoteRows.isEmpty) break;
 
       final batch = db.batch();
@@ -227,8 +277,10 @@ class SyncPullService {
     }
 
     if (totalInserted > 0) {
-      dev.log('Pulled reviews: $totalInserted inserted', name: 'SyncPull');
+      debugPrint('[SyncPull]   reviews: $totalInserted inserted');
     }
+
+    return totalInserted;
   }
 
   /// Builds a lookup map of {pk → local row info} for conflict resolution.
@@ -264,6 +316,14 @@ class SyncPullService {
       }
     }
     return index;
+  }
+
+  /// Clears the stored pull timestamp, forcing the next pull to fetch
+  /// everything. Called when local data is cleared.
+  static Future<void> resetLastPullTimestamp() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_lastPullKey);
+    debugPrint('[SyncPull] Cleared last_pull_timestamp');
   }
 }
 

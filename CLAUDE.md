@@ -222,7 +222,7 @@ Material 3 tints the AppBar when content scrolls beneath it (elevation effect). 
 
 - **Study session does not persist reviews (#75):** `_rateCard()` only updates local counters — FSRS not called, card not updated in DB, no Review record saved. Blocked by #74. Assigned to Darius.
 
-- **Repository providers throw UnimplementedError (#76):** `deckRepositoryProvider` and `cardRepositoryProvider` never overridden in ProviderScope. Assigned to GADudley.
+- ~~**Repository providers throw UnimplementedError (#76):**~~ **Resolved.** Providers now return concrete repository instances.
 
 - **Dead Deck.cards/cardCount/dueCount fields on model (#62):** Runtime-only fields that don't belong on the domain object. `cards` is always `[]` from DB, counts are computed inline by screens. Assigned to GADudley.
 
@@ -237,6 +237,8 @@ Material 3 tints the AppBar when content scrolls beneath it (elevation effect). 
 - **Right-click context menu on decks/cards (#51):** Already planned (see Multi-Select section). Should include Delete, and eventually Move, Edit, etc.
 
 - **Full keyboard navigation (#52):** App is not fully usable with keyboard alone. Low priority but worth addressing eventually for accessibility.
+
+- **Mobile settings UX bugs (#140):** On mobile, the settings bottom nav overlaps scrollable content (last items hidden behind nav bar). Settings sections need bottom padding to account for nav bar height. Assigned to Pairadux.
 
 ---
 

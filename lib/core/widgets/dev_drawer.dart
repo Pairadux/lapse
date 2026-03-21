@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
+import 'package:lapse/core/sync/sync_pull_service.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
@@ -26,6 +27,7 @@ class DevDrawer extends StatelessWidget {
     if (!confirmed || !context.mounted) return;
 
     await DatabaseHelper.instance.clearAllData();
+    await SyncPullService.resetLastPullTimestamp();
     if (context.mounted) {
       Navigator.pop(context);
       onDataChanged?.call();

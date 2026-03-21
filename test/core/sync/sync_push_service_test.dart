@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
@@ -19,6 +20,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // ── Mocks ──────────────────────────────────────────────────────────
 
 class MockSupabaseClient extends Mock implements SupabaseClient {}
+
+class MockGoTrueClient extends Mock implements GoTrueClient {}
 
 /// Fake query builder whose [upsert] records calls and returns an
 /// immediately-completing future.
@@ -63,6 +66,7 @@ void main() {
   late String dbName;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     dbName = 'test_push_${DateTime.now().microsecondsSinceEpoch}.db';
     helper = DatabaseHelper.forTesting(dbName: dbName);
     deckRepo = DeckRepository(dbHelper: helper);
@@ -72,6 +76,10 @@ void main() {
 
     mockClient = MockSupabaseClient();
     fakeQueryBuilder = FakeQueryBuilder();
+
+    final mockAuth = MockGoTrueClient();
+    when(() => mockAuth.currentUser).thenReturn(null);
+    when(() => mockClient.auth).thenReturn(mockAuth);
     when(() => mockClient.from(any())).thenAnswer((_) => fakeQueryBuilder);
   });
 

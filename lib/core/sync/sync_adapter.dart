@@ -1,6 +1,16 @@
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/domain/sync_status.dart';
 
+/// Result of a sync push or pull operation.
+class SyncResult {
+  final bool ok;
+  final String? error;
+  final String message;
+
+  const SyncResult.success([this.message = '']) : ok = true, error = null;
+  const SyncResult.failure(this.error) : ok = false, message = '';
+}
+
 /// Converts between SQLite column maps and Supabase row maps.
 ///
 /// SQLite stores booleans as integers (0/1) and includes `sync_status`.

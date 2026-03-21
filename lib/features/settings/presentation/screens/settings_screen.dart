@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/sync/sync_adapter.dart';
 import '../../../../core/sync/sync_pull_service.dart';
 import '../../../../core/sync/sync_push_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -527,18 +528,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _syncNow() async {
     setState(() => _isSyncing = true);
     try {
-      final pushOk = await SyncPushService().push();
-      final pullOk = await SyncPullService().pull();
+      final pushResult = await SyncPushService().pushWithDetail();
+      final pullResult = await SyncPullService().pullWithDetail();
 
       if (!mounted) return;
-      if (pushOk && pullOk) {
-        _showSuccess('Sync complete.');
-      } else if (!pushOk && !pullOk) {
-        _showError('Push and pull both failed.');
-      } else if (!pushOk) {
-        _showError('Push failed, pull succeeded.');
+      if (pushResult.ok && pullResult.ok) {
+        final parts = <String>[
+          if (pushResult.message.isNotEmpty) pushResult.message,
+          if (pullResult.message.isNotEmpty) pullResult.message,
+        ];
+        final detail = parts.isNotEmpty ? parts.join('. ') : 'Sync complete';
+        _showSuccess(detail);
       } else {
-        _showError('Push succeeded, pull failed.');
+        final errors = <String>[
+          if (!pushResult.ok) 'Push: ${pushResult.error ?? 'unknown'}',
+          if (!pullResult.ok) 'Pull: ${pullResult.error ?? 'unknown'}',
+        ];
+        _showError(errors.join(' | '));
       }
     } catch (e) {
       if (mounted) _showError('Sync error: $e');
@@ -548,6 +554,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showError(String message) {
+    debugPrint('[Settings] ERROR: $message');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: AppColors.error),
     );
