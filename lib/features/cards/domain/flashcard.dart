@@ -46,7 +46,7 @@ class Flashcard extends Equatable {
     this.lastReview,
     required this.cardState,
     this.step,
-    this.syncStatus = SyncStatus.synced,
+    this.syncStatus = SyncStatus.pending,
     this.userId = '',
   });
 
@@ -68,7 +68,7 @@ class Flashcard extends Equatable {
       cardState: CardState.newCard,
       createdAt: now,
       updatedAt: now,
-      syncStatus: SyncStatus.synced,
+      syncStatus: SyncStatus.pending,
       userId: '',
     );
   }

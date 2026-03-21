@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../core/sync/sync_adapter.dart';
 import '../../../../core/sync/sync_pull_service.dart';
 import '../../../../core/sync/sync_push_service.dart';
 import '../../../../core/theme/app_colors.dart';

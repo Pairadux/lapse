@@ -21,7 +21,7 @@ class Deck extends Equatable {
     required this.updatedAt,
     this.isDeleted = false,
     this.userId = '',
-    this.syncStatus = SyncStatus.synced,
+    this.syncStatus = SyncStatus.pending,
   });
 
   /// Creates a new deck with auto-generated ID and timestamps.
