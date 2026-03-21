@@ -23,19 +23,28 @@ class SyncPullService {
   static const _pageSize = 1000;
 
   final DatabaseHelper _dbHelper;
+  final SupabaseClient? _clientOverride;
 
-  SyncPullService({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+  SyncPullService({DatabaseHelper? dbHelper, SupabaseClient? client})
+      : _dbHelper = dbHelper ?? DatabaseHelper.instance,
+        _clientOverride = client;
 
   /// Pulls all remote changes since the last successful pull.
   ///
   /// Returns `true` if all tables pulled successfully, `false` if any failed.
   /// The pull timestamp is only updated when all tables succeed.
   Future<bool> pull() async {
-    if (!SupabaseConfig.isConfigured) return false;
-    if (SupabaseConfig.client.auth.currentSession == null) return false;
+    final client = _clientOverride;
+    if (client == null) {
+      if (!SupabaseConfig.isConfigured) return false;
+      if (SupabaseConfig.client.auth.currentSession == null) return false;
+      return _pullAll(SupabaseConfig.client);
+    }
+    return _pullAll(client);
+  }
 
-    final client = SupabaseConfig.client;
+  /// Executes the sequential pull across all tables using [client].
+  Future<bool> _pullAll(SupabaseClient client) async {
     final prefs = await SharedPreferences.getInstance();
     final lastPull = prefs.getString(_lastPullKey);
 

@@ -7,6 +7,7 @@ import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/study/data/review_repository.dart';
 import 'package:lapse/features/study/data/review_session_summary_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Pushes locally-changed rows to Supabase.
 ///
@@ -24,16 +25,19 @@ class SyncPushService {
   final CardRepository _cardRepo;
   final ReviewRepository _reviewRepo;
   final ReviewSessionSummaryRepository _summaryRepo;
+  final SupabaseClient? _clientOverride;
 
   SyncPushService({
     DeckRepository? deckRepo,
     CardRepository? cardRepo,
     ReviewRepository? reviewRepo,
     ReviewSessionSummaryRepository? summaryRepo,
+    SupabaseClient? client,
   })  : _deckRepo = deckRepo ?? DeckRepository(),
         _cardRepo = cardRepo ?? CardRepository(),
         _reviewRepo = reviewRepo ?? ReviewRepository(),
-        _summaryRepo = summaryRepo ?? ReviewSessionSummaryRepository();
+        _summaryRepo = summaryRepo ?? ReviewSessionSummaryRepository(),
+        _clientOverride = client;
 
   /// Pushes all pending local changes to Supabase.
   ///
@@ -41,11 +45,17 @@ class SyncPushService {
   /// On partial failure, already-pushed tables are marked synced — only the
   /// failed table and subsequent tables retry next cycle.
   Future<bool> push() async {
-    if (!SupabaseConfig.isConfigured) return false;
-    if (SupabaseConfig.client.auth.currentSession == null) return false;
+    final client = _clientOverride;
+    if (client == null) {
+      if (!SupabaseConfig.isConfigured) return false;
+      if (SupabaseConfig.client.auth.currentSession == null) return false;
+      return _pushAll(SupabaseConfig.client);
+    }
+    return _pushAll(client);
+  }
 
-    final client = SupabaseConfig.client;
-
+  /// Executes the sequential push across all tables using [client].
+  Future<bool> _pushAll(SupabaseClient client) async {
     // Sequential push in FK-dependency order.
     // If a table fails (likely network), stop — subsequent tables would fail too.
 
