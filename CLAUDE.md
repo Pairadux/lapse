@@ -425,7 +425,7 @@ AND (sync_status = 'synced' OR user_id = '')
 
 ### Sync & Auth — Design Decisions
 
-**Status:** Schema phase in progress. Auth and sync engine are future phases.
+**Status:** Phases 1-5 complete. Phase 6 (sync engine) in progress.
 
 **Core principle: Offline-first.** The app must work fully without network. Sync is optional — creating an account is never required. No network calls happen until the user explicitly signs in.
 
@@ -437,11 +437,25 @@ AND (sync_status = 'synced' OR user_id = '')
 - **Google + Apple OAuth** alongside email auth. Apple Sign-In is required by App Store if offering any social login.
 - **Email confirmation: OTP code (not link-based).** After sign-up, user enters a 6-digit code from their email. No redirect URLs, no polling, no cross-device issues. Supabase supports this via `verifyOTP(type: OtpType.signup)`. Resend via `resend(type: OtpType.signup)`. This replaces the previous polling-based approach entirely.
 - **Platform-conditional auth flows:**
-  - Mobile (iOS/Android): deep links for OAuth callbacks
-  - Desktop (Linux/macOS/Windows): localhost callback for OAuth
-- **Supabase redirect URLs:** Password reset links redirect to the Site URL configured in Supabase dashboard. Currently set to localhost, which fails on mobile. Before production: set Site URL to a hosted page (e.g., "You're confirmed, return to the app"). Email confirmation no longer uses redirect URLs (OTP flow).
+  - Mobile (iOS/Android): deep links for OAuth callbacks and email confirmation
+  - Desktop (Linux/macOS/Windows): localhost callback for OAuth; polling for email confirmation (1s intervals for 60s, then 5s intervals for 30min, then "resend" prompt)
+- **Email confirmation polling** on all platforms — avoids deep link complexity on desktop.
+- **Supabase redirect URLs:** Email confirmation and password reset links both redirect to the Site URL configured in Supabase dashboard. Currently set to localhost, which fails on mobile and shows a broken page. Before production: set Site URL to a hosted page (e.g., project landing page or a simple "You're confirmed, return to the app" page). Alternatively, configure custom email templates in the Supabase dashboard to use deep links for mobile.
 - **Duplicate email sign-up:** Supabase intentionally returns a fake success (user object, no session, no email sent) when signing up with an already-registered email — this prevents email enumeration attacks. Our app currently shows "check your email" even though no email was sent. The correct fix is a generic message regardless of outcome: "If an account with this email doesn't exist, we'll send a confirmation link." Do NOT detect or reveal whether the email is already registered — that would subvert Supabase's anti-enumeration protection.
 - **2FA/MFA:** Not implemented. Supabase supports TOTP-based MFA. Should be added before production — consider making it optional in settings with QR code setup flow.
+
+##### Phase 5 implementation state (DONE)
+
+**Implemented files:**
+- `lib/features/auth/application/auth_service.dart` — Wraps Supabase auth. Key methods: `signUpWithEmail()` (migration only when `response.session != null`, not just user), `signInWithEmail()` (calls `signInWithPassword`, runs migration on success), `signOut()` (saves user_id to SharedPreferences BEFORE calling Supabase signOut), `resetPassword()`, `resendConfirmation()`, `getCurrentUserId()` (priority: active session → stored SharedPreferences → empty string). Has `_requireAvailable()` guard for when Supabase isn't configured.
+- `lib/features/auth/application/user_id_migration_service.dart` — One-time atomic SQLite transaction stamping `user_id = ''` rows with auth uid across all 4 tables. Reviews uses `WHERE user_id = '' OR user_id IS NULL` (nullable column from v3 migration). Returns early if authUserId is empty.
+- `lib/core/routing/auth_notifier.dart` — Bridges Supabase `onAuthStateChange` stream to GoRouter's `refreshListenable`. No forced redirects (offline-first).
+- `lib/features/settings/presentation/screens/settings_screen.dart` — Obsidian-inspired settings with 5 sections (Account, Sync, Study, Appearance, About). Desktop (≥720px): sidebar nav + scrollable content with `FocusTraversalGroup` isolation. Mobile: scrollable content + bottom nav. Account has 3 states via `_AuthDisplayState` enum: signInForm, confirmingEmail, accountInfo. Sign-up and forgot-password dialogs show errors inline (not snackbars — snackbars are behind the dialog modal). OAuth buttons show "not yet available" snackbar. Delete account button is subdued gray `OutlinedButton` that turns red on hover.
+
+**Needs refactoring (before or during Phase 6):**
+- Settings screen `_AuthDisplayState.confirmingEmail` and `_startConfirmationPolling()` need to be replaced with OTP code input field. Currently uses polling-based `signInWithPassword` approach. Replace with: show 6-digit code input → call `_client.auth.verifyOTP(type: OtpType.signup, token: code, email: email)` → on success, run migration and set accountInfo state. Keep "Resend code" button.
+- Password validation (`_validatePassword`) is implemented client-side (8+ chars, uppercase, lowercase, digit, special char). Supabase dashboard also configured with matching requirements.
+- Sign-up dialog pre-fills email and password from the sign-in form controllers.
 
 #### Sync engine (manual, not PowerSync)
 - Manual sync is correct for single-user data — no extra dependency or cost.
@@ -454,34 +468,47 @@ AND (sync_status = 'synced' OR user_id = '')
 
 ##### Phase 6 implementation plan
 
-**Architecture — four classes:**
+**Architecture — four classes (all in `lib/core/sync/`):**
 - `SyncService` — orchestrator, owns debounce timer, connectivity listener, pause/resume
 - `SyncPushService` — push logic for all tables
 - `SyncPullService` — pull logic for all tables
 - `SyncRealtimeService` — Supabase Realtime subscription management
+- `sync_adapter.dart` — `toSupabaseRow()` / `fromSupabaseRow()` utility functions
+
+**Supabase API patterns (PostgREST via Flutter SDK):**
+- Push (upsert): `SupabaseConfig.client.from('decks').upsert(rows, onConflict: 'deck_id')` — rows is a `List<Map<String, dynamic>>`, returns inserted/updated rows.
+- Pull (select): `SupabaseConfig.client.from('decks').select().gt('updated_at', lastPull)` — RLS automatically filters to current user's rows. Returns `List<Map<String, dynamic>>`.
+- Reviews pull uses `reviewed_at` not `updated_at` (reviews are immutable, no `updated_at` column).
+- All Supabase calls require an active session (`SupabaseConfig.client.auth.currentSession != null`). Guard all sync operations with this check.
 
 **Push flow (local → Supabase):**
-1. Query each table for `sync_status = 'pending'`
-2. Sequential order: decks → cards → reviews → session_summaries (FK dependency)
-3. One upsert request per table — no batching (row count limits keep payloads reasonable, max ~27 MB worst case)
-4. Supabase upserts atomically per table — all rows land or none do
-5. On success: `markSynced()` locally. On failure: log error, rows stay `pending`, retry next cycle.
-6. Soft-deleted rows push too (`is_deleted = true` propagates to server).
-7. If a table fails mid-sequence, already-synced tables keep their `synced` status. Next cycle resumes from the first table with pending rows.
+1. Guard: return early if no active session or Supabase not configured
+2. Query each table for `sync_status = 'pending'` via existing `getUnsynced()` repo methods
+3. Sequential order: decks → cards → reviews → session_summaries (FK dependency — decks must exist before their cards arrive on server)
+4. Convert each row: `model.toMap()` → `toSupabaseRow()` (removes `sync_status`, converts `is_deleted` 1/0 → true/false)
+5. One upsert request per table — no batching. Row count limits (100 decks, 10K cards) keep payloads reasonable (max ~27 MB worst case, ~7 MB realistic)
+6. Supabase upserts atomically per table — all rows land or none do
+7. On success: `markSynced()` locally via existing repo methods. On failure: log error, rows stay `pending`, retry next cycle.
+8. Soft-deleted rows push too (`is_deleted = true` propagates to server as tombstone).
+9. If a table fails mid-sequence (e.g., network drops after decks push), already-synced tables keep their `synced` status. Next cycle resumes from the first table with pending rows. Worst case: empty decks visible briefly on other devices until cards sync.
 
 **Pull flow (Supabase → local):**
-1. Store `last_pull_timestamp` in SharedPreferences
-2. Query each table: `WHERE user_id = auth.uid() AND updated_at > last_pull`
-3. Sequential order: decks → cards → reviews → session_summaries (FK dependency)
-4. Conflict resolution per row: remote `updated_at` > local → overwrite; otherwise skip
-5. No local row → insert
-6. Update `last_pull_timestamp` after all tables complete
-7. First sync (no timestamp): pull everything
+1. Guard: return early if no active session
+2. Read `last_pull_timestamp` from SharedPreferences (null on first sync)
+3. Query each table from Supabase: `select().gt('updated_at', lastPull)` (or `select()` for first sync — pull everything)
+4. Sequential order: decks → cards → reviews → session_summaries (FK dependency)
+5. Convert each remote row: `fromSupabaseRow()` (converts `is_deleted` true/false → 1/0, adds `sync_status = 'synced'`)
+6. For each remote row, look up local row by primary key:
+   - No local row → insert via `db.insert(table, row, conflictAlgorithm: ConflictAlgorithm.replace)`
+   - Local row exists with `sync_status = 'synced'` → overwrite (server is authoritative for already-synced data)
+   - Local row exists with `sync_status = 'pending'` → compare `updated_at`: remote newer → overwrite; local newer → skip (local change wins, will push on next cycle)
+7. Update `last_pull_timestamp` in SharedPreferences after ALL tables complete successfully
+8. Reviews: query by `reviewed_at` instead of `updated_at`. Insert only (reviews are immutable). Skip if `review_id` already exists locally.
 
 **Trigger points:**
-- Debounced push 2-5s after any local write (repositories notify SyncService)
+- Debounced push 2-5s after any local write (repositories notify SyncService via callback/stream)
 - Pull on app open/foreground + after each successful push
-- Manual sync button: push then pull
+- Manual sync button (already in settings UI): push then pull
 - Connectivity restore: flush pending pushes
 - Realtime: Postgres changes trigger targeted pull
 
@@ -489,19 +516,45 @@ AND (sync_status = 'synced' OR user_id = '')
 - `SyncService.pause()` / `resume()`
 - During study: pushes queued but not sent, Realtime events buffered in memory
 - On session end: flush queue, process buffered events
+- Study screens call `pause()` in initState, `resume()` in dispose
 
-**Serialization adapter (SQLite ↔ Supabase):**
+**Serialization adapter (`sync_adapter.dart`):**
 - `toMap()`/`fromMap()` on models are SQLite-specific (booleans as `1`/`0`, includes `sync_status`)
 - Supabase needs native booleans (`true`/`false`) and no `sync_status` column
-- A single `toSupabaseRow()` utility handles push: removes `sync_status`, converts `is_deleted` `1`/`0` → `true`/`false`
-- A single `fromSupabaseRow()` utility handles pull: converts `is_deleted` `true`/`false` → `1`/`0`, sets `sync_status = 'synced'`
+- `toSupabaseRow(Map<String, dynamic> localMap)`: shallow copy, removes `sync_status`, converts `is_deleted` `1`/`0` → `true`/`false`
+- `fromSupabaseRow(Map<String, dynamic> remoteMap)`: shallow copy, converts `is_deleted` `true`/`false` → `1`/`0`, adds `sync_status: 'synced'`
+- Only two fields differ between SQLite and Postgres. All timestamps, UUIDs, strings, integers are identical.
 - Adapter lives at the Supabase boundary (in sync services), not on the models — avoids touching every repository and test
 
+**Existing infrastructure (already implemented):**
+- All 4 repositories have `getUnsynced()` → returns rows where `sync_status != 'synced'`
+- All 4 repositories have `markSynced(List<String> ids)` → updates `sync_status` to `'synced'`
+- `SyncStatus` enum: `synced`, `pending`, `conflict`
+- Sync-status indexes on all tables (partial index on `sync_status != 'synced'`)
+- `SupabaseConfig.client` for API access, `SupabaseConfig.isConfigured` guard
+- `AuthService.getCurrentUserId()` for user context
+- `SharedPreferences` already a dependency (used for stored user_id)
+
 **Build order:**
-1. Core `SyncPushService` + `SyncPullService` (includes serialization adapter)
-2. `SyncService` orchestrator — debounced push, pull on open, manual sync wiring
-3. `SyncRealtimeService` + connectivity listener
-4. Study session isolation
+1. `sync_adapter.dart` — serialization utilities
+2. `SyncPushService` + `SyncPullService` — core push/pull logic
+3. `SyncService` orchestrator — debounced push, pull on open, manual sync wiring in settings
+4. `SyncRealtimeService` + connectivity listener
+5. Study session isolation (pause/resume)
+
+**Phase 7 (deferred — post-sync production hardening):**
+- Wire up OAuth (Google/Apple) — buttons exist as placeholders
+- Account deletion Edge Function
+- Client-side tombstone purge (7-day rule: `is_deleted = 1 AND updated_at < now - 7 days AND (sync_status = 'synced' OR user_id = '')`)
+- Review pruning to 10K cap (server-side scheduled job or on push)
+- CAPTCHA client widget (hCaptcha — dashboard already enabled)
+- `min_app_version` check before sync (table exists in `app_config`, needs client-side check)
+- CI secrets injection for release builds (`env.json` from GitHub secrets)
+- OTP code input replacing polling in settings screen `_AuthDisplayState.confirmingEmail`
+- Duplicate email sign-up generic messaging
+- 2FA/MFA (TOTP, optional in settings)
+- Redirect URL fix for password reset (set Site URL in Supabase dashboard)
+- Cold start frequency tracking / per-user egress monitoring
 
 #### Sign-out / session handling
 - On sign-out: store `user_id` in SharedPreferences. New data still stamped with that `user_id`. Show non-blocking banner: "You're signed out. Sign in to sync."
