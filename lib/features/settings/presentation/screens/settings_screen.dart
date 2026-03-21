@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/sync/sync_pull_service.dart';
+import '../../../../core/sync/sync_push_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../auth/application/auth_service.dart';
@@ -56,6 +58,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _pendingPassword;
   Timer? _confirmationTimer;
   int _confirmationElapsed = 0;
+
+  // Sync state
+  bool _isSyncing = false;
 
   // App info
   String _appVersion = '';
@@ -517,6 +522,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return 'Password must contain at least one special character.';
     }
     return null;
+  }
+
+  Future<void> _syncNow() async {
+    setState(() => _isSyncing = true);
+    try {
+      final pushOk = await SyncPushService().push();
+      final pullOk = await SyncPullService().pull();
+
+      if (!mounted) return;
+      if (pushOk && pullOk) {
+        _showSuccess('Sync complete.');
+      } else if (!pushOk && !pullOk) {
+        _showError('Push and pull both failed.');
+      } else if (!pushOk) {
+        _showError('Push failed, pull succeeded.');
+      } else {
+        _showError('Push succeeded, pull failed.');
+      }
+    } catch (e) {
+      if (mounted) _showError('Sync error: $e');
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
   }
 
   void _showError(String message) {
@@ -1012,10 +1040,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Sync now',
           subtitle: 'Manually push and pull changes',
           trailing: OutlinedButton(
-            onPressed: isSignedIn
-                ? () => _showError('Sync is not yet implemented.')
-                : null,
-            child: const Text('Sync'),
+            onPressed: isSignedIn && !_isSyncing ? _syncNow : null,
+            child: _isSyncing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Sync'),
           ),
         ),
         const SizedBox(height: Spacing.md),
