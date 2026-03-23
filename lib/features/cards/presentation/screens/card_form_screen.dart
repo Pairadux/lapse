@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
+import 'package:lapse/core/services/connectivity_service.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
@@ -73,18 +74,10 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Duplicate card'),
-        content: const Text(
-          'A card with this front already exists in this deck. Save anyway?',
-        ),
+        content: const Text('A card with this front already exists in this deck. Save anyway?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save anyway'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save anyway')),
         ],
       ),
     );
@@ -115,10 +108,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
 
     try {
       if (widget.isEditing) {
-        final updated = widget.card!.copyWith(
-          front: _frontController.text.trim(),
-          back: _backController.text.trim(),
-        );
+        final updated = widget.card!.copyWith(front: _frontController.text.trim(), back: _backController.text.trim());
         await _repo.update(updated);
       } else {
         final card = Flashcard.newCard(
@@ -132,14 +122,12 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         final label = widget.isEditing
             ? 'Card updated'
             : _createdCount > 0
-                ? '${_createdCount + 1} cards created'
-                : 'Card created';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(label),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+            ? '${_createdCount + 1} cards created'
+            : 'Card created';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(label), duration: const Duration(seconds: 2)));
+        ConnectivityService.showOfflineSnackBar();
         context.pop();
       }
     } finally {
@@ -194,9 +182,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     if (_createdCount > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '$_createdCount card${_createdCount == 1 ? '' : 's'} created',
-          ),
+          content: Text('$_createdCount card${_createdCount == 1 ? '' : 's'} created'),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -221,23 +207,15 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         onBack: _goBack,
         actions: [
           IconButton(
-            icon: Icon(
-              _showPreview ? Icons.edit_outlined : Icons.visibility_outlined,
-            ),
+            icon: Icon(_showPreview ? Icons.edit_outlined : Icons.visibility_outlined),
             onPressed: () => setState(() => _showPreview = !_showPreview),
           ),
-          if (widget.isEditing)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _delete,
-            ),
+          if (widget.isEditing) IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
         ],
         body: Shortcuts(
           shortcuts: const {
-            SingleActivator(LogicalKeyboardKey.enter, shift: true):
-                _SaveAndAddAnotherIntent(),
-            SingleActivator(LogicalKeyboardKey.enter, alt: true):
-                _SaveIntent(),
+            SingleActivator(LogicalKeyboardKey.enter, shift: true): _SaveAndAddAnotherIntent(),
+            SingleActivator(LogicalKeyboardKey.enter, alt: true): _SaveIntent(),
           },
           child: Actions(
             actions: {
@@ -247,8 +225,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
                   return null;
                 },
               ),
-              _SaveAndAddAnotherIntent:
-                  CallbackAction<_SaveAndAddAnotherIntent>(
+              _SaveAndAddAnotherIntent: CallbackAction<_SaveAndAddAnotherIntent>(
                 onInvoke: (intent) {
                   if (widget.isEditing) {
                     _save();
@@ -263,11 +240,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
               key: _formKey,
               child: Column(
                 children: [
-                  Expanded(
-                    child: _showPreview
-                        ? _buildPreviewContent()
-                        : _buildEditContent(),
-                  ),
+                  Expanded(child: _showPreview ? _buildPreviewContent() : _buildEditContent()),
                   _buildActionButtons(),
                 ],
               ),
@@ -294,10 +267,9 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             padding: const EdgeInsets.only(bottom: Spacing.lg),
             child: Text(
               '$_createdCount card${_createdCount == 1 ? '' : 's'} added',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w500),
             ),
           ),
         TextFormField(
@@ -313,9 +285,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             hintText: 'Question or prompt (Markdown supported)',
             alignLabelWithHint: true,
           ),
-          validator: (value) => (value == null || value.trim().isEmpty)
-              ? 'Front is required'
-              : null,
+          validator: (value) => (value == null || value.trim().isEmpty) ? 'Front is required' : null,
         ),
         const SizedBox(height: Spacing.lg),
         TextFormField(
@@ -329,9 +299,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             hintText: 'Answer (Markdown supported)',
             alignLabelWithHint: true,
           ),
-          validator: (value) => (value == null || value.trim().isEmpty)
-              ? 'Back is required'
-              : null,
+          validator: (value) => (value == null || value.trim().isEmpty) ? 'Back is required' : null,
         ),
         const SizedBox(height: Spacing.md),
         Row(
@@ -339,9 +307,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             Expanded(
               child: Text(
                 '**bold**  *italic*  `code`  # heading  - list  > quote',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textTertiary,
-                    ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
               ),
             ),
             const SizedBox(width: Spacing.sm),
@@ -350,19 +316,15 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.visibility_outlined,
-                    size: 14,
-                    color: AppColors.textTertiary,
-                  ),
+                  Icon(Icons.visibility_outlined, size: 14, color: AppColors.textTertiary),
                   const SizedBox(width: 4),
                   Text(
                     'Preview',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textTertiary,
-                          decoration: TextDecoration.underline,
-                          decorationColor: AppColors.textTertiary,
-                        ),
+                      color: AppColors.textTertiary,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.textTertiary,
+                    ),
                   ),
                 ],
               ),
@@ -384,49 +346,30 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     return ListView(
       padding: const EdgeInsets.all(Spacing.lg),
       children: [
-        _buildPreviewField(
-          label: 'Front',
-          text: _frontController.text,
-          placeholder: '_No front text_',
-        ),
+        _buildPreviewField(label: 'Front', text: _frontController.text, placeholder: '_No front text_'),
         const SizedBox(height: Spacing.lg),
         const Divider(),
         const SizedBox(height: Spacing.lg),
-        _buildPreviewField(
-          label: 'Back',
-          text: _backController.text,
-          placeholder: '_No back text_',
-        ),
+        _buildPreviewField(label: 'Back', text: _backController.text, placeholder: '_No back text_'),
       ],
     );
   }
 
-  Widget _buildPreviewField({
-    required String label,
-    required String text,
-    required String placeholder,
-  }) {
+  Widget _buildPreviewField({required String label, required String text, required String placeholder}) {
     final hasContent = text.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: Theme.of(context)
-              .textTheme
-              .labelMedium
-              ?.copyWith(color: AppColors.textSecondary),
-        ),
+        Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: Spacing.sm),
         MarkdownBody(
           data: hasContent ? text : placeholder,
           onTapLink: (text, href, title) {
             if (href != null) launchUrl(Uri.parse(href));
           },
-          styleSheet:
-              MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-            p: Theme.of(context).textTheme.bodyLarge,
-          ),
+          styleSheet: MarkdownStyleSheet.fromTheme(
+            Theme.of(context),
+          ).copyWith(p: Theme.of(context).textTheme.bodyLarge),
         ),
       ],
     );
@@ -438,20 +381,10 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
 
   Widget _buildActionButtons() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        Spacing.lg,
-        Spacing.md,
-        Spacing.lg,
-        Spacing.lg,
-      ),
+      padding: const EdgeInsets.fromLTRB(Spacing.lg, Spacing.md, Spacing.lg, Spacing.lg),
       decoration: BoxDecoration(
         color: AppColors.background,
-        border: Border(
-          top: BorderSide(
-            color: AppColors.outlineVariant,
-            width: 0.5,
-          ),
-        ),
+        border: Border(top: BorderSide(color: AppColors.outlineVariant, width: 0.5)),
       ),
       child: SafeArea(
         top: false,
