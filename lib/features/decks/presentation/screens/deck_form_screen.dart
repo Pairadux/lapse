@@ -8,6 +8,8 @@ import 'package:lapse/core/widgets/app_scaffold.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 
 class DeckFormScreen extends ConsumerStatefulWidget {
   final Deck? deck;
@@ -47,9 +49,7 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
 
     try {
       final name = _nameController.text.trim();
-      final parentId = widget.isEditing
-          ? widget.deck!.parentId
-          : widget.parentId;
+      final parentId = widget.isEditing ? widget.deck!.parentId : widget.parentId;
       final duplicate = await _repo.nameExistsAtLevel(
         name: name,
         parentId: parentId,
@@ -58,11 +58,9 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
       if (duplicate) {
         if (mounted) {
           setState(() => _saving = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('A deck with this name already exists here'),
-            ),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('A deck with this name already exists here')));
         }
         return;
       }
@@ -70,9 +68,12 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
       if (widget.isEditing) {
         final updated = widget.deck!.copyWith(deckName: name);
         await _repo.update(updated);
+        ref.invalidate(deckListProvider);
+        ref.invalidate(deckDetailProvider(widget.deck!.deckId));
       } else {
         final deck = Deck.create(deckName: name, parentId: widget.parentId);
         await _repo.create(deck);
+        ref.invalidate(deckListProvider);
       }
       if (mounted) context.pop();
     } finally {
@@ -84,8 +85,7 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
     final confirmed = await ConfirmDialog.show(
       context: context,
       title: 'Delete deck?',
-      message:
-          'This will permanently remove "${widget.deck!.deckName}" and all its cards.',
+      message: 'This will permanently remove "${widget.deck!.deckName}" and all its cards.',
       confirmLabel: 'Delete',
       isDestructive: true,
     );
@@ -100,13 +100,7 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
     return AppScaffold(
       title: widget.isEditing ? 'Edit Deck' : 'New Deck',
       showBackButton: true,
-      actions: [
-        if (widget.isEditing)
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: _delete,
-          ),
-      ],
+      actions: [if (widget.isEditing) IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete)],
       body: Padding(
         padding: const EdgeInsets.all(Spacing.lg),
         child: Form(
@@ -121,13 +115,8 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
                 onFieldSubmitted: (_) => _save(),
                 maxLength: maxDeckNameLength,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                decoration: const InputDecoration(
-                  labelText: 'Deck name',
-                  hintText: 'e.g. Spanish Vocabulary',
-                ),
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Name is required'
-                    : null,
+                decoration: const InputDecoration(labelText: 'Deck name', hintText: 'e.g. Spanish Vocabulary'),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Name is required' : null,
               ),
               const SizedBox(height: Spacing.xl),
               ElevatedButton(
