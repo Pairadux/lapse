@@ -320,15 +320,27 @@ void main() {
   });
 
   group('last_pull_timestamp', () {
-    test('saves pull timestamp on success', () async {
+    test('saves pull timestamp when rows are pulled', () async {
+      // Provide at least one remote row so the server timestamp is recorded.
+      tableBuilders[DatabaseConstants.tableDecks]!.setResult([
+        remoteDecRow(id: 'deck-ts'),
+      ]);
+
       final service = buildService();
       await service.pull();
 
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString('last_pull_timestamp');
       expect(saved, isNotNull);
-      // Should be a valid ISO 8601 timestamp
       expect(() => DateTime.parse(saved!), returnsNormally);
+    });
+
+    test('does not advance cursor when nothing is pulled', () async {
+      final service = buildService();
+      await service.pull();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('last_pull_timestamp'), isNull);
     });
 
     test('does not update timestamp on failure', () async {
