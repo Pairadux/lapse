@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
@@ -136,9 +137,8 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             : _createdCount > 0
             ? '${_createdCount + 1} cards created'
             : 'Card created';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(label), duration: const Duration(seconds: 2)),
-        );
+        AppSnackBar.show(context, label,
+            duration: const Duration(seconds: 2));
         context.pop();
       }
     } finally {
@@ -193,13 +193,10 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
 
   void _goBack() {
     if (_createdCount > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$_createdCount card${_createdCount == 1 ? '' : 's'} created',
-          ),
-          duration: const Duration(seconds: 2),
-        ),
+      AppSnackBar.show(
+        context,
+        '$_createdCount card${_createdCount == 1 ? '' : 's'} created',
+        duration: const Duration(seconds: 2),
       );
     }
     context.pop();

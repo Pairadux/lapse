@@ -4,6 +4,7 @@ import '../theme/spacing.dart';
 import 'app_scaffold.dart';
 import 'empty_state_widget.dart';
 import 'loading_indicator.dart';
+import 'app_snack_bar.dart';
 import 'confirm_dialog.dart';
 
 class DebugWidgetScreen extends StatelessWidget {
@@ -227,9 +228,7 @@ class DebugWidgetScreen extends StatelessWidget {
       isDestructive: destructive,
     );
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(confirmed ? 'Confirmed' : 'Cancelled')),
-      );
+      AppSnackBar.show(context, confirmed ? 'Confirmed' : 'Cancelled');
     }
   }
 }

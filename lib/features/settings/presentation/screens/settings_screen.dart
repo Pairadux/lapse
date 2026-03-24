@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/sync/sync_service.dart';
+import '../../../../core/widgets/app_snack_bar.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../auth/application/auth_service.dart';
@@ -548,15 +549,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   void _showError(String message) {
     debugPrint('[Settings] ERROR: $message');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.error),
-    );
+    AppSnackBar.show(context, message, backgroundColor: AppColors.error);
   }
 
   void _showSuccess(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    AppSnackBar.show(context, message);
   }
 
   String _formatTime(DateTime time) {

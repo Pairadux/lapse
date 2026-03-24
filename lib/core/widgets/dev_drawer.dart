@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/sync/sync_pull_service.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
@@ -31,9 +32,7 @@ class DevDrawer extends StatelessWidget {
     if (context.mounted) {
       Navigator.pop(context);
       onDataChanged?.call();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Database cleared')));
+      AppSnackBar.show(context, 'Database cleared', withFabMargin: true);
     }
   }
 
@@ -50,9 +49,7 @@ class DevDrawer extends StatelessWidget {
     if (context.mounted) {
       Navigator.pop(context);
       onDataChanged?.call();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Mock data loaded')));
+      AppSnackBar.show(context, 'Mock data loaded', withFabMargin: true);
     }
   }
 
@@ -242,6 +239,15 @@ class DevDrawer extends StatelessWidget {
             leading: const Icon(Icons.delete_forever),
             title: const Text('Clear Database'),
             onTap: () => _clearDatabase(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.notifications_outlined),
+            title: const Text('Trigger Snackbar'),
+            onTap: () {
+              Navigator.pop(context);
+              AppSnackBar.show(context, 'Test snackbar message',
+                  withFabMargin: true);
+            },
           ),
           const Divider(),
           const _AnimationSpeedSlider(),

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/page_transitions.dart' show isDesktop;
 import 'package:lapse/core/theme/app_colors.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
@@ -177,9 +178,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load cards: $e')));
+        AppSnackBar.show(context, 'Failed to load cards: $e');
       }
     }
   }
@@ -240,9 +239,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save review: $e')));
+        AppSnackBar.show(context, 'Failed to save review: $e');
       }
     } finally {
       _isProcessing = false;

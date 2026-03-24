@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
@@ -59,11 +60,8 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
       if (duplicate) {
         if (mounted) {
           setState(() => _saving = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('A deck with this name already exists here'),
-            ),
-          );
+          AppSnackBar.show(
+              context, 'A deck with this name already exists here');
         }
         return;
       }

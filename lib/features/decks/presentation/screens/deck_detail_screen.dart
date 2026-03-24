@@ -5,6 +5,7 @@ import 'package:lapse/core/routing/route_observer.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/widgets/context_menu_region.dart';
 import 'package:lapse/core/widgets/empty_state_widget.dart';
@@ -171,16 +172,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           break;
         case ContextMenuAction.move:
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Move action is coming soon')),
-          );
+          AppSnackBar.show(context, 'Move action is coming soon',
+              withFabMargin: true);
           break;
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
+        AppSnackBar.show(context, 'Action failed: $e',
+            withFabMargin: true);
       }
     }
   }
@@ -212,16 +211,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           break;
         case ContextMenuAction.move:
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Move action is coming soon')),
-          );
+          AppSnackBar.show(context, 'Move action is coming soon',
+              withFabMargin: true);
           break;
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
+        AppSnackBar.show(context, 'Action failed: $e',
+            withFabMargin: true);
       }
     }
   }
@@ -244,9 +241,8 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
         if (e is DeckNotFoundException) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Deck not found')));
+              AppSnackBar.show(context, 'Deck not found',
+                  withFabMargin: true);
               context.pop();
             }
           });
@@ -291,18 +287,26 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           ),
         ],
       ),
-      body: body,
-      floatingActionButton: SpeedDialFab(
-        actions: [
-          SpeedDialAction(
-            icon: Icons.style_outlined,
-            label: 'New Card',
-            onPressed: () => context.push(Routes.cardNewPath(widget.deckId)),
-          ),
-          SpeedDialAction(
-            icon: Icons.folder_outlined,
-            label: 'New Deck',
-            onPressed: () => context.push(Routes.deckNew, extra: widget.deckId),
+      body: Stack(
+        children: [
+          body,
+          Positioned(
+            right: Spacing.md,
+            bottom: Spacing.md,
+            child: SpeedDialFab(
+              actions: [
+                SpeedDialAction(
+                  icon: Icons.style_outlined,
+                  label: 'New Card',
+                  onPressed: () => context.push(Routes.cardNewPath(widget.deckId)),
+                ),
+                SpeedDialAction(
+                  icon: Icons.folder_outlined,
+                  label: 'New Deck',
+                  onPressed: () => context.push(Routes.deckNew, extra: widget.deckId),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -424,6 +428,8 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               ),
             ),
           ),
+        // Clear the FAB so the last item isn't obscured.
+        const SliverPadding(padding: EdgeInsets.only(bottom: 76)),
       ],
     );
   }
