@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../supabase/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,12 +21,16 @@ class SyncState {
   final bool isPaused;
   final bool isOnline;
 
+  /// True when the server requires a newer app version than is currently running.
+  final bool requiresUpdate;
+
   const SyncState({
     this.isSyncing = false,
     this.lastSyncTime,
     this.lastError,
     this.isPaused = false,
     this.isOnline = true,
+    this.requiresUpdate = false,
   });
 
   SyncState copyWith({
@@ -34,6 +39,7 @@ class SyncState {
     String? lastError,
     bool? isPaused,
     bool? isOnline,
+    bool? requiresUpdate,
     bool clearError = false,
   }) {
     return SyncState(
@@ -42,6 +48,7 @@ class SyncState {
       lastError: clearError ? null : (lastError ?? this.lastError),
       isPaused: isPaused ?? this.isPaused,
       isOnline: isOnline ?? this.isOnline,
+      requiresUpdate: requiresUpdate ?? this.requiresUpdate,
     );
   }
 }
@@ -193,6 +200,44 @@ class SyncServiceNotifier extends Notifier<SyncState> {
     _doSync();
   }
 
+  /// Compares semantic version strings (e.g. "0.3.0" < "0.4.0").
+  /// Returns true if [current] is below [minimum].
+  static bool _isVersionBelow(String current, String minimum) {
+    final cur = current.split('.').map(int.parse).toList();
+    final min = minimum.split('.').map(int.parse).toList();
+    for (var i = 0; i < 3; i++) {
+      final c = i < cur.length ? cur[i] : 0;
+      final m = i < min.length ? min[i] : 0;
+      if (c < m) return true;
+      if (c > m) return false;
+    }
+    return false;
+  }
+
+  /// Checks the server's min_app_version against the running app version.
+  /// Returns null if OK, or an error message if the app is outdated.
+  Future<String?> _checkMinVersion() async {
+    try {
+      final row = await SupabaseConfig.client
+          .from('app_config')
+          .select('value')
+          .eq('key', 'min_app_version')
+          .maybeSingle();
+      if (row == null) return null;
+
+      final minVersion = row['value'] as String;
+      final info = await PackageInfo.fromPlatform();
+      if (_isVersionBelow(info.version, minVersion)) {
+        return 'App version ${info.version} is below the required $minVersion. Please update.';
+      }
+      return null;
+    } catch (e) {
+      // Don't block sync if the check itself fails (e.g. network flake).
+      debugPrint('[SyncService] min_app_version check failed: $e');
+      return null;
+    }
+  }
+
   /// Core sync cycle: push then pull. Guards against concurrent runs.
   Future<SyncResult> _doSync() async {
     if (state.isSyncing) {
@@ -205,6 +250,16 @@ class SyncServiceNotifier extends Notifier<SyncState> {
     state = state.copyWith(isSyncing: true, clearError: true);
 
     try {
+      final versionError = await _checkMinVersion();
+      if (versionError != null) {
+        state = state.copyWith(
+          isSyncing: false,
+          lastError: versionError,
+          requiresUpdate: true,
+        );
+        return SyncResult.failure(versionError);
+      }
+
       final pushResult = await _pushService.pushWithDetail();
       final pullResult = await _pullService.pullWithDetail();
 
