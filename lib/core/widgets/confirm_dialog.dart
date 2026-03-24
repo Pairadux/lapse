@@ -42,10 +42,7 @@ class ConfirmDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(title),
-      content: Text(
-        message,
-        style: TextStyle(color: AppColors.textSecondary),
-      ),
+      content: Text(message, style: TextStyle(color: AppColors.textSecondary)),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),

@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/sync/sync_service.dart';
+import '../../../../core/widgets/app_snack_bar.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../auth/application/auth_service.dart';
@@ -12,11 +15,11 @@ import '../../../auth/application/auth_service.dart';
 ///
 /// Desktop: fixed left sidebar nav + scrollable right content.
 /// Mobile: scrollable content with bottom section nav.
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 // ─── Section definition ─────────────────────────────────────────────────────
@@ -35,7 +38,7 @@ enum _AuthDisplayState { signInForm, confirmingEmail, accountInfo }
 
 // ─── Main state ─────────────────────────────────────────────────────────────
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   static const _sidebarWidth = 220.0;
   static const _contentMaxWidth = 640.0;
   static const _wideBreakpoint = 720.0;
@@ -224,11 +227,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      icon: Icon(obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined),
+                      icon: Icon(
+                        obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
                       onPressed: () => setDialogState(
-                          () => obscurePassword = !obscurePassword),
+                        () => obscurePassword = !obscurePassword,
+                      ),
                     ),
                   ),
                 ),
@@ -241,11 +247,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     labelText: 'Confirm password',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      icon: Icon(obscureConfirm
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined),
+                      icon: Icon(
+                        obscureConfirm
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
                       onPressed: () => setDialogState(
-                          () => obscureConfirm = !obscureConfirm),
+                        () => obscureConfirm = !obscureConfirm,
+                      ),
                     ),
                   ),
                 ),
@@ -253,9 +262,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: Spacing.md),
                   Text(
                     errorText!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.error,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.error),
                   ),
                 ],
               ],
@@ -276,7 +285,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                       if (email.isEmpty || password.isEmpty) {
                         setDialogState(
-                            () => errorText = 'Please fill in all fields.');
+                          () => errorText = 'Please fill in all fields.',
+                        );
                         return;
                       }
                       final passwordErr = _validatePassword(password);
@@ -286,7 +296,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                       if (password != confirm) {
                         setDialogState(
-                            () => errorText = 'Passwords do not match.');
+                          () => errorText = 'Passwords do not match.',
+                        );
                         return;
                       }
 
@@ -296,7 +307,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       });
                       try {
                         final response = await _authService.signUpWithEmail(
-                            email, password);
+                          email,
+                          password,
+                        );
                         if (!context.mounted) return;
                         Navigator.pop(context);
 
@@ -376,9 +389,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: Spacing.md),
                     Text(
                       errorText!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.error,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.error),
                     ),
                   ],
                 ],
@@ -398,7 +411,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         final email = emailCtrl.text.trim();
                         if (email.isEmpty) {
                           setDialogState(
-                              () => errorText = 'Please enter your email.');
+                            () => errorText = 'Please enter your email.',
+                          );
                           return;
                         }
                         setDialogState(() {
@@ -450,8 +464,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (_confirmationElapsed > 60 && _confirmationElapsed % 5 != 0) return;
 
       try {
-        final response =
-            await _authService.signInWithEmail(email, _pendingPassword ?? '');
+        final response = await _authService.signInWithEmail(
+          email,
+          _pendingPassword ?? '',
+        );
         if (response.session != null && mounted) {
           _confirmationTimer?.cancel();
           _pendingPassword = null;
@@ -519,16 +535,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return null;
   }
 
+  Future<void> _syncNow() async {
+    final result = await ref.read(syncServiceProvider.notifier).syncNow();
+    if (!mounted) return;
+    if (result.ok) {
+      _showSuccess(
+        result.message.isNotEmpty ? result.message : 'Sync complete',
+      );
+    } else {
+      _showError(result.error ?? 'Sync failed');
+    }
+  }
+
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.error),
-    );
+    debugPrint('[Settings] ERROR: $message');
+    AppSnackBar.show(context, message, backgroundColor: AppColors.error);
   }
 
   void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    AppSnackBar.show(context, message);
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${time.month}/${time.day} ${time.hour}:${time.minute.toString().padLeft(2, '0')}';
   }
 
   // ─── Build ────────────────────────────────────────────────────────────
@@ -564,17 +598,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Row(
       children: [
         FocusTraversalGroup(
-          child: SizedBox(
-            width: _sidebarWidth,
-            child: _buildSidebar(),
-          ),
+          child: SizedBox(width: _sidebarWidth, child: _buildSidebar()),
         ),
         const VerticalDivider(width: 1),
-        FocusTraversalGroup(
-          child: Expanded(
-            child: _buildScrollableContent(),
-          ),
-        ),
+        FocusTraversalGroup(child: Expanded(child: _buildScrollableContent())),
       ],
     );
   }
@@ -627,8 +654,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: isActive
                               ? AppColors.primary
                               : AppColors.textSecondary,
-                          fontWeight:
-                              isActive ? FontWeight.w600 : FontWeight.normal,
+                          fontWeight: isActive
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -684,8 +712,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: isActive
                               ? AppColors.primary
                               : AppColors.textTertiary,
-                          fontWeight:
-                              isActive ? FontWeight.w600 : FontWeight.normal,
+                          fontWeight: isActive
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -768,9 +797,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         Text(
           'Sign in to sync your study data across devices.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: Spacing.xl),
         TextField(
@@ -792,9 +821,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             labelText: 'Password',
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
-              icon: Icon(_obscurePassword
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined),
+              icon: Icon(
+                _obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+              ),
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
             ),
@@ -844,9 +875,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
           child: Text(
             'or',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textTertiary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
           ),
         ),
         const Expanded(child: Divider()),
@@ -865,10 +896,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
             icon: const Text(
               'G',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             label: const Text('Continue with Google'),
           ),
@@ -892,20 +920,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.mark_email_unread_outlined,
-            size: 48, color: AppColors.primary),
-        const SizedBox(height: Spacing.lg),
-        Text(
-          'Check your email',
-          style: Theme.of(context).textTheme.titleLarge,
+        const Icon(
+          Icons.mark_email_unread_outlined,
+          size: 48,
+          color: AppColors.primary,
         ),
+        const SizedBox(height: Spacing.lg),
+        Text('Check your email', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: Spacing.sm),
         Text(
           'We sent a confirmation link to $_pendingEmail. '
           'Once you confirm, you\'ll be signed in automatically.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: Spacing.lg),
         if (_confirmationElapsed < 1860)
@@ -944,8 +972,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
-          leading: const Icon(Icons.check_circle_outline,
-              color: AppColors.success),
+          leading: const Icon(
+            Icons.check_circle_outline,
+            color: AppColors.success,
+          ),
           title: 'Status',
           subtitle: 'Signed in',
         ),
@@ -962,23 +992,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () {
                 _showError('Account deletion is not yet available.');
               },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textTertiary,
-                side: const BorderSide(color: AppColors.outline),
-              ).copyWith(
-                foregroundColor: WidgetStateProperty.resolveWith((states) {
-                  if (states.contains(WidgetState.hovered)) {
-                    return AppColors.error;
-                  }
-                  return AppColors.textTertiary;
-                }),
-                side: WidgetStateProperty.resolveWith((states) {
-                  if (states.contains(WidgetState.hovered)) {
-                    return const BorderSide(color: AppColors.error);
-                  }
-                  return const BorderSide(color: AppColors.outline);
-                }),
-              ),
+              style:
+                  OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textTertiary,
+                    side: const BorderSide(color: AppColors.outline),
+                  ).copyWith(
+                    foregroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.hovered)) {
+                        return AppColors.error;
+                      }
+                      return AppColors.textTertiary;
+                    }),
+                    side: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.hovered)) {
+                        return const BorderSide(color: AppColors.error);
+                      }
+                      return const BorderSide(color: AppColors.outline);
+                    }),
+                  ),
               icon: const Icon(Icons.delete_outline),
               label: const Text('Delete account'),
             ),
@@ -992,6 +1023,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildSyncSection() {
     final isSignedIn = _authService.currentSession != null;
+    final syncState = ref.watch(syncServiceProvider);
+    final isSyncing = syncState.isSyncing;
+
+    final statusSubtitle = !isSignedIn
+        ? 'Not signed in'
+        : syncState.lastError != null
+        ? 'Error: ${syncState.lastError}'
+        : syncState.lastSyncTime != null
+        ? 'Last synced: ${_formatTime(syncState.lastSyncTime!)}'
+        : 'Connected';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1003,29 +1044,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: isSignedIn ? AppColors.success : AppColors.textTertiary,
           ),
           title: 'Sync status',
-          subtitle: isSignedIn ? 'Connected' : 'Not signed in',
+          subtitle: statusSubtitle,
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
-          leading:
-              const Icon(Icons.sync_outlined, color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.sync_outlined,
+            color: AppColors.textSecondary,
+          ),
           title: 'Sync now',
           subtitle: 'Manually push and pull changes',
           trailing: OutlinedButton(
-            onPressed: isSignedIn
-                ? () => _showError('Sync is not yet implemented.')
-                : null,
-            child: const Text('Sync'),
+            onPressed: isSignedIn && !isSyncing ? _syncNow : null,
+            child: isSyncing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Sync'),
           ),
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
-          leading: const Icon(Icons.history_outlined,
-              color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.history_outlined,
+            color: AppColors.textSecondary,
+          ),
           title: 'Sync activity',
           subtitle: 'View sync history and resolve conflicts',
-          trailing: const Icon(Icons.chevron_right,
-              color: AppColors.textTertiary),
+          trailing: const Icon(
+            Icons.chevron_right,
+            color: AppColors.textTertiary,
+          ),
         ),
       ],
     );
@@ -1039,8 +1090,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         _buildSectionHeader('Study', _sections[2].key),
         _SettingsTile(
-          leading: const Icon(Icons.add_circle_outline,
-              color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.add_circle_outline,
+            color: AppColors.textSecondary,
+          ),
           title: 'New cards per day',
           subtitle: 'Maximum number of new cards introduced daily',
           trailing: Container(
@@ -1053,17 +1106,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
               borderRadius: BorderRadius.circular(Spacing.radiusSm),
               border: Border.all(color: AppColors.outline),
             ),
-            child: const Text('20', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text(
+              '20',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
-          leading: const Icon(Icons.tune_outlined,
-              color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.tune_outlined,
+            color: AppColors.textSecondary,
+          ),
           title: 'FSRS parameters',
           subtitle: 'Advanced scheduling algorithm settings',
-          trailing: const Icon(Icons.chevron_right,
-              color: AppColors.textTertiary),
+          trailing: const Icon(
+            Icons.chevron_right,
+            color: AppColors.textTertiary,
+          ),
         ),
       ],
     );
@@ -1077,8 +1137,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         _buildSectionHeader('Appearance', _sections[3].key),
         _SettingsTile(
-          leading: const Icon(Icons.dark_mode_outlined,
-              color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.dark_mode_outlined,
+            color: AppColors.textSecondary,
+          ),
           title: 'Theme',
           subtitle: 'Choose between dark and light mode',
           trailing: Container(
@@ -1091,13 +1153,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               borderRadius: BorderRadius.circular(Spacing.radiusSm),
               border: Border.all(color: AppColors.outline),
             ),
-            child: const Text('Dark', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text(
+              'Dark',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
-          leading: const Icon(Icons.touch_app_outlined,
-              color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.touch_app_outlined,
+            color: AppColors.textSecondary,
+          ),
           title: 'Tooltips',
           subtitle: 'Show helpful hints on hover',
           trailing: Switch(
@@ -1108,14 +1175,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
-          leading: const Icon(Icons.animation_outlined,
-              color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.animation_outlined,
+            color: AppColors.textSecondary,
+          ),
           title: 'Reduced motion',
           subtitle: 'Minimize animations throughout the app',
           trailing: Switch(
             value: false,
-            onChanged: (_) =>
-                _showError('Reduced motion not yet implemented.'),
+            onChanged: (_) => _showError('Reduced motion not yet implemented.'),
           ),
         ),
       ],
@@ -1130,28 +1198,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         _buildSectionHeader('About', _sections[4].key),
         _SettingsTile(
-          leading:
-              const Icon(Icons.info_outline, color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.info_outline,
+            color: AppColors.textSecondary,
+          ),
           title: 'Version',
           subtitle: _appVersion.isEmpty ? '…' : _appVersion,
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
-          leading: const Icon(Icons.bug_report_outlined,
-              color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.bug_report_outlined,
+            color: AppColors.textSecondary,
+          ),
           title: 'Report an issue',
           subtitle: 'Help us improve Lapse',
-          trailing:
-              const Icon(Icons.open_in_new, size: 18, color: AppColors.textTertiary),
+          trailing: const Icon(
+            Icons.open_in_new,
+            size: 18,
+            color: AppColors.textTertiary,
+          ),
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
-          leading: const Icon(Icons.description_outlined,
-              color: AppColors.textSecondary),
+          leading: const Icon(
+            Icons.description_outlined,
+            color: AppColors.textSecondary,
+          ),
           title: 'Open-source licenses',
           subtitle: 'Third-party software used in this app',
-          trailing: const Icon(Icons.chevron_right,
-              color: AppColors.textTertiary),
+          trailing: const Icon(
+            Icons.chevron_right,
+            color: AppColors.textTertiary,
+          ),
         ),
       ],
     );
@@ -1182,25 +1261,19 @@ class _SettingsTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (leading != null) ...[
-            leading!,
-            const SizedBox(width: Spacing.md),
-          ],
+          if (leading != null) ...[leading!, const SizedBox(width: Spacing.md)],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
+                Text(title, style: Theme.of(context).textTheme.bodyLarge),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ],
@@ -1215,4 +1288,3 @@ class _SettingsTile extends StatelessWidget {
     );
   }
 }
-

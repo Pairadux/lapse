@@ -71,16 +71,30 @@ class Review extends Equatable {
     return Review(
       reviewId: map[DatabaseConstants.colReviewId] as String,
       cardId: map[DatabaseConstants.colCardId] as String,
-      reviewedAt: DateTime.parse(map[DatabaseConstants.colReviewedAt] as String),
+      reviewedAt: DateTime.parse(
+        map[DatabaseConstants.colReviewedAt] as String,
+      ),
       rating: Rating.values[map[DatabaseConstants.colRating] as int],
       scheduledDays: map[DatabaseConstants.colScheduledDays] as int,
       elapsedDays: map[DatabaseConstants.colElapsedDays] as int,
       state: CardState.values[map[DatabaseConstants.colState] as int],
       userId: map[DatabaseConstants.colUserId] as String?,
-      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
+      syncStatus: SyncStatus.values.byName(
+        map[DatabaseConstants.colSyncStatus] as String,
+      ),
     );
   }
 
   @override
-  List<Object?> get props => [reviewId, cardId, reviewedAt, rating, scheduledDays, elapsedDays, state, userId, syncStatus];
+  List<Object?> get props => [
+    reviewId,
+    cardId,
+    reviewedAt,
+    rating,
+    scheduledDays,
+    elapsedDays,
+    state,
+    userId,
+    syncStatus,
+  ];
 }

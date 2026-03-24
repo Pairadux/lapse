@@ -1,18 +1,27 @@
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/domain/sync_status.dart';
+import 'package:lapse/features/auth/application/auth_service.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
 
 class DeckRepository {
   final DatabaseHelper _dbHelper;
+  final AuthService _authService;
 
-  DeckRepository({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+  DeckRepository({DatabaseHelper? dbHelper, AuthService? authService})
+    : _dbHelper = dbHelper ?? DatabaseHelper.instance,
+      _authService = authService ?? AuthService();
 
   Future<Deck> create(Deck deck) async {
     final db = await _dbHelper.database;
-    final syncReady = deck.copyWith(syncStatus: SyncStatus.pending);
+    final userId = deck.userId.isEmpty
+        ? await _authService.getCurrentUserId()
+        : deck.userId;
+    final syncReady = deck.copyWith(
+      syncStatus: SyncStatus.pending,
+      userId: userId,
+    );
     await db.insert(DatabaseConstants.tableDecks, syncReady.toMap());
     return syncReady;
   }
@@ -68,7 +77,8 @@ class DeckRepository {
   /// Returns [deckId] plus all descendant deck IDs via a single recursive CTE.
   Future<List<String>> getDescendantIds(String deckId) async {
     final db = await _dbHelper.database;
-    final rows = await db.rawQuery('''
+    final rows = await db.rawQuery(
+      '''
       WITH RECURSIVE descendants(${DatabaseConstants.colDeckId}) AS (
         SELECT ${DatabaseConstants.colDeckId}
           FROM ${DatabaseConstants.tableDecks}
@@ -82,10 +92,10 @@ class DeckRepository {
          WHERE d.${DatabaseConstants.colIsDeleted} = 0
       )
       SELECT ${DatabaseConstants.colDeckId} FROM descendants
-    ''', [deckId]);
-    return rows
-        .map((r) => r[DatabaseConstants.colDeckId] as String)
-        .toList();
+    ''',
+      [deckId],
+    );
+    return rows.map((r) => r[DatabaseConstants.colDeckId] as String).toList();
   }
 
   /// Returns only root-level (no parent) decks, ordered by creation date.
@@ -199,11 +209,13 @@ class DeckRepository {
     ''', args);
 
     return rows
-        .map((row) => DeckWithCounts(
-              deck: Deck.fromMap(row),
-              cardCount: row['card_count'] as int,
-              dueCount: row['due_count'] as int,
-            ))
+        .map(
+          (row) => DeckWithCounts(
+            deck: Deck.fromMap(row),
+            cardCount: row['card_count'] as int,
+            dueCount: row['due_count'] as int,
+          ),
+        )
         .toList();
   }
 
@@ -215,7 +227,8 @@ class DeckRepository {
     final db = await _dbHelper.database;
     final now = DateTime.now().toUtc().toIso8601String();
 
-    final rows = await db.rawQuery('''
+    final rows = await db.rawQuery(
+      '''
       WITH RECURSIVE descendants(${DatabaseConstants.colDeckId}) AS (
         SELECT ${DatabaseConstants.colDeckId}
         FROM ${DatabaseConstants.tableDecks}
@@ -234,7 +247,9 @@ class DeckRepository {
       LEFT JOIN ${DatabaseConstants.tableCards} c
         ON c.${DatabaseConstants.colDeckId} = dt.${DatabaseConstants.colDeckId}
         AND c.${DatabaseConstants.colIsDeleted} = 0
-    ''', [deckId, now]);
+    ''',
+      [deckId, now],
+    );
 
     final row = rows.first;
     return (
@@ -254,17 +269,23 @@ class DeckRepository {
     return rows.map(Deck.fromMap).toList();
   }
 
-  /// Marks the given deck IDs as synced.
-  Future<void> markSynced(List<String> deckIds) async {
-    if (deckIds.isEmpty) return;
+  /// Marks the given decks as synced, guarded by [updated_at] to prevent
+  /// a TOCTOU race: if a row was modified between push and markSynced,
+  /// the guard ensures it stays pending for the next sync cycle.
+  Future<void> markSynced(Map<String, String> idToUpdatedAt) async {
+    if (idToUpdatedAt.isEmpty) return;
     final db = await _dbHelper.database;
-    final placeholders = List.filled(deckIds.length, '?').join(', ');
-    await db.update(
-      DatabaseConstants.tableDecks,
-      {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
-      where: '${DatabaseConstants.colDeckId} IN ($placeholders)',
-      whereArgs: deckIds,
-    );
+    await db.transaction((txn) async {
+      for (final entry in idToUpdatedAt.entries) {
+        await txn.update(
+          DatabaseConstants.tableDecks,
+          {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
+          where:
+              '${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colUpdatedAt} = ?',
+          whereArgs: [entry.key, entry.value],
+        );
+      }
+    });
   }
 
   /// Soft-deletes [deckId], all descendant decks, and all their cards

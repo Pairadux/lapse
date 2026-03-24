@@ -21,7 +21,7 @@ class Deck extends Equatable {
     required this.updatedAt,
     this.isDeleted = false,
     this.userId = '',
-    this.syncStatus = SyncStatus.synced,
+    this.syncStatus = SyncStatus.pending,
   });
 
   /// Creates a new deck with auto-generated ID and timestamps.
@@ -43,6 +43,7 @@ class Deck extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
+    String? userId,
     SyncStatus? syncStatus,
   }) {
     return Deck(
@@ -52,9 +53,10 @@ class Deck extends Equatable {
           : this.parentId, // call using copyWith(parentId: Optional.value(null)) to set parentId to null
       deckName: deckName ?? this.deckName,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt, // Always update timestamp on change
+      updatedAt:
+          updatedAt ?? this.updatedAt, // Always update timestamp on change
       isDeleted: isDeleted ?? this.isDeleted,
-      userId: userId, // immutable — set at creation
+      userId: userId ?? this.userId,
       syncStatus: syncStatus ?? this.syncStatus,
     );
   }
@@ -83,13 +85,24 @@ class Deck extends Equatable {
       createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
       updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),
       isDeleted: map[DatabaseConstants.colIsDeleted] == 1,
-      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
+      syncStatus: SyncStatus.values.byName(
+        map[DatabaseConstants.colSyncStatus] as String,
+      ),
       userId: map[DatabaseConstants.colUserId] as String,
     );
   }
 
   @override
-  List<Object?> get props => [deckId, parentId, deckName, createdAt, updatedAt, isDeleted, userId, syncStatus];
+  List<Object?> get props => [
+    deckId,
+    parentId,
+    deckName,
+    createdAt,
+    updatedAt,
+    isDeleted,
+    userId,
+    syncStatus,
+  ];
 }
 
 class Optional<T> {

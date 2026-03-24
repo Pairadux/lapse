@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapse/core/theme/app_colors.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
@@ -55,9 +56,7 @@ class _ReviewStatsScreenState extends ConsumerState<ReviewStatsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load stats: $e')));
+        AppSnackBar.show(context, 'Failed to load stats: $e');
       }
     }
   }

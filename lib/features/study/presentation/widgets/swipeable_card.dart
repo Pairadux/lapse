@@ -92,20 +92,20 @@ class _SwipeableCardState extends State<SwipeableCard>
   }
 
   Color get _ratingColor => switch (_currentRating) {
-        Rating.again => AppColors.ratingAgain,
-        Rating.hard => AppColors.ratingHard,
-        Rating.good => AppColors.ratingGood,
-        Rating.easy => AppColors.ratingEasy,
-        null => Colors.transparent,
-      };
+    Rating.again => AppColors.ratingAgain,
+    Rating.hard => AppColors.ratingHard,
+    Rating.good => AppColors.ratingGood,
+    Rating.easy => AppColors.ratingEasy,
+    null => Colors.transparent,
+  };
 
   String get _ratingLabel => switch (_currentRating) {
-        Rating.again => 'Again',
-        Rating.hard => 'Hard',
-        Rating.good => 'Good',
-        Rating.easy => 'Easy',
-        null => '',
-      };
+    Rating.again => 'Again',
+    Rating.hard => 'Hard',
+    Rating.good => 'Good',
+    Rating.easy => 'Easy',
+    null => '',
+  };
 
   void _reportDismissProgress() {
     widget.onDismissProgress?.call(_commitProgress);
@@ -137,13 +137,10 @@ class _SwipeableCardState extends State<SwipeableCard>
 
   void _animateReturn() {
     _isAnimating = true;
-    _returnAnimation = Tween<Offset>(
-      begin: _dragOffset,
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _returnController,
-      curve: Curves.easeOut,
-    ));
+    _returnAnimation = Tween<Offset>(begin: _dragOffset, end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _returnController, curve: Curves.easeOut),
+        );
     _returnController
       ..reset()
       ..forward();
@@ -161,10 +158,7 @@ class _SwipeableCardState extends State<SwipeableCard>
     _returnAnimation = Tween<Offset>(
       begin: _dragOffset,
       end: target,
-    ).animate(CurvedAnimation(
-      parent: _returnController,
-      curve: Curves.easeIn,
-    ));
+    ).animate(CurvedAnimation(parent: _returnController, curve: Curves.easeIn));
 
     _returnController
       ..reset()
@@ -179,8 +173,9 @@ class _SwipeableCardState extends State<SwipeableCard>
   @override
   Widget build(BuildContext context) {
     // Subtle rotation proportional to horizontal offset.
-    final rotation = (_dragOffset.dx / MediaQuery.sizeOf(context).width)
-        .clamp(-1.0, 1.0) * _maxRotation;
+    final rotation =
+        (_dragOffset.dx / MediaQuery.sizeOf(context).width).clamp(-1.0, 1.0) *
+        _maxRotation;
 
     // Slight scale-up as you drag (card "coming forward" from the stack).
     final scale = 1.0 + (_commitProgress * 0.04);
@@ -215,8 +210,9 @@ class _SwipeableCardState extends State<SwipeableCard>
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(Spacing.radiusLg),
                           border: Border.all(
-                            color: _ratingColor
-                                .withValues(alpha: _commitProgress * 0.6),
+                            color: _ratingColor.withValues(
+                              alpha: _commitProgress * 0.6,
+                            ),
                             width: 3,
                           ),
                         ),
@@ -232,7 +228,9 @@ class _SwipeableCardState extends State<SwipeableCard>
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.surface.withValues(alpha: 0.85),
+                                color: AppColors.surface.withValues(
+                                  alpha: 0.85,
+                                ),
                                 border: Border.all(
                                   color: _ratingColor,
                                   width: 2,
@@ -263,16 +261,16 @@ class _SwipeableCardState extends State<SwipeableCard>
   }
 
   Alignment get _ratingAlignment => switch (_currentRating) {
-        Rating.good => Alignment.centerLeft,
-        Rating.hard => Alignment.centerRight,
-        Rating.easy => Alignment.bottomCenter,
-        Rating.again => Alignment.topCenter,
-        null => Alignment.center,
-      };
+    Rating.good => Alignment.centerLeft,
+    Rating.hard => Alignment.centerRight,
+    Rating.easy => Alignment.bottomCenter,
+    Rating.again => Alignment.topCenter,
+    null => Alignment.center,
+  };
 
   double get _labelRotation => switch (_currentRating) {
-        Rating.good => -0.2,
-        Rating.hard => 0.2,
-        _ => 0.0,
-      };
+    Rating.good => -0.2,
+    Rating.hard => 0.2,
+    _ => 0.0,
+  };
 }

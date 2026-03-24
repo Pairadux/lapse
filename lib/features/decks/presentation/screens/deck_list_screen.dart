@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/widgets/context_menu_region.dart';
 import 'package:lapse/core/widgets/dev_drawer.dart';
@@ -25,9 +26,7 @@ class DeckListScreen extends ConsumerWidget {
         leading: Builder(
           builder: (ctx) => IconButton(
             icon: const Icon(Icons.menu),
-            onPressed: kDebugMode
-                ? () => Scaffold.of(ctx).openDrawer()
-                : null,
+            onPressed: kDebugMode ? () => Scaffold.of(ctx).openDrawer() : null,
           ),
         ),
         title: const Text('Decks'),
@@ -39,9 +38,7 @@ class DeckListScreen extends ConsumerWidget {
         ],
       ),
       drawer: kDebugMode
-          ? DevDrawer(
-              onDataChanged: () => ref.invalidate(deckListProvider),
-            )
+          ? DevDrawer(onDataChanged: () => ref.invalidate(deckListProvider))
           : null,
       body: asyncDecks.when(
         loading: () => const SizedBox.shrink(),
@@ -77,7 +74,10 @@ class _DeckList extends ConsumerWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+      padding: const EdgeInsets.only(
+        top: Spacing.sm,
+        bottom: Spacing.sm + 80,
+      ),
       itemCount: decks.length,
       itemBuilder: (context, index) {
         final item = decks[index];
@@ -117,8 +117,7 @@ class _DeckList extends ConsumerWidget {
           final confirmed = await ConfirmDialog.show(
             context: context,
             title: 'Delete deck?',
-            message:
-                'This will delete "${deck.deckName}" and all its cards.',
+            message: 'This will delete "${deck.deckName}" and all its cards.',
             confirmLabel: 'Delete',
             isDestructive: true,
           );
@@ -127,16 +126,14 @@ class _DeckList extends ConsumerWidget {
           break;
         case ContextMenuAction.move:
           if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Move action is coming soon')),
-          );
+          AppSnackBar.show(context, 'Move action is coming soon',
+              withFabMargin: true);
           break;
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        AppSnackBar.show(context, 'Action failed: $e',
+            withFabMargin: true);
       }
     }
   }

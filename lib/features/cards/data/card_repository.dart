@@ -1,17 +1,26 @@
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/domain/sync_status.dart';
+import 'package:lapse/features/auth/application/auth_service.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
 class CardRepository {
   final DatabaseHelper _dbHelper;
+  final AuthService _authService;
 
-  CardRepository({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+  CardRepository({DatabaseHelper? dbHelper, AuthService? authService})
+    : _dbHelper = dbHelper ?? DatabaseHelper.instance,
+      _authService = authService ?? AuthService();
 
   Future<Flashcard> create(Flashcard card) async {
     final db = await _dbHelper.database;
-    final syncReady = card.copyWith(syncStatus: SyncStatus.pending);
+    final userId = card.userId.isEmpty
+        ? await _authService.getCurrentUserId()
+        : card.userId;
+    final syncReady = card.copyWith(
+      syncStatus: SyncStatus.pending,
+      userId: userId,
+    );
     await db.insert(DatabaseConstants.tableCards, syncReady.toMap());
     return syncReady;
   }
@@ -164,16 +173,22 @@ class CardRepository {
     return rows.map(Flashcard.fromMap).toList();
   }
 
-  /// Marks the given card IDs as synced.
-  Future<void> markSynced(List<String> cardIds) async {
-    if (cardIds.isEmpty) return;
+  /// Marks the given cards as synced, guarded by [updated_at] to prevent
+  /// a TOCTOU race: if a row was modified between push and markSynced,
+  /// the guard ensures it stays pending for the next sync cycle.
+  Future<void> markSynced(Map<String, String> idToUpdatedAt) async {
+    if (idToUpdatedAt.isEmpty) return;
     final db = await _dbHelper.database;
-    final placeholders = List.filled(cardIds.length, '?').join(', ');
-    await db.update(
-      DatabaseConstants.tableCards,
-      {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
-      where: '${DatabaseConstants.colCardId} IN ($placeholders)',
-      whereArgs: cardIds,
-    );
+    await db.transaction((txn) async {
+      for (final entry in idToUpdatedAt.entries) {
+        await txn.update(
+          DatabaseConstants.tableCards,
+          {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
+          where:
+              '${DatabaseConstants.colCardId} = ? AND ${DatabaseConstants.colUpdatedAt} = ?',
+          whereArgs: [entry.key, entry.value],
+        );
+      }
+    });
   }
 }

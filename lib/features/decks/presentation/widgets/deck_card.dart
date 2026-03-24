@@ -44,10 +44,7 @@ class DeckCard extends StatelessWidget {
               Expanded(child: _buildContent(context)),
               if (_dueCount > 0) _buildDueBadge(context),
               const SizedBox(width: Spacing.sm),
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.textTertiary,
-              ),
+              const Icon(Icons.chevron_right, color: AppColors.textTertiary),
             ],
           ),
         ),
@@ -84,10 +81,7 @@ class DeckCard extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: Spacing.xs),
-        Text(
-          '$_cardCount cards',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Text('$_cardCount cards', style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
@@ -105,9 +99,9 @@ class DeckCard extends StatelessWidget {
       child: Text(
         '$_dueCount due',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
-            ),
+          color: AppColors.primary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

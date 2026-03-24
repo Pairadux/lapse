@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/domain/sync_status.dart';
@@ -15,6 +16,7 @@ void main() {
   late String dbName;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     dbName = 'test_deck_repo_${DateTime.now().microsecondsSinceEpoch}.db';
     helper = DatabaseHelper.forTesting(dbName: dbName);
     repo = DeckRepository(dbHelper: helper);
@@ -35,7 +37,13 @@ void main() {
   }) {
     final now = DateTime.now();
     final created = createdAt ?? now;
-    return Deck(deckId: id, parentId: parentId, deckName: name, createdAt: created, updatedAt: updatedAt ?? created);
+    return Deck(
+      deckId: id,
+      parentId: parentId,
+      deckName: name,
+      createdAt: created,
+      updatedAt: updatedAt ?? created,
+    );
   }
 
   test('create + getById round-trip', () async {
@@ -122,8 +130,11 @@ void main() {
 
       // Query raw to see deleted row
       final db = await helper.database;
-      final rows = await db.query('decks',
-          where: 'deck_id = ?', whereArgs: ['deck-1']);
+      final rows = await db.query(
+        'decks',
+        where: 'deck_id = ?',
+        whereArgs: ['deck-1'],
+      );
       expect(rows.first['sync_status'], 'pending');
     });
 
@@ -132,7 +143,8 @@ void main() {
       await repo.create(makeDeck(id: 'b'));
 
       // Mark 'a' as synced
-      await repo.markSynced(['a']);
+      final a = await repo.getById('a');
+      await repo.markSynced({'a': a!.updatedAt.toUtc().toIso8601String()});
 
       final unsynced = await repo.getUnsynced();
       expect(unsynced, hasLength(1));
@@ -143,18 +155,63 @@ void main() {
       await repo.create(makeDeck(id: 'a'));
       await repo.create(makeDeck(id: 'b'));
 
-      await repo.markSynced(['a', 'b']);
+      final a = await repo.getById('a');
+      final b = await repo.getById('b');
+      await repo.markSynced({
+        'a': a!.updatedAt.toUtc().toIso8601String(),
+        'b': b!.updatedAt.toUtc().toIso8601String(),
+      });
 
       final unsynced = await repo.getUnsynced();
       expect(unsynced, isEmpty);
 
-      final a = await repo.getById('a');
-      expect(a!.syncStatus, SyncStatus.synced);
+      final aAfter = await repo.getById('a');
+      expect(aAfter!.syncStatus, SyncStatus.synced);
     });
 
-    test('markSynced with empty list is a no-op', () async {
-      await repo.markSynced([]);
+    test('markSynced with empty map is a no-op', () async {
+      await repo.markSynced({});
       // Should not throw
+    });
+
+    test('markSynced skips rows modified after push (TOCTOU guard)', () async {
+      await repo.create(makeDeck(id: 'a'));
+      final original = await repo.getById('a');
+      final pushedTimestamp = original!.updatedAt.toUtc().toIso8601String();
+
+      // Simulate user editing the deck after push read it but before markSynced
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await repo.update(original.copyWith(deckName: 'Edited'));
+
+      // markSynced with the OLD timestamp should not mark as synced
+      await repo.markSynced({'a': pushedTimestamp});
+
+      final deck = await repo.getById('a');
+      expect(deck!.syncStatus, SyncStatus.pending);
+      expect(deck.deckName, 'Edited');
+    });
+
+    test('markSynced applies only to matching timestamps', () async {
+      await repo.create(makeDeck(id: 'a'));
+      await repo.create(makeDeck(id: 'b'));
+
+      final a = await repo.getById('a');
+      final b = await repo.getById('b');
+      final aTimestamp = a!.updatedAt.toUtc().toIso8601String();
+
+      // Edit 'b' so its timestamp no longer matches
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await repo.update(b!.copyWith(deckName: 'Edited B'));
+
+      await repo.markSynced({
+        'a': aTimestamp,
+        'b': b.updatedAt.toUtc().toIso8601String(), // stale
+      });
+
+      final aAfter = await repo.getById('a');
+      final bAfter = await repo.getById('b');
+      expect(aAfter!.syncStatus, SyncStatus.synced); // matched
+      expect(bAfter!.syncStatus, SyncStatus.pending); // stale, skipped
     });
 
     test('getUnsynced includes deleted items', () async {
@@ -205,7 +262,12 @@ void main() {
 
       final descendants = await repo.getDescendantIds('parent');
       expect(descendants.length, 4); // parent + 2 children + 1 grandchild
-      expect(descendants.toSet(), {'parent', 'child-1', 'child-2', 'grandchild'});
+      expect(descendants.toSet(), {
+        'parent',
+        'child-1',
+        'child-2',
+        'grandchild',
+      });
     });
 
     test('returns only the deck itself if it has no children', () async {

@@ -108,7 +108,10 @@ void main() {
       // 3. Fetches the reviews and checks the order
       final history = await repository.getReviewsForCard('test_card_2');
       expect(history.length, 2);
-      expect(history.first.rating, Rating.good); // Checks that the first item in the list is the most recent one
+      expect(
+        history.first.rating,
+        Rating.good,
+      ); // Checks that the first item in the list is the most recent one
     });
   });
 
@@ -137,23 +140,26 @@ void main() {
       expect(() => repository.addReview(review), throwsA(isA<ArgumentError>()));
     });
 
-    test('addReview accepts large scheduledDays and verifies retrieval', () async {
-      final largeValue = 100000;
-      final review = Review(
-        cardId: 'test_large',
-        reviewedAt: DateTime.now(),
-        rating: Rating.good,
-        scheduledDays: largeValue,
-        elapsedDays: 0,
-        state: CardState.review,
-      );
-      await repository.addReview(review);
+    test(
+      'addReview accepts large scheduledDays and verifies retrieval',
+      () async {
+        final largeValue = 100000;
+        final review = Review(
+          cardId: 'test_large',
+          reviewedAt: DateTime.now(),
+          rating: Rating.good,
+          scheduledDays: largeValue,
+          elapsedDays: 0,
+          state: CardState.review,
+        );
+        await repository.addReview(review);
 
-      // Optionally fetch and assert
-      final history = await repository.getReviewsForCard('test_large');
-      expect(history.length, 1);
-      expect(history.first.scheduledDays, largeValue);
-    });
+        // Optionally fetch and assert
+        final history = await repository.getReviewsForCard('test_large');
+        expect(history.length, 1);
+        expect(history.first.scheduledDays, largeValue);
+      },
+    );
 
     test('scheduledDays throws on negative value', () async {
       final review = Review(
@@ -167,23 +173,28 @@ void main() {
       expect(() => repository.addReview(review), throwsA(isA<ArgumentError>()));
     });
 
-    test('addReview accepts large elapsedDays and verifies retrieval', () async {
-      final largeValue = 100000;
-      final review = Review(
-        cardId: 'test_large_elapsed',
-        reviewedAt: DateTime.now(),
-        rating: Rating.good,
-        scheduledDays: 1,
-        elapsedDays: largeValue,
-        state: CardState.review,
-      );
-      await repository.addReview(review);
+    test(
+      'addReview accepts large elapsedDays and verifies retrieval',
+      () async {
+        final largeValue = 100000;
+        final review = Review(
+          cardId: 'test_large_elapsed',
+          reviewedAt: DateTime.now(),
+          rating: Rating.good,
+          scheduledDays: 1,
+          elapsedDays: largeValue,
+          state: CardState.review,
+        );
+        await repository.addReview(review);
 
-      // Optionally fetch and assert
-      final history = await repository.getReviewsForCard('test_large_elapsed');
-      expect(history.length, 1);
-      expect(history.first.elapsedDays, largeValue);
-    });
+        // Optionally fetch and assert
+        final history = await repository.getReviewsForCard(
+          'test_large_elapsed',
+        );
+        expect(history.length, 1);
+        expect(history.first.elapsedDays, largeValue);
+      },
+    );
 
     test('elapsedDays throws on negative value', () async {
       final review = Review(
@@ -211,9 +222,11 @@ void main() {
       await repository.addReview(review);
 
       final db = await dbHelper.database;
-      final rows = await db.query(DatabaseConstants.tableReviews,
-          where: '${DatabaseConstants.colCardId} = ?',
-          whereArgs: ['sync_test']);
+      final rows = await db.query(
+        DatabaseConstants.tableReviews,
+        where: '${DatabaseConstants.colCardId} = ?',
+        whereArgs: ['sync_test'],
+      );
       expect(rows.first[DatabaseConstants.colSyncStatus], 'pending');
     });
 

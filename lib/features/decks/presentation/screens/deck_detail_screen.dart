@@ -5,6 +5,7 @@ import 'package:lapse/core/routing/route_observer.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/widgets/context_menu_region.dart';
 import 'package:lapse/core/widgets/empty_state_widget.dart';
@@ -114,8 +115,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
       return;
     }
 
-    final allIds =
-        await ref.read(deckRepositoryProvider).getDescendantIds(widget.deckId);
+    final allIds = await ref
+        .read(deckRepositoryProvider)
+        .getDescendantIds(widget.deckId);
     if (mounted) {
       context.push(
         Routes.studyPath(widget.deckId),
@@ -159,8 +161,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           final confirmed = await ConfirmDialog.show(
             context: context,
             title: 'Delete deck?',
-            message:
-                'This will delete "${deck.deckName}" and all its cards.',
+            message: 'This will delete "${deck.deckName}" and all its cards.',
             confirmLabel: 'Delete',
             isDestructive: true,
           );
@@ -171,16 +172,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           break;
         case ContextMenuAction.move:
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Move action is coming soon')),
-          );
+          AppSnackBar.show(context, 'Move action is coming soon',
+              withFabMargin: true);
           break;
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        AppSnackBar.show(context, 'Action failed: $e',
+            withFabMargin: true);
       }
     }
   }
@@ -212,16 +211,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           break;
         case ContextMenuAction.move:
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Move action is coming soon')),
-          );
+          AppSnackBar.show(context, 'Move action is coming soon',
+              withFabMargin: true);
           break;
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        AppSnackBar.show(context, 'Action failed: $e',
+            withFabMargin: true);
       }
     }
   }
@@ -244,9 +241,8 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
         if (e is DeckNotFoundException) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Deck not found')),
-              );
+              AppSnackBar.show(context, 'Deck not found',
+                  withFabMargin: true);
               context.pop();
             }
           });
@@ -281,9 +277,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
             onPressed: deck == null
                 ? null
                 : () => context.push(
-                      Routes.deckEditPath(widget.deckId),
-                      extra: deck,
-                    ),
+                    Routes.deckEditPath(widget.deckId),
+                    extra: deck,
+                  ),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -297,14 +293,12 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           SpeedDialAction(
             icon: Icons.style_outlined,
             label: 'New Card',
-            onPressed: () =>
-                context.push(Routes.cardNewPath(widget.deckId)),
+            onPressed: () => context.push(Routes.cardNewPath(widget.deckId)),
           ),
           SpeedDialAction(
             icon: Icons.folder_outlined,
             label: 'New Deck',
-            onPressed: () =>
-                context.push(Routes.deckNew, extra: widget.deckId),
+            onPressed: () => context.push(Routes.deckNew, extra: widget.deckId),
           ),
         ],
       ),
@@ -426,6 +420,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               ),
             ),
           ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
       ],
     );
   }
@@ -519,10 +514,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
             child: Text(
               '·',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textTertiary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary),
             ),
           ),
           Text(
@@ -568,17 +562,15 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
                       ),
                       TextSpan(
                         text: '  →  ',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: AppColors.textTertiary),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textTertiary,
+                        ),
                       ),
                       TextSpan(
                         text: card.back,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: AppColors.textSecondary),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -605,11 +597,7 @@ class _BreadcrumbItem extends StatelessWidget {
   final bool isLast;
   final VoidCallback? onTap;
 
-  const _BreadcrumbItem({
-    required this.label,
-    this.isLast = false,
-    this.onTap,
-  });
+  const _BreadcrumbItem({required this.label, this.isLast = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {

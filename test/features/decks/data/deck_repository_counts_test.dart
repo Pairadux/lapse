@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
@@ -16,6 +17,7 @@ void main() {
   late CardRepository cardRepo;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     helper = DatabaseHelper.forTesting(dbName: 'test_deck_counts.db');
     deckRepo = DeckRepository(dbHelper: helper);
     cardRepo = CardRepository(dbHelper: helper);
@@ -27,11 +29,7 @@ void main() {
     await deleteDatabase(join(dbPath, 'test_deck_counts.db'));
   });
 
-  Deck makeDeck({
-    required String id,
-    String? parentId,
-    String name = 'Deck',
-  }) {
+  Deck makeDeck({required String id, String? parentId, String name = 'Deck'}) {
     final now = DateTime.now();
     return Deck(
       deckId: id,
@@ -122,9 +120,15 @@ void main() {
       final pastDue = now.subtract(const Duration(hours: 1));
       final futureDue = now.add(const Duration(days: 30));
 
-      await cardRepo.create(makeCard(id: 'due-1', deckId: 'root', dueDate: pastDue));
-      await cardRepo.create(makeCard(id: 'due-2', deckId: 'root', dueDate: pastDue));
-      await cardRepo.create(makeCard(id: 'not-due', deckId: 'root', dueDate: futureDue));
+      await cardRepo.create(
+        makeCard(id: 'due-1', deckId: 'root', dueDate: pastDue),
+      );
+      await cardRepo.create(
+        makeCard(id: 'due-2', deckId: 'root', dueDate: pastDue),
+      );
+      await cardRepo.create(
+        makeCard(id: 'not-due', deckId: 'root', dueDate: futureDue),
+      );
 
       final results = await deckRepo.getDecksWithCounts();
       expect(results.first.cardCount, 3);
@@ -253,16 +257,20 @@ void main() {
       await deckRepo.create(makeDeck(id: 'root'));
 
       final now = DateTime.now();
-      await cardRepo.create(makeCard(
-        id: 'due',
-        deckId: 'root',
-        dueDate: now.subtract(const Duration(hours: 1)),
-      ));
-      await cardRepo.create(makeCard(
-        id: 'not-due',
-        deckId: 'root',
-        dueDate: now.add(const Duration(days: 30)),
-      ));
+      await cardRepo.create(
+        makeCard(
+          id: 'due',
+          deckId: 'root',
+          dueDate: now.subtract(const Duration(hours: 1)),
+        ),
+      );
+      await cardRepo.create(
+        makeCard(
+          id: 'not-due',
+          deckId: 'root',
+          dueDate: now.add(const Duration(days: 30)),
+        ),
+      );
 
       final counts = await deckRepo.getAggregatedCounts('root');
       expect(counts.cardCount, 2);

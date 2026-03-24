@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/page_transitions.dart' show isDesktop;
 import 'package:lapse/core/theme/app_colors.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
@@ -14,6 +15,7 @@ import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/data/review_repository_provider.dart';
 import 'package:lapse/features/study/application/study_session_service.dart';
+import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
 import 'package:lapse/features/study/presentation/widgets/card_stack.dart';
 import 'package:lapse/features/study/presentation/widgets/flip_card.dart';
@@ -80,6 +82,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   ReviewRepository get _reviewRepo => ref.read(reviewRepositoryProvider);
   final _studySessionService = StudySessionService();
   late StudySession _session;
+  late final SyncServiceNotifier _syncNotifier;
 
   // Fix: FocusNode leak, stores it as a state variable
   late final FocusNode _focusNode;
@@ -121,21 +124,29 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   @override
   void initState() {
     super.initState();
+    _syncNotifier = ref.read(syncServiceProvider.notifier);
     _focusNode = FocusNode();
-    _dismissController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    )..addListener(() {
-        final value = _dismissController.value;
-        if (value != _dismissOffset) {
-          setState(() => _dismissOffset = value);
-        }
-      });
+    _dismissController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 200),
+        )..addListener(() {
+          final value = _dismissController.value;
+          if (value != _dismissOffset) {
+            setState(() => _dismissOffset = value);
+          }
+        });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncNotifier.pause();
+    });
     _loadCards();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncNotifier.resume();
+    });
     _focusNode.dispose();
     _dismissController.dispose();
     super.dispose();
@@ -167,9 +178,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load cards: $e')));
+        AppSnackBar.show(context, 'Failed to load cards: $e');
       }
     }
   }
@@ -204,6 +213,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       );
       await _cardRepo.update(result.updatedCard);
       await _reviewRepo.addReview(result.review);
+      ref.read(syncServiceProvider.notifier).schedulePush();
       final after = _CardSnapshot.fromCard(result.updatedCard);
       setState(() {
         // Reset dismiss offset atomically with card change so the old
@@ -229,9 +239,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save review: $e')));
+        AppSnackBar.show(context, 'Failed to save review: $e');
       }
     } finally {
       _isProcessing = false;
@@ -593,30 +601,21 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
                     onTapLink: (text, href, title) {
                       if (href != null) launchUrl(Uri.parse(href));
                     },
-                    styleSheet: MarkdownStyleSheet.fromTheme(
-                      Theme.of(context),
-                    ).copyWith(
-                      p: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.normal),
-                      strong: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                      textAlign: WrapAlignment.center,
-                      listBullet: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.normal),
-                      blockquote: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(
-                            fontWeight: FontWeight.normal,
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                        .copyWith(
+                          p: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.normal),
+                          strong: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                          textAlign: WrapAlignment.center,
+                          listBullet: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.normal),
+                          blockquote: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.normal,
+                                color: AppColors.textSecondary,
+                              ),
+                        ),
                   ),
                 ),
               ),
@@ -649,10 +648,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
             child: Text(
               'Tap to reveal',
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.textTertiary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
             ),
           ),
         ],
@@ -689,7 +687,8 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
               dismissProgress: isDesktop ? _dismissOffset : _swipeProgress,
               topCard: LayoutBuilder(
                 builder: (context, constraints) {
-                  final dx = -constraints.maxWidth *
+                  final dx =
+                      -constraints.maxWidth *
                       Curves.easeIn.transform(_dismissOffset);
                   return Transform.translate(
                     offset: Offset(dx, 0),

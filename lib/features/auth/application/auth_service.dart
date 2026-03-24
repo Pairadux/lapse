@@ -14,7 +14,7 @@ class AuthService {
   final UserIdMigrationService _migration;
 
   AuthService({UserIdMigrationService? migration})
-      : _migration = migration ?? UserIdMigrationService();
+    : _migration = migration ?? UserIdMigrationService();
 
   /// Whether Supabase auth is available (credentials were provided at build time).
   bool get isAvailable => SupabaseConfig.isConfigured;
@@ -23,7 +23,8 @@ class AuthService {
 
   User? get currentUser => isAvailable ? _client.auth.currentUser : null;
 
-  Session? get currentSession => isAvailable ? _client.auth.currentSession : null;
+  Session? get currentSession =>
+      isAvailable ? _client.auth.currentSession : null;
 
   /// Auth state change stream. Returns an empty stream if Supabase is not configured.
   Stream<AuthState> get onAuthStateChange =>
