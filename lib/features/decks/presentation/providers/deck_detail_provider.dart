@@ -15,6 +15,9 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
 
   @override
   Future<DeckDetailState> build() async {
+    // Watch deckListProvider so this rebuilds when sync invalidates it.
+    ref.watch(deckListProvider);
+
     final deckRepo = ref.watch(deckRepositoryProvider);
     final cardRepo = ref.watch(cardRepositoryProvider);
 
