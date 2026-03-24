@@ -81,6 +81,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   ReviewRepository get _reviewRepo => ref.read(reviewRepositoryProvider);
   final _studySessionService = StudySessionService();
   late StudySession _session;
+  late final SyncServiceNotifier _syncNotifier;
 
   // Fix: FocusNode leak, stores it as a state variable
   late final FocusNode _focusNode;
@@ -122,6 +123,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   @override
   void initState() {
     super.initState();
+    _syncNotifier = ref.read(syncServiceProvider.notifier);
     _focusNode = FocusNode();
     _dismissController =
         AnimationController(
@@ -133,13 +135,17 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
             setState(() => _dismissOffset = value);
           }
         });
-    ref.read(syncServiceProvider.notifier).pause();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncNotifier.pause();
+    });
     _loadCards();
   }
 
   @override
   void dispose() {
-    ref.read(syncServiceProvider.notifier).resume();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncNotifier.resume();
+    });
     _focusNode.dispose();
     _dismissController.dispose();
     super.dispose();
