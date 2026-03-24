@@ -14,6 +14,7 @@ import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/data/review_repository_provider.dart';
 import 'package:lapse/features/study/application/study_session_service.dart';
+import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
 import 'package:lapse/features/study/presentation/widgets/card_stack.dart';
 import 'package:lapse/features/study/presentation/widgets/flip_card.dart';
@@ -131,11 +132,13 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
           setState(() => _dismissOffset = value);
         }
       });
+    ref.read(syncServiceProvider.notifier).pause();
     _loadCards();
   }
 
   @override
   void dispose() {
+    ref.read(syncServiceProvider.notifier).resume();
     _focusNode.dispose();
     _dismissController.dispose();
     super.dispose();
@@ -204,6 +207,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       );
       await _cardRepo.update(result.updatedCard);
       await _reviewRepo.addReview(result.review);
+      ref.read(syncServiceProvider.notifier).schedulePush();
       final after = _CardSnapshot.fromCard(result.updatedCard);
       setState(() {
         // Reset dismiss offset atomically with card change so the old
