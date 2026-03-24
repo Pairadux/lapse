@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../core/sync/sync_pull_service.dart';
-import '../../../../core/sync/sync_push_service.dart';
+import '../../../../core/sync/sync_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../auth/application/auth_service.dart';
@@ -14,11 +14,11 @@ import '../../../auth/application/auth_service.dart';
 ///
 /// Desktop: fixed left sidebar nav + scrollable right content.
 /// Mobile: scrollable content with bottom section nav.
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 // ─── Section definition ─────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ enum _AuthDisplayState { signInForm, confirmingEmail, accountInfo }
 
 // ─── Main state ─────────────────────────────────────────────────────────────
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   static const _sidebarWidth = 220.0;
   static const _contentMaxWidth = 640.0;
   static const _wideBreakpoint = 720.0;
@@ -58,9 +58,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _pendingPassword;
   Timer? _confirmationTimer;
   int _confirmationElapsed = 0;
-
-  // Sync state
-  bool _isSyncing = false;
 
   // App info
   String _appVersion = '';
@@ -525,30 +522,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _syncNow() async {
-    setState(() => _isSyncing = true);
-    try {
-      final pushResult = await SyncPushService().pushWithDetail();
-      final pullResult = await SyncPullService().pullWithDetail();
-
-      if (!mounted) return;
-      if (pushResult.ok && pullResult.ok) {
-        final parts = <String>[
-          if (pushResult.message.isNotEmpty) pushResult.message,
-          if (pullResult.message.isNotEmpty) pullResult.message,
-        ];
-        final detail = parts.isNotEmpty ? parts.join('. ') : 'Sync complete';
-        _showSuccess(detail);
-      } else {
-        final errors = <String>[
-          if (!pushResult.ok) 'Push: ${pushResult.error ?? 'unknown'}',
-          if (!pullResult.ok) 'Pull: ${pullResult.error ?? 'unknown'}',
-        ];
-        _showError(errors.join(' | '));
-      }
-    } catch (e) {
-      if (mounted) _showError('Sync error: $e');
-    } finally {
-      if (mounted) setState(() => _isSyncing = false);
+    final result =
+        await ref.read(syncServiceProvider.notifier).syncNow();
+    if (!mounted) return;
+    if (result.ok) {
+      _showSuccess(result.message.isNotEmpty ? result.message : 'Sync complete');
+    } else {
+      _showError(result.error ?? 'Sync failed');
     }
   }
 
@@ -563,6 +543,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${time.month}/${time.day} ${time.hour}:${time.minute.toString().padLeft(2, '0')}';
   }
 
   // ─── Build ────────────────────────────────────────────────────────────
@@ -1026,6 +1015,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildSyncSection() {
     final isSignedIn = _authService.currentSession != null;
+    final syncState = ref.watch(syncServiceProvider);
+    final isSyncing = syncState.isSyncing;
+
+    final statusSubtitle = !isSignedIn
+        ? 'Not signed in'
+        : syncState.lastError != null
+            ? 'Error: ${syncState.lastError}'
+            : syncState.lastSyncTime != null
+                ? 'Last synced: ${_formatTime(syncState.lastSyncTime!)}'
+                : 'Connected';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1037,7 +1036,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: isSignedIn ? AppColors.success : AppColors.textTertiary,
           ),
           title: 'Sync status',
-          subtitle: isSignedIn ? 'Connected' : 'Not signed in',
+          subtitle: statusSubtitle,
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
@@ -1046,8 +1045,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Sync now',
           subtitle: 'Manually push and pull changes',
           trailing: OutlinedButton(
-            onPressed: isSignedIn && !_isSyncing ? _syncNow : null,
-            child: _isSyncing
+            onPressed: isSignedIn && !isSyncing ? _syncNow : null,
+            child: isSyncing
                 ? const SizedBox(
                     width: 16,
                     height: 16,

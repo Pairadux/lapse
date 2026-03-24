@@ -7,6 +7,7 @@ import 'package:window_manager/window_manager.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/page_transitions.dart';
 import 'core/supabase/supabase_config.dart';
+import 'core/sync/sync_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/window_title_bar.dart';
 
@@ -38,11 +39,14 @@ void main() async {
   runApp(const ProviderScope(child: LapseApp()));
 }
 
-class LapseApp extends StatelessWidget {
+class LapseApp extends ConsumerWidget {
   const LapseApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Eagerly initialize sync service so lifecycle listener starts immediately.
+    ref.watch(syncServiceProvider);
+
     return MaterialApp.router(
       title: 'Lapse',
       debugShowCheckedModeBanner: false,

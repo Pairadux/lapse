@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
@@ -19,17 +20,20 @@ class DeckListNotifier extends AsyncNotifier<List<DeckWithCounts>> {
     final repo = ref.read(deckRepositoryProvider);
     await repo.create(deck);
     ref.invalidateSelf();
+    ref.read(syncServiceProvider.notifier).schedulePush();
   }
 
   Future<void> updateDeck(Deck deck) async {
     final repo = ref.read(deckRepositoryProvider);
     await repo.update(deck);
     ref.invalidateSelf();
+    ref.read(syncServiceProvider.notifier).schedulePush();
   }
 
   Future<void> deleteDeck(String deckId) async {
     final repo = ref.read(deckRepositoryProvider);
     await repo.delete(deckId);
     ref.invalidateSelf();
+    ref.read(syncServiceProvider.notifier).schedulePush();
   }
 }
