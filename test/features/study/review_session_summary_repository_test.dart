@@ -128,7 +128,7 @@ void main() {
 
       final all = await repo.getAll();
       final s1 = all.firstWhere((s) => s.id == 's1');
-      await repo.markSynced({s1.id!: s1.updatedAt.toIso8601String()});
+      await repo.markSynced({s1.id: s1.updatedAt.toIso8601String()});
 
       final unsynced = await repo.getUnsynced();
       expect(unsynced, hasLength(1));
@@ -139,7 +139,7 @@ void main() {
       await repo.add(makeSummary(id: 's1'));
       final all = await repo.getAll();
       final s1 = all.first;
-      await repo.markSynced({s1.id!: s1.updatedAt.toIso8601String()});
+      await repo.markSynced({s1.id: s1.updatedAt.toIso8601String()});
 
       final unsynced = await repo.getUnsynced();
       expect(unsynced, isEmpty);

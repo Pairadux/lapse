@@ -67,17 +67,32 @@ bump *args:
     build=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f2)
     IFS='.' read -r major minor patch <<< "$current"
     generate_migration=false
+    version_action=""
     for arg in {{args}}; do
         case "$arg" in
-            --major) major=$((major + 1)); minor=0; patch=0 ;;
-            --minor) minor=$((minor + 1)); patch=0 ;;
-            --patch) patch=$((patch + 1)) ;;
+            --major|--minor|--patch)
+                if [ -n "$version_action" ]; then
+                    echo "Error: cannot combine $version_action and $arg"; exit 1
+                fi
+                version_action="$arg"
+                case "$arg" in
+                    --major) major=$((major + 1)); minor=0; patch=0 ;;
+                    --minor) minor=$((minor + 1)); patch=0 ;;
+                    --patch) patch=$((patch + 1)) ;;
+                esac
+                ;;
             -m|--migration) generate_migration=true ;;
             --*|-*) echo "Unknown flag: $arg. Use --major/--minor/--patch, -m/--migration, or a version string."; exit 1 ;;
-            *) IFS='.' read -r major minor patch <<< "$arg" ;;
+            *)
+                if [ -n "$version_action" ]; then
+                    echo "Error: cannot combine $version_action and a version string"; exit 1
+                fi
+                version_action="$arg"
+                IFS='.' read -r major minor patch <<< "$arg"
+                ;;
         esac
     done
-    if [ "$major" = "" ]; then
+    if [ -z "$version_action" ]; then
         echo "Usage: just bump <version|--major|--minor|--patch> [-m|--migration]"
         exit 1
     fi

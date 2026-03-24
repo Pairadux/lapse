@@ -11,7 +11,6 @@ import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/core/sync/sync_pull_service.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
-import 'package:postgrest/postgrest.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ── Fakes ──────────────────────────────────────────────────────────
@@ -19,6 +18,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class MockSupabaseClient extends Mock implements SupabaseClient {}
 
 /// Fake query builder whose [select] returns a configurable result set.
+// ignore: must_be_immutable
 class FakeQueryBuilder extends Fake implements SupabaseQueryBuilder {
   List<Map<String, dynamic>> _nextResult = [];
 

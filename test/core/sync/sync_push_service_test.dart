@@ -14,7 +14,6 @@ import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/study/data/review_repository.dart';
 import 'package:lapse/features/study/data/review_session_summary_repository.dart';
-import 'package:postgrest/postgrest.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ── Mocks ──────────────────────────────────────────────────────────
