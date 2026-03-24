@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
+import 'core/database/database_helper.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/page_transitions.dart';
 import 'core/supabase/supabase_config.dart';
@@ -35,6 +36,9 @@ void main() async {
   }
 
   await SupabaseConfig.initialize();
+
+  // Purge stale tombstones on launch (fire-and-forget, non-blocking).
+  DatabaseHelper.instance.purgeTombstones();
 
   runApp(const ProviderScope(child: LapseApp()));
 }

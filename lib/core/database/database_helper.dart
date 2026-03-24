@@ -197,6 +197,53 @@ class DatabaseHelper {
     await db.execute(DatabaseConstants.createIndexSessionSummarySyncStatus);
   }
 
+  /// Purges soft-deleted rows older than 7 days that are safe to remove.
+  ///
+  /// Rows with `sync_status = 'pending'` and a non-empty `user_id` are never
+  /// purged — they still need to push the deletion tombstone to the server.
+  Future<void> purgeTombstones() async {
+    final db = await database;
+    final cutoff = DateTime.now()
+        .subtract(const Duration(days: 7))
+        .toUtc()
+        .toIso8601String();
+
+    await db.transaction((txn) async {
+      // Purge cards first (safe — no dependents).
+      var deleted = await txn.rawDelete(
+        '''DELETE FROM ${DatabaseConstants.tableCards}
+           WHERE ${DatabaseConstants.colIsDeleted} = 1
+             AND ${DatabaseConstants.colUpdatedAt} < ?
+             AND (${DatabaseConstants.colSyncStatus} = 'synced'
+                  OR ${DatabaseConstants.colUserId} = '')''',
+        [cutoff],
+      );
+      if (deleted > 0) {
+        debugPrint('[Tombstone] Purged $deleted rows from cards');
+      }
+
+      // Purge decks only when no child cards would be cascade-deleted.
+      // A deck with pending (unsynced) cards must wait.
+      deleted = await txn.rawDelete(
+        '''DELETE FROM ${DatabaseConstants.tableDecks}
+           WHERE ${DatabaseConstants.colIsDeleted} = 1
+             AND ${DatabaseConstants.colUpdatedAt} < ?
+             AND (${DatabaseConstants.colSyncStatus} = 'synced'
+                  OR ${DatabaseConstants.colUserId} = '')
+             AND ${DatabaseConstants.colDeckId} NOT IN (
+               SELECT ${DatabaseConstants.colDeckId}
+               FROM ${DatabaseConstants.tableCards}
+               WHERE ${DatabaseConstants.colSyncStatus} = 'pending'
+                 AND ${DatabaseConstants.colUserId} != ''
+             )''',
+        [cutoff],
+      );
+      if (deleted > 0) {
+        debugPrint('[Tombstone] Purged $deleted rows from decks');
+      }
+    });
+  }
+
   /// Deletes all rows from every table, preserving the schema.
   Future<void> clearAllData() async {
     final db = await database;
