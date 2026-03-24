@@ -257,6 +257,7 @@ Riverpod providers exist but are dead code. All screens use direct `DeckReposito
 - 2FA/MFA (TOTP)
 - Redirect URL fix for password reset
 - Cold start frequency tracking / per-user egress monitoring
+- Offline indicator snackbar UI — watch `SyncState.isOnline` from `syncServiceProvider`, show "You're offline" snackbar on transition. Replaces PR #141's singleton approach. Consider cooldown for flaky connections and pausing during study sessions.
 
 ---
 
