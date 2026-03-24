@@ -5,8 +5,10 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../supabase/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'sync_pull_service.dart';
 import 'sync_push_service.dart';
+import 'sync_realtime_service.dart';
 import 'sync_adapter.dart';
 import '../../features/decks/presentation/providers/deck_list_provider.dart';
 
@@ -54,6 +56,8 @@ class SyncServiceNotifier extends Notifier<SyncState> {
   Timer? _debounceTimer;
   AppLifecycleListener? _lifecycleListener;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  SyncRealtimeService? _realtimeService;
+  StreamSubscription<AuthState>? _authSub;
   bool _pushScheduledWhilePaused = false;
 
   @override
@@ -69,10 +73,29 @@ class SyncServiceNotifier extends Notifier<SyncState> {
       _onConnectivityChange,
     );
 
+    if (SupabaseConfig.isConfigured) {
+      _realtimeService = SyncRealtimeService(
+        client: SupabaseConfig.client,
+        onRemoteChange: _onRemoteChange,
+      );
+
+      _authSub = SupabaseConfig.client.auth.onAuthStateChange.listen(
+        _onAuthChange,
+      );
+
+      // If there's already a persisted session, subscribe immediately.
+      final userId = SupabaseConfig.client.auth.currentUser?.id;
+      if (userId != null) {
+        _realtimeService!.subscribe(userId);
+      }
+    }
+
     ref.onDispose(() {
       _debounceTimer?.cancel();
       _lifecycleListener?.dispose();
       _connectivitySub?.cancel();
+      _realtimeService?.dispose();
+      _authSub?.cancel();
     });
 
     return const SyncState();
@@ -137,6 +160,25 @@ class SyncServiceNotifier extends Notifier<SyncState> {
       debugPrint('[SyncService] Back online — flushing pending changes');
       _doSync();
     }
+  }
+
+  void _onAuthChange(AuthState data) {
+    final event = data.event;
+    if (event == AuthChangeEvent.signedIn ||
+        event == AuthChangeEvent.initialSession) {
+      final userId = data.session?.user.id;
+      if (userId != null) {
+        _realtimeService?.subscribe(userId);
+      }
+    } else if (event == AuthChangeEvent.signedOut) {
+      _realtimeService?.unsubscribe();
+    }
+  }
+
+  void _onRemoteChange() {
+    if (!_canSync || state.isPaused) return;
+    debugPrint('[SyncService] Realtime notification — triggering sync');
+    _doSync();
   }
 
   /// Core sync cycle: push then pull. Guards against concurrent runs.
