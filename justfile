@@ -58,26 +58,41 @@ outdated:
 icons:
     dart run flutter_launcher_icons
 
-# Bump version: `just bump 1.2.3` or `just bump --major/--minor/--patch`
+# Bump version: `just bump --minor`, `just bump 1.2.3`
+# Add -m/--migration to also generate a Supabase min_app_version migration
 bump *args:
     #!/usr/bin/env bash
     set -euo pipefail
     current=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
     build=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f2)
     IFS='.' read -r major minor patch <<< "$current"
-    arg="${1:-}"
-    case "$arg" in
-        --major) major=$((major + 1)); minor=0; patch=0 ;;
-        --minor) minor=$((minor + 1)); patch=0 ;;
-        --patch) patch=$((patch + 1)) ;;
-        --*) echo "Unknown flag: $arg. Use --major, --minor, --patch, or a version string."; exit 1 ;;
-        "") echo "Usage: just bump <version|--major|--minor|--patch>"; exit 1 ;;
-        *) IFS='.' read -r major minor patch <<< "$arg" ;;
-    esac
+    generate_migration=false
+    for arg in {{args}}; do
+        case "$arg" in
+            --major) major=$((major + 1)); minor=0; patch=0 ;;
+            --minor) minor=$((minor + 1)); patch=0 ;;
+            --patch) patch=$((patch + 1)) ;;
+            -m|--migration) generate_migration=true ;;
+            --*|-*) echo "Unknown flag: $arg. Use --major/--minor/--patch, -m/--migration, or a version string."; exit 1 ;;
+            *) IFS='.' read -r major minor patch <<< "$arg" ;;
+        esac
+    done
+    if [ "$major" = "" ]; then
+        echo "Usage: just bump <version|--major|--minor|--patch> [-m|--migration]"
+        exit 1
+    fi
     new_version="${major}.${minor}.${patch}"
     new_build=$((build + 1))
     sed -i'' -e "s/^version: .*/version: ${new_version}+${new_build}/" pubspec.yaml
-    git add pubspec.yaml
+    files="pubspec.yaml"
+    if [ "$generate_migration" = true ]; then
+        timestamp=$(date -u +"%Y%m%d%H%M%S")
+        migration="supabase/migrations/${timestamp}_bump_min_app_version.sql"
+        echo "UPDATE public.app_config SET value = '${new_version}' WHERE key = 'min_app_version';" > "$migration"
+        files="$files $migration"
+        echo "Generated migration: $migration"
+    fi
+    git add $files
     git commit -m "chore: bump version to ${new_version}+${new_build}"
     git tag "v${new_version}"
     git push && git push origin "v${new_version}"
