@@ -74,41 +74,57 @@ class SyncPullService {
 
     debugPrint('[SyncPull] Starting pull (lastPull: ${lastPull ?? 'NEVER — full sync'})');
 
-    // Capture timestamp before querying so changes during pull are
-    // re-fetched next cycle (safe, idempotent) rather than missed.
-    final pullTimestamp = DateTime.now().toUtc().toIso8601String();
-
     final stats = <String, int>{};
+    final serverTimestamps = <String>[];
 
     // Sequential pull in FK-dependency order.
     try {
-      stats['decks'] = await _pullTable(
+      var result = await _pullTable(
         client: client,
         table: DatabaseConstants.tableDecks,
         pkColumn: DatabaseConstants.colDeckId,
         timestampColumn: DatabaseConstants.colUpdatedAt,
         lastPull: lastPull,
       );
+      stats['decks'] = result.count;
+      if (result.maxTimestamp != null) serverTimestamps.add(result.maxTimestamp!);
 
-      stats['cards'] = await _pullTable(
+      result = await _pullTable(
         client: client,
         table: DatabaseConstants.tableCards,
         pkColumn: DatabaseConstants.colCardId,
         timestampColumn: DatabaseConstants.colUpdatedAt,
         lastPull: lastPull,
       );
+      stats['cards'] = result.count;
+      if (result.maxTimestamp != null) serverTimestamps.add(result.maxTimestamp!);
 
-      stats['reviews'] = await _pullReviews(client: client, lastPull: lastPull);
+      final reviewResult = await _pullReviews(client: client, lastPull: lastPull);
+      stats['reviews'] = reviewResult.count;
+      // Intentionally NOT adding reviewResult.maxTimestamp to serverTimestamps.
+      // reviewed_at is client-set (by the creating device), not server-set.
+      // Including it could push the cursor ahead of the server clock domain
+      // and cause the same skew bug we're fixing. Reviews are insert-only with
+      // ConflictAlgorithm.ignore, so re-fetching duplicates is harmless.
 
-      stats['summaries'] = await _pullTable(
+      result = await _pullTable(
         client: client,
         table: DatabaseConstants.tableReviewSessionSummary,
         pkColumn: DatabaseConstants.colSessionId,
         timestampColumn: DatabaseConstants.colUpdatedAt,
         lastPull: lastPull,
       );
+      stats['summaries'] = result.count;
+      if (result.maxTimestamp != null) serverTimestamps.add(result.maxTimestamp!);
 
-      await prefs.setString(_lastPullKey, pullTimestamp);
+      // Derive pullTimestamp from the server's clock domain — the latest
+      // timestamp across all pulled rows. This eliminates clock skew between
+      // client and server. If nothing was pulled, don't advance the cursor;
+      // next pull re-queries the same window (idempotent, no-op).
+      if (serverTimestamps.isNotEmpty) {
+        serverTimestamps.sort();
+        await prefs.setString(_lastPullKey, serverTimestamps.last);
+      }
 
       final totalPulled = stats.values.fold(0, (a, b) => a + b);
       final parts = stats.entries
@@ -157,7 +173,7 @@ class SyncPullService {
   /// - Local `synced` → overwrite silently (server is authoritative)
   /// - Local `pending` + remote newer → overwrite (counted)
   /// - Local `pending` + local newer → skip (local wins, pushes next cycle)
-  Future<int> _pullTable({
+  Future<({int count, String? maxTimestamp})> _pullTable({
     required SupabaseClient client,
     required String table,
     required String pkColumn,
@@ -170,6 +186,7 @@ class SyncPullService {
     var conflictWins = 0;
     var skipped = 0;
     var offset = 0;
+    String? maxTimestamp;
 
     debugPrint('[SyncPull] Fetching $table...');
 
@@ -187,6 +204,12 @@ class SyncPullService {
       );
 
       for (final remoteRow in remoteRows) {
+        // Track the latest server timestamp for pull cursor advancement.
+        final ts = remoteRow[timestampColumn] as String?;
+        if (ts != null && (maxTimestamp == null || ts.compareTo(maxTimestamp) > 0)) {
+          maxTimestamp = ts;
+        }
+
         final localRow = SyncAdapter.fromSupabaseRow(remoteRow);
         final pk = localRow[pkColumn] as String;
         final localInfo = localIndex[pk];
@@ -233,18 +256,19 @@ class SyncPullService {
     }
 
     // Only count genuinely new data for the user-facing message.
-    return newRows + conflictWins;
+    return (count: newRows + conflictWins, maxTimestamp: maxTimestamp);
   }
 
   /// Pulls reviews — insert-only since reviews are immutable.
   /// Returns the number of rows inserted.
-  Future<int> _pullReviews({
+  Future<({int count, String? maxTimestamp})> _pullReviews({
     required SupabaseClient client,
     required String? lastPull,
   }) async {
     final db = await _dbHelper.database;
     var totalInserted = 0;
     var offset = 0;
+    String? maxTimestamp;
 
     debugPrint('[SyncPull] Fetching reviews...');
 
@@ -262,6 +286,10 @@ class SyncPullService {
 
       final batch = db.batch();
       for (final remoteRow in remoteRows) {
+        final ts = remoteRow[DatabaseConstants.colReviewedAt] as String?;
+        if (ts != null && (maxTimestamp == null || ts.compareTo(maxTimestamp) > 0)) {
+          maxTimestamp = ts;
+        }
         final localRow = SyncAdapter.fromSupabaseRow(remoteRow);
         batch.insert(
           DatabaseConstants.tableReviews,
@@ -280,7 +308,7 @@ class SyncPullService {
       debugPrint('[SyncPull]   reviews: $totalInserted inserted');
     }
 
-    return totalInserted;
+    return (count: totalInserted, maxTimestamp: maxTimestamp);
   }
 
   /// Builds a lookup map of {pk → local row info} for conflict resolution.

@@ -8,6 +8,7 @@ import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
+import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 
@@ -128,6 +129,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         );
         await _repo.create(card);
       }
+      ref.read(syncServiceProvider.notifier).schedulePush();
       if (mounted) {
         final label = widget.isEditing
             ? 'Card updated'
@@ -159,6 +161,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         back: _backController.text.trim(),
       );
       await _repo.create(card);
+      ref.read(syncServiceProvider.notifier).schedulePush();
 
       if (mounted) {
         setState(() {
@@ -187,6 +190,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     if (!confirmed || !mounted) return;
 
     await _repo.delete(widget.card!.cardId);
+    ref.read(syncServiceProvider.notifier).schedulePush();
     if (mounted) context.pop();
   }
 
