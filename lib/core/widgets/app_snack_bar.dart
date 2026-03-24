@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:toastification/toastification.dart';
 
+import '../../core/routing/page_transitions.dart';
 import '../theme/app_colors.dart';
 import '../theme/spacing.dart';
 
@@ -21,11 +22,13 @@ abstract class AppSnackBar {
       alignment: withFabMargin ? Alignment.bottomLeft : Alignment.bottomCenter,
       autoCloseDuration: duration,
       builder: (context, holder) {
+        final safeBottom =
+            isDesktop ? 0.0 : MediaQuery.of(context).padding.bottom;
         return Padding(
-          padding: const EdgeInsets.only(
+          padding: EdgeInsets.only(
             left: Spacing.lg,
             right: Spacing.lg,
-            bottom: Spacing.lg,
+            bottom: Spacing.lg + safeBottom,
           ),
           child: Material(
             color: backgroundColor ?? AppColors.surfaceBright,

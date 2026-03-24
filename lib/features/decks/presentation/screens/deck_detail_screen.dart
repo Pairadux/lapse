@@ -420,6 +420,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               ),
             ),
           ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
       ],
     );
   }

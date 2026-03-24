@@ -74,7 +74,10 @@ class _DeckList extends ConsumerWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+      padding: const EdgeInsets.only(
+        top: Spacing.sm,
+        bottom: Spacing.sm + 80,
+      ),
       itemCount: decks.length,
       itemBuilder: (context, index) {
         final item = decks[index];

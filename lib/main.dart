@@ -47,14 +47,12 @@ void main() async {
   runApp(const ProviderScope(child: LapseApp()));
 }
 
-class LapseApp extends ConsumerWidget {
-  const LapseApp({super.key});
+class _ConnectivityToast extends ConsumerWidget {
+  final Widget child;
+  const _ConnectivityToast({required this.child});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Eagerly initialize sync service so lifecycle listener starts immediately.
-    ref.watch(syncServiceProvider);
-
     ref.listen(
       syncServiceProvider.select((s) => s.isOnline),
       (prev, isOnline) {
@@ -68,6 +66,17 @@ class LapseApp extends ConsumerWidget {
         }
       },
     );
+    return child;
+  }
+}
+
+class LapseApp extends ConsumerWidget {
+  const LapseApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Eagerly initialize sync service so lifecycle listener starts immediately.
+    ref.watch(syncServiceProvider);
 
     return ToastificationWrapper(
       child: MaterialApp.router(
@@ -89,7 +98,7 @@ class LapseApp extends ConsumerWidget {
           );
         }
 
-        return content;
+        return _ConnectivityToast(child: content);
       },
       ),
     );

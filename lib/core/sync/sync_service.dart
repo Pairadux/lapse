@@ -62,6 +62,7 @@ class SyncServiceNotifier extends Notifier<SyncState> {
   late final SyncPushService _pushService;
   late final SyncPullService _pullService;
   Timer? _debounceTimer;
+  Timer? _connectivityDebounce;
   AppLifecycleListener? _lifecycleListener;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   SyncRealtimeService? _realtimeService;
@@ -100,6 +101,7 @@ class SyncServiceNotifier extends Notifier<SyncState> {
 
     ref.onDispose(() {
       _debounceTimer?.cancel();
+      _connectivityDebounce?.cancel();
       _lifecycleListener?.dispose();
       _connectivitySub?.cancel();
       _realtimeService?.dispose();
@@ -159,15 +161,25 @@ class SyncServiceNotifier extends Notifier<SyncState> {
     }
   }
 
-  void _onConnectivityChange(List<ConnectivityResult> results) {
-    final wasOffline = !state.isOnline;
-    final isNowOnline = !results.contains(ConnectivityResult.none);
-    state = state.copyWith(isOnline: isNowOnline);
+  /// Tracks the latest connectivity result for debounced evaluation.
+  bool _pendingOnline = true;
 
-    if (wasOffline && isNowOnline && _canSync && !state.isPaused) {
-      debugPrint('[SyncService] Back online — flushing pending changes');
-      _doSync();
-    }
+  void _onConnectivityChange(List<ConnectivityResult> results) {
+    _pendingOnline = !results.contains(ConnectivityResult.none);
+
+    // Debounce to absorb rapid bounces from connectivity_plus (common on
+    // macOS and during hot restart).
+    _connectivityDebounce?.cancel();
+    _connectivityDebounce = Timer(const Duration(seconds: 1), () {
+      if (_pendingOnline == state.isOnline) return;
+
+      state = state.copyWith(isOnline: _pendingOnline);
+
+      if (_pendingOnline && _canSync && !state.isPaused) {
+        debugPrint('[SyncService] Back online — flushing pending changes');
+        _doSync();
+      }
+    });
   }
 
   void _onAuthChange(AuthState data) {
