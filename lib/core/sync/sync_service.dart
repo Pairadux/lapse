@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,12 +16,14 @@ class SyncState {
   final DateTime? lastSyncTime;
   final String? lastError;
   final bool isPaused;
+  final bool isOnline;
 
   const SyncState({
     this.isSyncing = false,
     this.lastSyncTime,
     this.lastError,
     this.isPaused = false,
+    this.isOnline = true,
   });
 
   SyncState copyWith({
@@ -29,6 +31,7 @@ class SyncState {
     DateTime? lastSyncTime,
     String? lastError,
     bool? isPaused,
+    bool? isOnline,
     bool clearError = false,
   }) {
     return SyncState(
@@ -36,6 +39,7 @@ class SyncState {
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
       lastError: clearError ? null : (lastError ?? this.lastError),
       isPaused: isPaused ?? this.isPaused,
+      isOnline: isOnline ?? this.isOnline,
     );
   }
 }
@@ -49,6 +53,7 @@ class SyncServiceNotifier extends Notifier<SyncState> {
   late final SyncPullService _pullService;
   Timer? _debounceTimer;
   AppLifecycleListener? _lifecycleListener;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   bool _pushScheduledWhilePaused = false;
 
   @override
@@ -60,9 +65,14 @@ class SyncServiceNotifier extends Notifier<SyncState> {
       onStateChange: _onLifecycleChange,
     );
 
+    _connectivitySub = Connectivity().onConnectivityChanged.listen(
+      _onConnectivityChange,
+    );
+
     ref.onDispose(() {
       _debounceTimer?.cancel();
       _lifecycleListener?.dispose();
+      _connectivitySub?.cancel();
     });
 
     return const SyncState();
@@ -114,6 +124,17 @@ class SyncServiceNotifier extends Notifier<SyncState> {
     if (lifecycleState == AppLifecycleState.resumed) {
       if (!_canSync || state.isPaused) return;
       debugPrint('[SyncService] App resumed — triggering sync');
+      _doSync();
+    }
+  }
+
+  void _onConnectivityChange(List<ConnectivityResult> results) {
+    final wasOffline = !state.isOnline;
+    final isNowOnline = !results.contains(ConnectivityResult.none);
+    state = state.copyWith(isOnline: isNowOnline);
+
+    if (wasOffline && isNowOnline && _canSync && !state.isPaused) {
+      debugPrint('[SyncService] Back online — flushing pending changes');
       _doSync();
     }
   }
