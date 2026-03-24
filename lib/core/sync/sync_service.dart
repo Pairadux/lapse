@@ -49,6 +49,7 @@ class SyncState {
 final syncServiceProvider =
     NotifierProvider<SyncServiceNotifier, SyncState>(SyncServiceNotifier.new);
 
+
 /// Orchestrates sync push/pull, debounced writes, and app lifecycle triggers.
 class SyncServiceNotifier extends Notifier<SyncState> {
   late final SyncPushService _pushService;
