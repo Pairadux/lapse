@@ -10,7 +10,9 @@ import 'core/routing/app_router.dart';
 import 'core/routing/page_transitions.dart';
 import 'core/supabase/supabase_config.dart';
 import 'core/sync/sync_service.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/app_snack_bar.dart';
 import 'core/widgets/window_title_bar.dart';
 
 void main() async {
@@ -52,6 +54,20 @@ class LapseApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Eagerly initialize sync service so lifecycle listener starts immediately.
     ref.watch(syncServiceProvider);
+
+    ref.listen(
+      syncServiceProvider.select((s) => s.isOnline),
+      (prev, isOnline) {
+        if (prev == null) return;
+        if (!isOnline) {
+          AppSnackBar.show(context, 'You\'re offline',
+              backgroundColor: AppColors.error);
+        } else {
+          AppSnackBar.show(context, 'Back online',
+              duration: const Duration(seconds: 2));
+        }
+      },
+    );
 
     return ToastificationWrapper(
       child: MaterialApp.router(
