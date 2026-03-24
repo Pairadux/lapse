@@ -53,7 +53,8 @@ class Deck extends Equatable {
           : this.parentId, // call using copyWith(parentId: Optional.value(null)) to set parentId to null
       deckName: deckName ?? this.deckName,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt, // Always update timestamp on change
+      updatedAt:
+          updatedAt ?? this.updatedAt, // Always update timestamp on change
       isDeleted: isDeleted ?? this.isDeleted,
       userId: userId ?? this.userId,
       syncStatus: syncStatus ?? this.syncStatus,
@@ -84,13 +85,24 @@ class Deck extends Equatable {
       createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
       updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),
       isDeleted: map[DatabaseConstants.colIsDeleted] == 1,
-      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
+      syncStatus: SyncStatus.values.byName(
+        map[DatabaseConstants.colSyncStatus] as String,
+      ),
       userId: map[DatabaseConstants.colUserId] as String,
     );
   }
 
   @override
-  List<Object?> get props => [deckId, parentId, deckName, createdAt, updatedAt, isDeleted, userId, syncStatus];
+  List<Object?> get props => [
+    deckId,
+    parentId,
+    deckName,
+    createdAt,
+    updatedAt,
+    isDeleted,
+    userId,
+    syncStatus,
+  ];
 }
 
 class Optional<T> {

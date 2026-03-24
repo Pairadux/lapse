@@ -32,11 +32,11 @@ class SyncPushService {
     ReviewRepository? reviewRepo,
     ReviewSessionSummaryRepository? summaryRepo,
     SupabaseClient? client,
-  })  : _deckRepo = deckRepo ?? DeckRepository(),
-        _cardRepo = cardRepo ?? CardRepository(),
-        _reviewRepo = reviewRepo ?? ReviewRepository(),
-        _summaryRepo = summaryRepo ?? ReviewSessionSummaryRepository(),
-        _clientOverride = client;
+  }) : _deckRepo = deckRepo ?? DeckRepository(),
+       _cardRepo = cardRepo ?? CardRepository(),
+       _reviewRepo = reviewRepo ?? ReviewRepository(),
+       _summaryRepo = summaryRepo ?? ReviewSessionSummaryRepository(),
+       _clientOverride = client;
 
   /// Pushes all pending local changes to Supabase.
   ///
@@ -77,8 +77,9 @@ class SyncPushService {
         label: 'decks',
         getUnsynced: () async =>
             (await _deckRepo.getUnsynced()).map((d) => d.toMap()).toList(),
-        upsert: (rows) =>
-            client.from(DatabaseConstants.tableDecks).upsert(rows, onConflict: DatabaseConstants.colDeckId),
+        upsert: (rows) => client
+            .from(DatabaseConstants.tableDecks)
+            .upsert(rows, onConflict: DatabaseConstants.colDeckId),
         markSynced: (rows) => _deckRepo.markSynced({
           for (final r in rows)
             r[DatabaseConstants.colDeckId] as String:
@@ -89,8 +90,9 @@ class SyncPushService {
         label: 'cards',
         getUnsynced: () async =>
             (await _cardRepo.getUnsynced()).map((c) => c.toMap()).toList(),
-        upsert: (rows) =>
-            client.from(DatabaseConstants.tableCards).upsert(rows, onConflict: DatabaseConstants.colCardId),
+        upsert: (rows) => client
+            .from(DatabaseConstants.tableCards)
+            .upsert(rows, onConflict: DatabaseConstants.colCardId),
         markSynced: (rows) => _cardRepo.markSynced({
           for (final r in rows)
             r[DatabaseConstants.colCardId] as String:
@@ -101,10 +103,12 @@ class SyncPushService {
         label: 'reviews',
         getUnsynced: () async =>
             (await _reviewRepo.getUnsynced()).map((r) => r.toMap()).toList(),
-        upsert: (rows) =>
-            client.from(DatabaseConstants.tableReviews).upsert(rows, onConflict: DatabaseConstants.colReviewId),
+        upsert: (rows) => client
+            .from(DatabaseConstants.tableReviews)
+            .upsert(rows, onConflict: DatabaseConstants.colReviewId),
         markSynced: (rows) => _reviewRepo.markSynced(
-            rows.map((r) => r[DatabaseConstants.colReviewId] as String).toList()),
+          rows.map((r) => r[DatabaseConstants.colReviewId] as String).toList(),
+        ),
       ),
       _TablePushConfig(
         label: 'session_summaries',
@@ -150,7 +154,10 @@ class SyncPushService {
   /// [SyncAdapter.toSupabaseRow] before upserting. Each page is upserted
   /// and marked synced independently — if a page fails, prior pages keep
   /// their synced status and only the remaining rows retry next cycle.
-  Future<_PushTableResult> _pushTable(_TablePushConfig config, String? authUid) async {
+  Future<_PushTableResult> _pushTable(
+    _TablePushConfig config,
+    String? authUid,
+  ) async {
     try {
       final localMaps = await config.getUnsynced();
       if (localMaps.isEmpty) {
@@ -177,7 +184,9 @@ class SyncPushService {
         await config.markSynced(chunk);
       }
 
-      debugPrint('[SyncPush] ${config.label}: ${localMaps.length} pushed successfully');
+      debugPrint(
+        '[SyncPush] ${config.label}: ${localMaps.length} pushed successfully',
+      );
       return _PushTableResult(count: localMaps.length);
     } catch (e, st) {
       debugPrint('[SyncPush] ${config.label} FAILED: $e\n$st');

@@ -24,7 +24,8 @@ class Flashcard extends Equatable {
   final int lapses; // Times forgotten (rated "Again")
   final DateTime? lastReview;
   final CardState cardState;
-  final int? step; // Learning step progress (null for new/review cards, 0+ for learning/relearning)
+  final int?
+  step; // Learning step progress (null for new/review cards, 0+ for learning/relearning)
   final SyncStatus syncStatus; // Synced, pending, conflict
   final String userId; // For multi-user support (optional)
 
@@ -51,7 +52,11 @@ class Flashcard extends Equatable {
   });
 
   /// Creates a new card with auto-generated ID, timestamps, and FSRS defaults.
-  factory Flashcard.newCard({required String deckId, required String front, required String back}) {
+  factory Flashcard.newCard({
+    required String deckId,
+    required String front,
+    required String back,
+  }) {
     final now = DateTime.now();
     return Flashcard(
       cardId: const Uuid().v4(),
@@ -165,7 +170,9 @@ class Flashcard extends Equatable {
       cardState: CardState.values[map[DatabaseConstants.colCardState] as int],
       step: map[DatabaseConstants.colStep] as int?,
       userId: map[DatabaseConstants.colUserId] as String,
-      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
+      syncStatus: SyncStatus.values.byName(
+        map[DatabaseConstants.colSyncStatus] as String,
+      ),
     );
   }
 

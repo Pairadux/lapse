@@ -65,8 +65,11 @@ class FakeTransformBuilder extends Fake
   FakeTransformBuilder(this._data);
 
   @override
-  PostgrestTransformBuilder<PostgrestList> range(int from, int to,
-      {String? referencedTable}) {
+  PostgrestTransformBuilder<PostgrestList> range(
+    int from,
+    int to, {
+    String? referencedTable,
+  }) {
     final end = to + 1 > _data.length ? _data.length : to + 1;
     final start = from > _data.length ? _data.length : from;
     return FakeTransformBuilder(_data.sublist(start, end));
@@ -76,9 +79,7 @@ class FakeTransformBuilder extends Fake
   Future<U> then<U>(
     FutureOr<U> Function(PostgrestList) onValue, {
     Function? onError,
-  }) =>
-      Future.value(PostgrestList.from(_data))
-          .then(onValue, onError: onError);
+  }) => Future.value(PostgrestList.from(_data)).then(onValue, onError: onError);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -144,10 +145,8 @@ void main() {
     await deleteDatabase(join(dbPath, dbName));
   });
 
-  SyncPullService buildService() => SyncPullService(
-        dbHelper: helper,
-        client: mockClient,
-      );
+  SyncPullService buildService() =>
+      SyncPullService(dbHelper: helper, client: mockClient);
 
   group('basic pull', () {
     test('pull returns true when no remote data', () async {
@@ -193,9 +192,11 @@ void main() {
 
       // getById excludes deleted, so query raw
       final db = await helper.database;
-      final rows = await db.query(DatabaseConstants.tableDecks,
-          where: '${DatabaseConstants.colDeckId} = ?',
-          whereArgs: ['deck-1']);
+      final rows = await db.query(
+        DatabaseConstants.tableDecks,
+        where: '${DatabaseConstants.colDeckId} = ?',
+        whereArgs: ['deck-1'],
+      );
       expect(rows.first[DatabaseConstants.colIsDeleted], 1);
     });
 
@@ -211,7 +212,12 @@ void main() {
       // Insert a local deck and mark it synced
       final now = DateTime.now();
       await deckRepo.create(
-        Deck(deckId: 'deck-1', deckName: 'Local', createdAt: now, updatedAt: now),
+        Deck(
+          deckId: 'deck-1',
+          deckName: 'Local',
+          createdAt: now,
+          updatedAt: now,
+        ),
       );
       final created = await deckRepo.getById('deck-1');
       await deckRepo.markSynced({
@@ -219,10 +225,16 @@ void main() {
       });
 
       // Remote has updated name
-      final remoteTsStr = now.add(const Duration(seconds: 10)).toUtc().toIso8601String();
+      final remoteTsStr = now
+          .add(const Duration(seconds: 10))
+          .toUtc()
+          .toIso8601String();
       tableBuilders[DatabaseConstants.tableDecks]!.setResult([
-        remoteDecRow(id: 'deck-1', name: 'Updated on Server',
-            updatedAt: DateTime.parse(remoteTsStr)),
+        remoteDecRow(
+          id: 'deck-1',
+          name: 'Updated on Server',
+          updatedAt: DateTime.parse(remoteTsStr),
+        ),
       ]);
 
       final service = buildService();
@@ -236,7 +248,12 @@ void main() {
     test('remote wins when local is pending but remote is newer', () async {
       final now = DateTime.now();
       await deckRepo.create(
-        Deck(deckId: 'deck-1', deckName: 'Local Edit', createdAt: now, updatedAt: now),
+        Deck(
+          deckId: 'deck-1',
+          deckName: 'Local Edit',
+          createdAt: now,
+          updatedAt: now,
+        ),
       );
       // Local row is pending (just created), not synced
 
@@ -256,7 +273,12 @@ void main() {
     test('local wins when local is pending and newer than remote', () async {
       final now = DateTime.now();
       await deckRepo.create(
-        Deck(deckId: 'deck-1', deckName: 'Local Edit', createdAt: now, updatedAt: now),
+        Deck(
+          deckId: 'deck-1',
+          deckName: 'Local Edit',
+          createdAt: now,
+          updatedAt: now,
+        ),
       );
 
       // Remote has an OLDER timestamp
@@ -275,7 +297,12 @@ void main() {
     test('local pending row stays pending when it wins conflict', () async {
       final now = DateTime.now();
       await deckRepo.create(
-        Deck(deckId: 'deck-1', deckName: 'Local', createdAt: now, updatedAt: now),
+        Deck(
+          deckId: 'deck-1',
+          deckName: 'Local',
+          createdAt: now,
+          updatedAt: now,
+        ),
       );
 
       final remoteTs = now.subtract(const Duration(seconds: 10));
@@ -306,8 +333,9 @@ void main() {
 
     test('does not update timestamp on failure', () async {
       // Make decks pull throw
-      when(() => mockClient.from(DatabaseConstants.tableDecks))
-          .thenThrow(Exception('Network error'));
+      when(
+        () => mockClient.from(DatabaseConstants.tableDecks),
+      ).thenThrow(Exception('Network error'));
 
       final service = buildService();
       await service.pull();

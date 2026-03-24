@@ -178,25 +178,43 @@ void main() {
   });
 
   group('round-trip', () {
-    test('toSupabaseRow then fromSupabaseRow restores original (minus sync_status value)', () {
-      final original = {
-        DatabaseConstants.colDeckId: 'deck-1',
-        DatabaseConstants.colDeckName: 'Round Trip',
-        DatabaseConstants.colIsDeleted: 0,
-        DatabaseConstants.colSyncStatus: SyncStatus.pending.name,
-        DatabaseConstants.colUpdatedAt: '2026-03-20T12:00:00.000Z',
-      };
+    test(
+      'toSupabaseRow then fromSupabaseRow restores original (minus sync_status value)',
+      () {
+        final original = {
+          DatabaseConstants.colDeckId: 'deck-1',
+          DatabaseConstants.colDeckName: 'Round Trip',
+          DatabaseConstants.colIsDeleted: 0,
+          DatabaseConstants.colSyncStatus: SyncStatus.pending.name,
+          DatabaseConstants.colUpdatedAt: '2026-03-20T12:00:00.000Z',
+        };
 
-      final supabase = SyncAdapter.toSupabaseRow(original);
-      final restored = SyncAdapter.fromSupabaseRow(supabase);
+        final supabase = SyncAdapter.toSupabaseRow(original);
+        final restored = SyncAdapter.fromSupabaseRow(supabase);
 
-      expect(restored[DatabaseConstants.colDeckId], original[DatabaseConstants.colDeckId]);
-      expect(restored[DatabaseConstants.colDeckName], original[DatabaseConstants.colDeckName]);
-      expect(restored[DatabaseConstants.colIsDeleted], original[DatabaseConstants.colIsDeleted]);
-      expect(restored[DatabaseConstants.colUpdatedAt], original[DatabaseConstants.colUpdatedAt]);
-      // sync_status is always 'synced' after round-trip (correct — pushed data is synced)
-      expect(restored[DatabaseConstants.colSyncStatus], SyncStatus.synced.name);
-    });
+        expect(
+          restored[DatabaseConstants.colDeckId],
+          original[DatabaseConstants.colDeckId],
+        );
+        expect(
+          restored[DatabaseConstants.colDeckName],
+          original[DatabaseConstants.colDeckName],
+        );
+        expect(
+          restored[DatabaseConstants.colIsDeleted],
+          original[DatabaseConstants.colIsDeleted],
+        );
+        expect(
+          restored[DatabaseConstants.colUpdatedAt],
+          original[DatabaseConstants.colUpdatedAt],
+        );
+        // sync_status is always 'synced' after round-trip (correct — pushed data is synced)
+        expect(
+          restored[DatabaseConstants.colSyncStatus],
+          SyncStatus.synced.name,
+        );
+      },
+    );
 
     test('fromSupabaseRow then toSupabaseRow restores original', () {
       final original = {
@@ -209,10 +227,22 @@ void main() {
       final local = SyncAdapter.fromSupabaseRow(original);
       final restored = SyncAdapter.toSupabaseRow(local);
 
-      expect(restored[DatabaseConstants.colCardId], original[DatabaseConstants.colCardId]);
-      expect(restored[DatabaseConstants.colDeckId], original[DatabaseConstants.colDeckId]);
-      expect(restored[DatabaseConstants.colIsDeleted], original[DatabaseConstants.colIsDeleted]);
-      expect(restored[DatabaseConstants.colUpdatedAt], original[DatabaseConstants.colUpdatedAt]);
+      expect(
+        restored[DatabaseConstants.colCardId],
+        original[DatabaseConstants.colCardId],
+      );
+      expect(
+        restored[DatabaseConstants.colDeckId],
+        original[DatabaseConstants.colDeckId],
+      );
+      expect(
+        restored[DatabaseConstants.colIsDeleted],
+        original[DatabaseConstants.colIsDeleted],
+      );
+      expect(
+        restored[DatabaseConstants.colUpdatedAt],
+        original[DatabaseConstants.colUpdatedAt],
+      );
       expect(restored.containsKey(DatabaseConstants.colSyncStatus), isFalse);
     });
   });

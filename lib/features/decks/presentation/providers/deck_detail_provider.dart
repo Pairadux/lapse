@@ -7,8 +7,8 @@ import 'package:lapse/features/decks/presentation/providers/deck_list_provider.d
 
 final deckDetailProvider =
     AsyncNotifierProvider.family<DeckDetailNotifier, DeckDetailState, String>(
-  (arg) => DeckDetailNotifier(arg),
-);
+      (arg) => DeckDetailNotifier(arg),
+    );
 
 class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
   DeckDetailNotifier(this.deckId);

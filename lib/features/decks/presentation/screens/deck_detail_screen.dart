@@ -114,8 +114,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
       return;
     }
 
-    final allIds =
-        await ref.read(deckRepositoryProvider).getDescendantIds(widget.deckId);
+    final allIds = await ref
+        .read(deckRepositoryProvider)
+        .getDescendantIds(widget.deckId);
     if (mounted) {
       context.push(
         Routes.studyPath(widget.deckId),
@@ -159,8 +160,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           final confirmed = await ConfirmDialog.show(
             context: context,
             title: 'Delete deck?',
-            message:
-                'This will delete "${deck.deckName}" and all its cards.',
+            message: 'This will delete "${deck.deckName}" and all its cards.',
             confirmLabel: 'Delete',
             isDestructive: true,
           );
@@ -178,9 +178,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
       }
     }
   }
@@ -219,9 +219,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
       }
     }
   }
@@ -244,9 +244,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
         if (e is DeckNotFoundException) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Deck not found')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Deck not found')));
               context.pop();
             }
           });
@@ -281,9 +281,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
             onPressed: deck == null
                 ? null
                 : () => context.push(
-                      Routes.deckEditPath(widget.deckId),
-                      extra: deck,
-                    ),
+                    Routes.deckEditPath(widget.deckId),
+                    extra: deck,
+                  ),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -297,14 +297,12 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           SpeedDialAction(
             icon: Icons.style_outlined,
             label: 'New Card',
-            onPressed: () =>
-                context.push(Routes.cardNewPath(widget.deckId)),
+            onPressed: () => context.push(Routes.cardNewPath(widget.deckId)),
           ),
           SpeedDialAction(
             icon: Icons.folder_outlined,
             label: 'New Deck',
-            onPressed: () =>
-                context.push(Routes.deckNew, extra: widget.deckId),
+            onPressed: () => context.push(Routes.deckNew, extra: widget.deckId),
           ),
         ],
       ),
@@ -519,10 +517,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
             child: Text(
               '·',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textTertiary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary),
             ),
           ),
           Text(
@@ -568,17 +565,15 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
                       ),
                       TextSpan(
                         text: '  →  ',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: AppColors.textTertiary),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textTertiary,
+                        ),
                       ),
                       TextSpan(
                         text: card.back,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: AppColors.textSecondary),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -605,11 +600,7 @@ class _BreadcrumbItem extends StatelessWidget {
   final bool isLast;
   final VoidCallback? onTap;
 
-  const _BreadcrumbItem({
-    required this.label,
-    this.isLast = false,
-    this.onTap,
-  });
+  const _BreadcrumbItem({required this.label, this.isLast = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {

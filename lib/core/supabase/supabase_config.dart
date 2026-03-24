@@ -5,8 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Credentials are provided at compile time via `--dart-define-from-file=env.json`.
 class SupabaseConfig {
   static const _url = String.fromEnvironment('SUPABASE_URL');
-  static const _publishableKey =
-      String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+  static const _publishableKey = String.fromEnvironment(
+    'SUPABASE_PUBLISHABLE_KEY',
+  );
 
   /// The project URL, for display or diagnostics.
   static String get url => _url;

@@ -7,7 +7,7 @@ class ReviewSessionSummaryRepository {
   final DatabaseHelper _dbHelper;
 
   ReviewSessionSummaryRepository({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+    : _dbHelper = dbHelper ?? DatabaseHelper.instance;
 
   /// Persists a completed session summary.
   Future<void> add(ReviewSessionSummary summary) async {
@@ -39,7 +39,8 @@ class ReviewSessionSummaryRepository {
     final db = await _dbHelper.database;
     final maps = await db.query(
       DatabaseConstants.tableReviewSessionSummary,
-      where: '${DatabaseConstants.colDate} >= ? AND ${DatabaseConstants.colDate} <= ?',
+      where:
+          '${DatabaseConstants.colDate} >= ? AND ${DatabaseConstants.colDate} <= ?',
       whereArgs: [startDate, endDate],
       orderBy: '${DatabaseConstants.colStartedAt} ASC',
     );
@@ -93,7 +94,8 @@ class ReviewSessionSummaryRepository {
     String endDate,
   ) async {
     final db = await _dbHelper.database;
-    return db.rawQuery('''
+    return db.rawQuery(
+      '''
       SELECT
         ${DatabaseConstants.colDate},
         SUM(${DatabaseConstants.colTotalReviews}) AS ${DatabaseConstants.colTotalReviews},
@@ -109,6 +111,8 @@ class ReviewSessionSummaryRepository {
       WHERE ${DatabaseConstants.colDate} >= ? AND ${DatabaseConstants.colDate} <= ?
       GROUP BY ${DatabaseConstants.colDate}
       ORDER BY ${DatabaseConstants.colDate} ASC
-    ''', [startDate, endDate]);
+    ''',
+      [startDate, endDate],
+    );
   }
 }

@@ -29,11 +29,7 @@ void main() {
     await deleteDatabase(join(dbPath, 'test_deck_counts.db'));
   });
 
-  Deck makeDeck({
-    required String id,
-    String? parentId,
-    String name = 'Deck',
-  }) {
+  Deck makeDeck({required String id, String? parentId, String name = 'Deck'}) {
     final now = DateTime.now();
     return Deck(
       deckId: id,
@@ -124,9 +120,15 @@ void main() {
       final pastDue = now.subtract(const Duration(hours: 1));
       final futureDue = now.add(const Duration(days: 30));
 
-      await cardRepo.create(makeCard(id: 'due-1', deckId: 'root', dueDate: pastDue));
-      await cardRepo.create(makeCard(id: 'due-2', deckId: 'root', dueDate: pastDue));
-      await cardRepo.create(makeCard(id: 'not-due', deckId: 'root', dueDate: futureDue));
+      await cardRepo.create(
+        makeCard(id: 'due-1', deckId: 'root', dueDate: pastDue),
+      );
+      await cardRepo.create(
+        makeCard(id: 'due-2', deckId: 'root', dueDate: pastDue),
+      );
+      await cardRepo.create(
+        makeCard(id: 'not-due', deckId: 'root', dueDate: futureDue),
+      );
 
       final results = await deckRepo.getDecksWithCounts();
       expect(results.first.cardCount, 3);
@@ -255,16 +257,20 @@ void main() {
       await deckRepo.create(makeDeck(id: 'root'));
 
       final now = DateTime.now();
-      await cardRepo.create(makeCard(
-        id: 'due',
-        deckId: 'root',
-        dueDate: now.subtract(const Duration(hours: 1)),
-      ));
-      await cardRepo.create(makeCard(
-        id: 'not-due',
-        deckId: 'root',
-        dueDate: now.add(const Duration(days: 30)),
-      ));
+      await cardRepo.create(
+        makeCard(
+          id: 'due',
+          deckId: 'root',
+          dueDate: now.subtract(const Duration(hours: 1)),
+        ),
+      );
+      await cardRepo.create(
+        makeCard(
+          id: 'not-due',
+          deckId: 'root',
+          dueDate: now.add(const Duration(days: 30)),
+        ),
+      );
 
       final counts = await deckRepo.getAggregatedCounts('root');
       expect(counts.cardCount, 2);

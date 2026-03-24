@@ -37,7 +37,13 @@ void main() {
   }) {
     final now = DateTime.now();
     final created = createdAt ?? now;
-    return Deck(deckId: id, parentId: parentId, deckName: name, createdAt: created, updatedAt: updatedAt ?? created);
+    return Deck(
+      deckId: id,
+      parentId: parentId,
+      deckName: name,
+      createdAt: created,
+      updatedAt: updatedAt ?? created,
+    );
   }
 
   test('create + getById round-trip', () async {
@@ -124,8 +130,11 @@ void main() {
 
       // Query raw to see deleted row
       final db = await helper.database;
-      final rows = await db.query('decks',
-          where: 'deck_id = ?', whereArgs: ['deck-1']);
+      final rows = await db.query(
+        'decks',
+        where: 'deck_id = ?',
+        whereArgs: ['deck-1'],
+      );
       expect(rows.first['sync_status'], 'pending');
     });
 
@@ -135,9 +144,7 @@ void main() {
 
       // Mark 'a' as synced
       final a = await repo.getById('a');
-      await repo.markSynced({
-        'a': a!.updatedAt.toUtc().toIso8601String(),
-      });
+      await repo.markSynced({'a': a!.updatedAt.toUtc().toIso8601String()});
 
       final unsynced = await repo.getUnsynced();
       expect(unsynced, hasLength(1));
@@ -255,7 +262,12 @@ void main() {
 
       final descendants = await repo.getDescendantIds('parent');
       expect(descendants.length, 4); // parent + 2 children + 1 grandchild
-      expect(descendants.toSet(), {'parent', 'child-1', 'child-2', 'grandchild'});
+      expect(descendants.toSet(), {
+        'parent',
+        'child-1',
+        'child-2',
+        'grandchild',
+      });
     });
 
     test('returns only the deck itself if it has no children', () async {

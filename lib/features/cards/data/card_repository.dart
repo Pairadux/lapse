@@ -9,8 +9,8 @@ class CardRepository {
   final AuthService _authService;
 
   CardRepository({DatabaseHelper? dbHelper, AuthService? authService})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance,
-        _authService = authService ?? AuthService();
+    : _dbHelper = dbHelper ?? DatabaseHelper.instance,
+      _authService = authService ?? AuthService();
 
   Future<Flashcard> create(Flashcard card) async {
     final db = await _dbHelper.database;

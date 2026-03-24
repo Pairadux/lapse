@@ -35,7 +35,9 @@ void main() {
   /// Insert a parent deck to satisfy FK constraints.
   Future<void> insertParentDeck({String id = 'deck-1'}) async {
     final now = DateTime.now();
-    await deckRepo.create(Deck(deckId: id, deckName: 'Parent', createdAt: now, updatedAt: now));
+    await deckRepo.create(
+      Deck(deckId: id, deckName: 'Parent', createdAt: now, updatedAt: now),
+    );
   }
 
   Flashcard makeCard({
@@ -162,8 +164,11 @@ void main() {
       await cardRepo.delete('card-1');
 
       final db = await helper.database;
-      final rows = await db.query('cards',
-          where: 'card_id = ?', whereArgs: ['card-1']);
+      final rows = await db.query(
+        'cards',
+        where: 'card_id = ?',
+        whereArgs: ['card-1'],
+      );
       expect(rows.first['sync_status'], 'pending');
     });
 
@@ -395,7 +400,12 @@ void main() {
 
       await cardRepo.create(makeCard(id: 'c-very-past', dueDate: past));
       // Set c-recent due date to just after 'recent'
-      await cardRepo.create(makeCard(id: 'c-recent', dueDate: recent.add(const Duration(minutes: 1))));
+      await cardRepo.create(
+        makeCard(
+          id: 'c-recent',
+          dueDate: recent.add(const Duration(minutes: 1)),
+        ),
+      );
       await cardRepo.create(makeCard(id: 'c-future', dueDate: future));
 
       // Query as of now - should get both past cards
@@ -412,9 +422,15 @@ void main() {
       await insertParentDeck();
       final now = DateTime.now();
 
-      await cardRepo.create(makeCard(id: 'c1', dueDate: now.subtract(const Duration(hours: 3))));
-      await cardRepo.create(makeCard(id: 'c2', dueDate: now.subtract(const Duration(hours: 1))));
-      await cardRepo.create(makeCard(id: 'c3', dueDate: now.subtract(const Duration(hours: 2))));
+      await cardRepo.create(
+        makeCard(id: 'c1', dueDate: now.subtract(const Duration(hours: 3))),
+      );
+      await cardRepo.create(
+        makeCard(id: 'c2', dueDate: now.subtract(const Duration(hours: 1))),
+      );
+      await cardRepo.create(
+        makeCard(id: 'c3', dueDate: now.subtract(const Duration(hours: 2))),
+      );
 
       final due = await cardRepo.getDueCards('deck-1');
       expect(due.map((c) => c.cardId).toList(), ['c1', 'c3', 'c2']);

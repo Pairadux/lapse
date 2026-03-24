@@ -44,8 +44,8 @@ class ReviewSessionSummary extends Equatable {
     this.durationMs = 0,
     this.syncStatus = SyncStatus.synced,
     DateTime? updatedAt,
-  })  : id = id ?? _uuid.v4(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : id = id ?? _uuid.v4(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   /// Creates a summary from a completed study session.
   factory ReviewSessionSummary.fromSession({
@@ -162,21 +162,21 @@ class ReviewSessionSummary extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        userId,
-        date,
-        startedAt,
-        endedAt,
-        totalReviews,
-        againCount,
-        hardCount,
-        goodCount,
-        easyCount,
-        newCount,
-        learningCount,
-        reviewCount,
-        durationMs,
-        syncStatus,
-        updatedAt,
-      ];
+    id,
+    userId,
+    date,
+    startedAt,
+    endedAt,
+    totalReviews,
+    againCount,
+    hardCount,
+    goodCount,
+    easyCount,
+    newCount,
+    learningCount,
+    reviewCount,
+    durationMs,
+    syncStatus,
+    updatedAt,
+  ];
 }

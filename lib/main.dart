@@ -25,8 +25,9 @@ void main() async {
         size: const Size(1280, 720),
         minimumSize: const Size(400, 500),
         center: true,
-        titleBarStyle:
-            Platform.isMacOS ? TitleBarStyle.normal : TitleBarStyle.hidden,
+        titleBarStyle: Platform.isMacOS
+            ? TitleBarStyle.normal
+            : TitleBarStyle.hidden,
       ),
       () async {
         await windowManager.show();

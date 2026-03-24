@@ -26,10 +26,10 @@ abstract class AppColors {
   static const textOnPrimary = Color(0xFFFFFFFF);
 
   // Study rating colors - softer for dark theme friendliness
-  static const ratingAgain = Color(0xFFF87171);   // Soft red
-  static const ratingHard = Color(0xFFFBBF24);    // Warm amber
-  static const ratingGood = Color(0xFF4ADE80);    // Soft green
-  static const ratingEasy = Color(0xFF60A5FA);    // Soft blue
+  static const ratingAgain = Color(0xFFF87171); // Soft red
+  static const ratingHard = Color(0xFFFBBF24); // Warm amber
+  static const ratingGood = Color(0xFF4ADE80); // Soft green
+  static const ratingEasy = Color(0xFF60A5FA); // Soft blue
 
   // Semantic colors
   static const error = Color(0xFFF87171);

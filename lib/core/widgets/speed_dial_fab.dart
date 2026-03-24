@@ -145,8 +145,8 @@ class _SpeedDialItem extends StatelessWidget {
                 child: Text(
                   label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
             ),

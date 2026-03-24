@@ -10,8 +10,8 @@ class DeckRepository {
   final AuthService _authService;
 
   DeckRepository({DatabaseHelper? dbHelper, AuthService? authService})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance,
-        _authService = authService ?? AuthService();
+    : _dbHelper = dbHelper ?? DatabaseHelper.instance,
+      _authService = authService ?? AuthService();
 
   Future<Deck> create(Deck deck) async {
     final db = await _dbHelper.database;
@@ -77,7 +77,8 @@ class DeckRepository {
   /// Returns [deckId] plus all descendant deck IDs via a single recursive CTE.
   Future<List<String>> getDescendantIds(String deckId) async {
     final db = await _dbHelper.database;
-    final rows = await db.rawQuery('''
+    final rows = await db.rawQuery(
+      '''
       WITH RECURSIVE descendants(${DatabaseConstants.colDeckId}) AS (
         SELECT ${DatabaseConstants.colDeckId}
           FROM ${DatabaseConstants.tableDecks}
@@ -91,10 +92,10 @@ class DeckRepository {
          WHERE d.${DatabaseConstants.colIsDeleted} = 0
       )
       SELECT ${DatabaseConstants.colDeckId} FROM descendants
-    ''', [deckId]);
-    return rows
-        .map((r) => r[DatabaseConstants.colDeckId] as String)
-        .toList();
+    ''',
+      [deckId],
+    );
+    return rows.map((r) => r[DatabaseConstants.colDeckId] as String).toList();
   }
 
   /// Returns only root-level (no parent) decks, ordered by creation date.
@@ -208,11 +209,13 @@ class DeckRepository {
     ''', args);
 
     return rows
-        .map((row) => DeckWithCounts(
-              deck: Deck.fromMap(row),
-              cardCount: row['card_count'] as int,
-              dueCount: row['due_count'] as int,
-            ))
+        .map(
+          (row) => DeckWithCounts(
+            deck: Deck.fromMap(row),
+            cardCount: row['card_count'] as int,
+            dueCount: row['due_count'] as int,
+          ),
+        )
         .toList();
   }
 
@@ -224,7 +227,8 @@ class DeckRepository {
     final db = await _dbHelper.database;
     final now = DateTime.now().toUtc().toIso8601String();
 
-    final rows = await db.rawQuery('''
+    final rows = await db.rawQuery(
+      '''
       WITH RECURSIVE descendants(${DatabaseConstants.colDeckId}) AS (
         SELECT ${DatabaseConstants.colDeckId}
         FROM ${DatabaseConstants.tableDecks}
@@ -243,7 +247,9 @@ class DeckRepository {
       LEFT JOIN ${DatabaseConstants.tableCards} c
         ON c.${DatabaseConstants.colDeckId} = dt.${DatabaseConstants.colDeckId}
         AND c.${DatabaseConstants.colIsDeleted} = 0
-    ''', [deckId, now]);
+    ''',
+      [deckId, now],
+    );
 
     final row = rows.first;
     return (

@@ -11,7 +11,7 @@ class UserIdMigrationService {
   final DatabaseHelper _dbHelper;
 
   UserIdMigrationService({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+    : _dbHelper = dbHelper ?? DatabaseHelper.instance;
 
   /// Stamps all rows with `user_id = ''` with [authUserId] and sets
   /// their `sync_status` to `'pending'`.

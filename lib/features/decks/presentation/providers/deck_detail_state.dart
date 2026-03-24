@@ -24,8 +24,14 @@ class DeckDetailState extends Equatable {
   });
 
   @override
-  List<Object?> get props =>
-      [deck, ancestors, children, cards, totalCardCount, totalDueCount];
+  List<Object?> get props => [
+    deck,
+    ancestors,
+    children,
+    cards,
+    totalCardCount,
+    totalDueCount,
+  ];
 }
 
 /// Thrown when a deck ID resolves to null (deleted or never existed).

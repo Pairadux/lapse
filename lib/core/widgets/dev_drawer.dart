@@ -31,9 +31,9 @@ class DevDrawer extends StatelessWidget {
     if (context.mounted) {
       Navigator.pop(context);
       onDataChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Database cleared')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Database cleared')));
     }
   }
 
@@ -41,8 +41,7 @@ class DevDrawer extends StatelessWidget {
     final confirmed = await ConfirmDialog.show(
       context: context,
       title: 'Load mock data?',
-      message:
-          'This will add sample decks and cards. Existing data is kept.',
+      message: 'This will add sample decks and cards. Existing data is kept.',
       confirmLabel: 'Load',
     );
     if (!confirmed || !context.mounted) return;
@@ -51,9 +50,9 @@ class DevDrawer extends StatelessWidget {
     if (context.mounted) {
       Navigator.pop(context);
       onDataChanged?.call();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mock data loaded')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Mock data loaded')));
     }
   }
 
@@ -81,10 +80,26 @@ class DevDrawer extends StatelessWidget {
       (vocab.deckId, 'Por favor', 'Please'),
       (vocab.deckId, 'Buenos días', 'Good morning'),
       (grammar.deckId, 'Ser vs Estar', 'Ser = permanent, Estar = temporary'),
-      (grammar.deckId, 'Preterite vs Imperfect', 'Preterite = completed, Imperfect = ongoing/habitual'),
-      (dart.deckId, 'final vs const', 'final = runtime constant, const = compile-time constant'),
-      (dart.deckId, 'Null safety operator', 'Use ? for nullable, ! for assertion, ?? for fallback'),
-      (dart.deckId, 'async/await', 'async marks a function as returning a Future, await pauses until it completes'),
+      (
+        grammar.deckId,
+        'Preterite vs Imperfect',
+        'Preterite = completed, Imperfect = ongoing/habitual',
+      ),
+      (
+        dart.deckId,
+        'final vs const',
+        'final = runtime constant, const = compile-time constant',
+      ),
+      (
+        dart.deckId,
+        'Null safety operator',
+        'Use ? for nullable, ! for assertion, ?? for fallback',
+      ),
+      (
+        dart.deckId,
+        'async/await',
+        'async marks a function as returning a Future, await pauses until it completes',
+      ),
       (programming.deckId, 'Big O of binary search', 'O(log n)'),
       (programming.deckId, 'SOLID - S', 'Single Responsibility Principle'),
     ];
@@ -127,11 +142,13 @@ class DevDrawer extends StatelessWidget {
       deepLeafDeckId = deck.deckId;
     }
     // Add a card in the deepest deck so it's studyable
-    await cardRepo.create(Flashcard.newCard(
-      deckId: deepLeafDeckId,
-      front: 'Deep card front',
-      back: 'Deep card back',
-    ));
+    await cardRepo.create(
+      Flashcard.newCard(
+        deckId: deepLeafDeckId,
+        front: 'Deep card front',
+        back: 'Deep card back',
+      ),
+    );
 
     // -- Max-length content: names and card text at the enforced limits --
     // These lengths must stay in sync with the limits in DeckFormScreen
@@ -142,11 +159,13 @@ class DevDrawer extends StatelessWidget {
     final maxNameDeck = Deck.create(deckName: 'A' * maxDeckNameLength);
     await deckRepo.create(maxNameDeck);
 
-    await cardRepo.create(Flashcard.newCard(
-      deckId: maxNameDeck.deckId,
-      front: 'F' * maxCardTextLength,
-      back: 'B' * maxCardTextLength,
-    ));
+    await cardRepo.create(
+      Flashcard.newCard(
+        deckId: maxNameDeck.deckId,
+        front: 'F' * maxCardTextLength,
+        back: 'B' * maxCardTextLength,
+      ),
+    );
 
     // -- Large card count: 200 cards to stress list rendering --
     const bulkCardCount = 200;
@@ -154,22 +173,22 @@ class DevDrawer extends StatelessWidget {
     await deckRepo.create(bulkDeck);
 
     for (var i = 1; i <= bulkCardCount; i++) {
-      await cardRepo.create(Flashcard.newCard(
-        deckId: bulkDeck.deckId,
-        front: 'Card $i front',
-        back: 'Card $i back',
-      ));
+      await cardRepo.create(
+        Flashcard.newCard(
+          deckId: bulkDeck.deckId,
+          front: 'Card $i front',
+          back: 'Card $i back',
+        ),
+      );
     }
 
     // -- Minimal content: single character to test layout with short text --
     final minimalDeck = Deck.create(deckName: 'X');
     await deckRepo.create(minimalDeck);
 
-    await cardRepo.create(Flashcard.newCard(
-      deckId: minimalDeck.deckId,
-      front: 'A',
-      back: 'B',
-    ));
+    await cardRepo.create(
+      Flashcard.newCard(deckId: minimalDeck.deckId, front: 'A', back: 'B'),
+    );
   }
 
   @override
@@ -287,7 +306,9 @@ class _AnimationSpeedSliderState extends State<_AnimationSpeedSlider> {
               ),
               const Spacer(),
               Text(
-                _dilation == 1.0 ? 'Off' : '${_dilation.toStringAsFixed(1)}x slower',
+                _dilation == 1.0
+                    ? 'Off'
+                    : '${_dilation.toStringAsFixed(1)}x slower',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

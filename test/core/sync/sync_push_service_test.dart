@@ -42,10 +42,7 @@ class FakeQueryBuilder extends Fake implements SupabaseQueryBuilder {
 /// Fake that completes immediately when awaited with no value.
 class FakeFilterBuilder<T> extends Fake implements PostgrestFilterBuilder<T> {
   @override
-  Future<U> then<U>(
-    FutureOr<U> Function(T) onValue, {
-    Function? onError,
-  }) =>
+  Future<U> then<U>(FutureOr<U> Function(T) onValue, {Function? onError}) =>
       Future<T>.value(null as T).then(onValue, onError: onError);
 }
 
@@ -89,12 +86,12 @@ void main() {
   });
 
   SyncPushService buildService() => SyncPushService(
-        deckRepo: deckRepo,
-        cardRepo: cardRepo,
-        reviewRepo: reviewRepo,
-        summaryRepo: summaryRepo,
-        client: mockClient,
-      );
+    deckRepo: deckRepo,
+    cardRepo: cardRepo,
+    reviewRepo: reviewRepo,
+    summaryRepo: summaryRepo,
+    client: mockClient,
+  );
 
   Future<void> insertDeck({String id = 'deck-1', String name = 'Test'}) async {
     final now = DateTime.now();
@@ -108,22 +105,24 @@ void main() {
     String deckId = 'deck-1',
   }) async {
     final now = DateTime.now();
-    await cardRepo.create(Flashcard(
-      cardId: id,
-      deckId: deckId,
-      front: 'Q',
-      back: 'A',
-      createdAt: now,
-      updatedAt: now,
-      dueDate: now,
-      stability: 0,
-      difficulty: 0,
-      elapsedDays: 0,
-      scheduledDays: 0,
-      reps: 0,
-      lapses: 0,
-      cardState: CardState.newCard,
-    ));
+    await cardRepo.create(
+      Flashcard(
+        cardId: id,
+        deckId: deckId,
+        front: 'Q',
+        back: 'A',
+        createdAt: now,
+        updatedAt: now,
+        dueDate: now,
+        stability: 0,
+        difficulty: 0,
+        elapsedDays: 0,
+        scheduledDays: 0,
+        reps: 0,
+        lapses: 0,
+        cardState: CardState.newCard,
+      ),
+    );
   }
 
   test('push returns true when nothing is unsynced', () async {
@@ -251,19 +250,22 @@ void main() {
     }
   });
 
-  test('push with no client override returns false (Supabase not configured)', () async {
-    // Service without client override — relies on SupabaseConfig which is not
-    // initialized in tests.
-    final service = SyncPushService(
-      deckRepo: deckRepo,
-      cardRepo: cardRepo,
-      reviewRepo: reviewRepo,
-      summaryRepo: summaryRepo,
-    );
+  test(
+    'push with no client override returns false (Supabase not configured)',
+    () async {
+      // Service without client override — relies on SupabaseConfig which is not
+      // initialized in tests.
+      final service = SyncPushService(
+        deckRepo: deckRepo,
+        cardRepo: cardRepo,
+        reviewRepo: reviewRepo,
+        summaryRepo: summaryRepo,
+      );
 
-    final result = await service.push();
-    expect(result, isFalse);
-  });
+      final result = await service.push();
+      expect(result, isFalse);
+    },
+  );
 }
 
 /// Query builder whose [upsert] throws to simulate network failure.
@@ -282,10 +284,7 @@ class ThrowingQueryBuilder extends Fake implements SupabaseQueryBuilder {
 class ThrowingFilterBuilder<T> extends Fake
     implements PostgrestFilterBuilder<T> {
   @override
-  Future<U> then<U>(
-    FutureOr<U> Function(T) onValue, {
-    Function? onError,
-  }) =>
+  Future<U> then<U>(FutureOr<U> Function(T) onValue, {Function? onError}) =>
       Future<T>.error(
         Exception('Network error'),
         StackTrace.current,

@@ -83,10 +83,12 @@ void main() {
   });
 
   test('getDailyStats aggregates multiple sessions per day', () async {
-    await repo.add(makeSummary(
-        id: 's1', date: '2026-03-14', goodCount: 10, easyCount: 5));
-    await repo.add(makeSummary(
-        id: 's2', date: '2026-03-14', goodCount: 8, easyCount: 2));
+    await repo.add(
+      makeSummary(id: 's1', date: '2026-03-14', goodCount: 10, easyCount: 5),
+    );
+    await repo.add(
+      makeSummary(id: 's2', date: '2026-03-14', goodCount: 8, easyCount: 2),
+    );
 
     final stats = await repo.getDailyStats('2026-03-14', '2026-03-14');
     expect(stats, hasLength(1));

@@ -19,8 +19,8 @@ class SyncRealtimeService {
   SyncRealtimeService({
     required SupabaseClient client,
     required VoidCallback onRemoteChange,
-  })  : _client = client,
-        _onRemoteChange = onRemoteChange;
+  }) : _client = client,
+       _onRemoteChange = onRemoteChange;
 
   /// Subscribes to the user's private sync broadcast channel.
   void subscribe(String userId) {
@@ -31,10 +31,7 @@ class SyncRealtimeService {
       opts: const RealtimeChannelConfig(private: true),
     );
 
-    _channel!.onBroadcast(
-      event: 'sync_change',
-      callback: (_) => _onChange(),
-    );
+    _channel!.onBroadcast(event: 'sync_change', callback: (_) => _onChange());
 
     _channel!.subscribe((status, [error]) {
       if (status == RealtimeSubscribeStatus.subscribed) {

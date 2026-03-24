@@ -4,9 +4,10 @@ import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 
-final cardListProvider = AsyncNotifierProvider.family<CardListNotifier, List<Flashcard>, String>(
-  (arg) => CardListNotifier(arg),
-);
+final cardListProvider =
+    AsyncNotifierProvider.family<CardListNotifier, List<Flashcard>, String>(
+      (arg) => CardListNotifier(arg),
+    );
 
 class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
   CardListNotifier(this.deckId);

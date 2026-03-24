@@ -53,9 +53,9 @@ class SyncState {
   }
 }
 
-final syncServiceProvider =
-    NotifierProvider<SyncServiceNotifier, SyncState>(SyncServiceNotifier.new);
-
+final syncServiceProvider = NotifierProvider<SyncServiceNotifier, SyncState>(
+  SyncServiceNotifier.new,
+);
 
 /// Orchestrates sync push/pull, debounced writes, and app lifecycle triggers.
 class SyncServiceNotifier extends Notifier<SyncState> {
@@ -271,10 +271,7 @@ class SyncServiceNotifier extends Notifier<SyncState> {
       final message = parts.isNotEmpty ? parts.join('. ') : 'Sync complete';
 
       if (ok) {
-        state = state.copyWith(
-          isSyncing: false,
-          lastSyncTime: DateTime.now(),
-        );
+        state = state.copyWith(isSyncing: false, lastSyncTime: DateTime.now());
         // Refresh the deck list so UI reflects any pulled changes.
         ref.invalidate(deckListProvider);
         return SyncResult.success(message);

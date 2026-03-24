@@ -6,7 +6,8 @@ import 'package:lapse/features/study/domain/review.dart';
 class ReviewRepository {
   final DatabaseHelper _dbHelper;
 
-  ReviewRepository({DatabaseHelper? dbHelper}) : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+  ReviewRepository({DatabaseHelper? dbHelper})
+    : _dbHelper = dbHelper ?? DatabaseHelper.instance;
 
   // Persists a new review record to the database
   Future<void> addReview(Review review) async {

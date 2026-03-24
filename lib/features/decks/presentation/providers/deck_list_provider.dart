@@ -6,8 +6,8 @@ import 'package:lapse/features/decks/domain/deck_with_counts.dart';
 
 final deckListProvider =
     AsyncNotifierProvider<DeckListNotifier, List<DeckWithCounts>>(
-  DeckListNotifier.new,
-);
+      DeckListNotifier.new,
+    );
 
 class DeckListNotifier extends AsyncNotifier<List<DeckWithCounts>> {
   @override

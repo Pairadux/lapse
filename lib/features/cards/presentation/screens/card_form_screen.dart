@@ -134,13 +134,10 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         final label = widget.isEditing
             ? 'Card updated'
             : _createdCount > 0
-                ? '${_createdCount + 1} cards created'
-                : 'Card created';
+            ? '${_createdCount + 1} cards created'
+            : 'Card created';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(label),
-            duration: const Duration(seconds: 2),
-          ),
+          SnackBar(content: Text(label), duration: const Duration(seconds: 2)),
         );
         context.pop();
       }
@@ -240,8 +237,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
           shortcuts: const {
             SingleActivator(LogicalKeyboardKey.enter, shift: true):
                 _SaveAndAddAnotherIntent(),
-            SingleActivator(LogicalKeyboardKey.enter, alt: true):
-                _SaveIntent(),
+            SingleActivator(LogicalKeyboardKey.enter, alt: true): _SaveIntent(),
           },
           child: Actions(
             actions: {
@@ -253,15 +249,15 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
               ),
               _SaveAndAddAnotherIntent:
                   CallbackAction<_SaveAndAddAnotherIntent>(
-                onInvoke: (intent) {
-                  if (widget.isEditing) {
-                    _save();
-                  } else {
-                    _saveAndAddAnother();
-                  }
-                  return null;
-                },
-              ),
+                    onInvoke: (intent) {
+                      if (widget.isEditing) {
+                        _save();
+                      } else {
+                        _saveAndAddAnother();
+                      }
+                      return null;
+                    },
+                  ),
             },
             child: Form(
               key: _formKey,
@@ -299,9 +295,9 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             child: Text(
               '$_createdCount card${_createdCount == 1 ? '' : 's'} added',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                color: AppColors.primary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         TextFormField(
@@ -343,9 +339,9 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             Expanded(
               child: Text(
                 '**bold**  *italic*  `code`  # heading  - list  > quote',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textTertiary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
               ),
             ),
             const SizedBox(width: Spacing.sm),
@@ -363,10 +359,10 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
                   Text(
                     'Preview',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textTertiary,
-                          decoration: TextDecoration.underline,
-                          decorationColor: AppColors.textTertiary,
-                        ),
+                      color: AppColors.textTertiary,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.textTertiary,
+                    ),
                   ),
                 ],
               ),
@@ -416,10 +412,9 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       children: [
         Text(
           label,
-          style: Theme.of(context)
-              .textTheme
-              .labelMedium
-              ?.copyWith(color: AppColors.textSecondary),
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: Spacing.sm),
         MarkdownBody(
@@ -427,10 +422,9 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
           onTapLink: (text, href, title) {
             if (href != null) launchUrl(Uri.parse(href));
           },
-          styleSheet:
-              MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-            p: Theme.of(context).textTheme.bodyLarge,
-          ),
+          styleSheet: MarkdownStyleSheet.fromTheme(
+            Theme.of(context),
+          ).copyWith(p: Theme.of(context).textTheme.bodyLarge),
         ),
       ],
     );
@@ -451,10 +445,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       decoration: BoxDecoration(
         color: AppColors.background,
         border: Border(
-          top: BorderSide(
-            color: AppColors.outlineVariant,
-            width: 0.5,
-          ),
+          top: BorderSide(color: AppColors.outlineVariant, width: 0.5),
         ),
       ),
       child: SafeArea(

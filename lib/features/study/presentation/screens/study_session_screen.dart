@@ -123,15 +123,16 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    _dismissController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    )..addListener(() {
-        final value = _dismissController.value;
-        if (value != _dismissOffset) {
-          setState(() => _dismissOffset = value);
-        }
-      });
+    _dismissController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 200),
+        )..addListener(() {
+          final value = _dismissController.value;
+          if (value != _dismissOffset) {
+            setState(() => _dismissOffset = value);
+          }
+        });
     ref.read(syncServiceProvider.notifier).pause();
     _loadCards();
   }
@@ -597,30 +598,21 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
                     onTapLink: (text, href, title) {
                       if (href != null) launchUrl(Uri.parse(href));
                     },
-                    styleSheet: MarkdownStyleSheet.fromTheme(
-                      Theme.of(context),
-                    ).copyWith(
-                      p: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.normal),
-                      strong: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                      textAlign: WrapAlignment.center,
-                      listBullet: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.normal),
-                      blockquote: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(
-                            fontWeight: FontWeight.normal,
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                        .copyWith(
+                          p: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.normal),
+                          strong: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                          textAlign: WrapAlignment.center,
+                          listBullet: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.normal),
+                          blockquote: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.normal,
+                                color: AppColors.textSecondary,
+                              ),
+                        ),
                   ),
                 ),
               ),
@@ -653,10 +645,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
             child: Text(
               'Tap to reveal',
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.textTertiary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
             ),
           ),
         ],
@@ -693,7 +684,8 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
               dismissProgress: isDesktop ? _dismissOffset : _swipeProgress,
               topCard: LayoutBuilder(
                 builder: (context, constraints) {
-                  final dx = -constraints.maxWidth *
+                  final dx =
+                      -constraints.maxWidth *
                       Curves.easeIn.transform(_dismissOffset);
                   return Transform.translate(
                     offset: Offset(dx, 0),

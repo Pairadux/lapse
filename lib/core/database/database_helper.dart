@@ -14,8 +14,8 @@ class DatabaseHelper {
   final bool _forTesting;
 
   DatabaseHelper._({String? dbName})
-      : _dbName = dbName ?? DatabaseConstants.databaseName,
-        _forTesting = false;
+    : _dbName = dbName ?? DatabaseConstants.databaseName,
+      _forTesting = false;
   static final DatabaseHelper instance = DatabaseHelper._();
 
   /// Creates an independent instance with its own DB file for testing.
@@ -23,8 +23,8 @@ class DatabaseHelper {
   /// a Flutter engine.
   @visibleForTesting
   DatabaseHelper.forTesting({String dbName = 'test.db'})
-      : _dbName = dbName,
-        _forTesting = true;
+    : _dbName = dbName,
+      _forTesting = true;
 
   Database? _database;
 
@@ -100,7 +100,9 @@ class DatabaseHelper {
     final columns = await db.rawQuery(
       'PRAGMA table_info(${DatabaseConstants.tableCards})',
     );
-    final hasStep = columns.any((col) => col['name'] == DatabaseConstants.colStep);
+    final hasStep = columns.any(
+      (col) => col['name'] == DatabaseConstants.colStep,
+    );
     if (!hasStep) {
       await db.execute(
         'ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colStep} INTEGER',
@@ -169,8 +171,10 @@ class DatabaseHelper {
           DatabaseConstants.colCardId: row[DatabaseConstants.colCardId],
           DatabaseConstants.colReviewedAt: row[DatabaseConstants.colReviewedAt],
           DatabaseConstants.colRating: row[DatabaseConstants.colRating],
-          DatabaseConstants.colScheduledDays: row[DatabaseConstants.colScheduledDays],
-          DatabaseConstants.colElapsedDays: row[DatabaseConstants.colElapsedDays],
+          DatabaseConstants.colScheduledDays:
+              row[DatabaseConstants.colScheduledDays],
+          DatabaseConstants.colElapsedDays:
+              row[DatabaseConstants.colElapsedDays],
           DatabaseConstants.colState: row[DatabaseConstants.colState],
           DatabaseConstants.colUserId: row[DatabaseConstants.colUserId],
           DatabaseConstants.colSyncStatus: row[DatabaseConstants.colSyncStatus],
@@ -181,7 +185,9 @@ class DatabaseHelper {
 
     // Swap tables
     await db.execute('DROP TABLE ${DatabaseConstants.tableReviews}');
-    await db.execute('ALTER TABLE reviews_v2 RENAME TO ${DatabaseConstants.tableReviews}');
+    await db.execute(
+      'ALTER TABLE reviews_v2 RENAME TO ${DatabaseConstants.tableReviews}',
+    );
 
     // Recreate indexes
     await db.execute(DatabaseConstants.createIndexReviewsCardId);

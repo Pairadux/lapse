@@ -25,9 +25,7 @@ class DeckListScreen extends ConsumerWidget {
         leading: Builder(
           builder: (ctx) => IconButton(
             icon: const Icon(Icons.menu),
-            onPressed: kDebugMode
-                ? () => Scaffold.of(ctx).openDrawer()
-                : null,
+            onPressed: kDebugMode ? () => Scaffold.of(ctx).openDrawer() : null,
           ),
         ),
         title: const Text('Decks'),
@@ -39,9 +37,7 @@ class DeckListScreen extends ConsumerWidget {
         ],
       ),
       drawer: kDebugMode
-          ? DevDrawer(
-              onDataChanged: () => ref.invalidate(deckListProvider),
-            )
+          ? DevDrawer(onDataChanged: () => ref.invalidate(deckListProvider))
           : null,
       body: asyncDecks.when(
         loading: () => const SizedBox.shrink(),
@@ -117,8 +113,7 @@ class _DeckList extends ConsumerWidget {
           final confirmed = await ConfirmDialog.show(
             context: context,
             title: 'Delete deck?',
-            message:
-                'This will delete "${deck.deckName}" and all its cards.',
+            message: 'This will delete "${deck.deckName}" and all its cards.',
             confirmLabel: 'Delete',
             isDestructive: true,
           );
@@ -134,9 +129,9 @@ class _DeckList extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
       }
     }
   }

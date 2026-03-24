@@ -57,7 +57,10 @@ void main() {
       expect(result.session, isNotNull);
       expect(result.session.deckId, equals(session.deckId));
       expect(result.session.currentIndex, equals(session.currentIndex + 1));
-      expect(result.session.completedReviews.length, equals(session.completedReviews.length + 1));
+      expect(
+        result.session.completedReviews.length,
+        equals(session.completedReviews.length + 1),
+      );
       expect(result.session.goodCount, equals(session.goodCount + 1));
     });
   });
