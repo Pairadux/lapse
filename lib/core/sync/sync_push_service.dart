@@ -105,7 +105,7 @@ class SyncPushService {
             (await _reviewRepo.getUnsynced()).map((r) => r.toMap()).toList(),
         upsert: (rows) => client
             .from(DatabaseConstants.tableReviews)
-            .upsert(rows, onConflict: DatabaseConstants.colReviewId),
+            .upsert(rows, onConflict: DatabaseConstants.colReviewId, ignoreDuplicates: true),
         markSynced: (rows) => _reviewRepo.markSynced(
           rows.map((r) => r[DatabaseConstants.colReviewId] as String).toList(),
         ),
