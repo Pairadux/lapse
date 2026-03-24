@@ -45,7 +45,7 @@ CREATE TRIGGER trg_reviews_sync_broadcast
 
 -- Review session summaries
 CREATE TRIGGER trg_summaries_sync_broadcast
-  AFTER INSERT OR UPDATE OR DELETE ON public.review_session_summaries
+  AFTER INSERT OR UPDATE OR DELETE ON public.review_session_summary
   FOR EACH ROW EXECUTE FUNCTION public.broadcast_sync_change();
 
 COMMIT;
