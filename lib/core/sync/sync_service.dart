@@ -169,6 +169,8 @@ class SyncServiceNotifier extends Notifier<SyncState> {
       final userId = data.session?.user.id;
       if (userId != null) {
         _realtimeService?.subscribe(userId);
+        // Sync on sign-in and on cold launch with a persisted session.
+        _doSync();
       }
     } else if (event == AuthChangeEvent.signedOut) {
       _realtimeService?.unsubscribe();
