@@ -173,6 +173,15 @@ class SyncServiceNotifier extends Notifier<SyncState> {
         // Sync on sign-in and on cold launch with a persisted session.
         _doSync();
       }
+    } else if (event == AuthChangeEvent.tokenRefreshed) {
+      // Re-subscribe so the Realtime channel picks up the fresh JWT.
+      // Without this, a cold start with an expired persisted token leaves
+      // the channel broken until the next manual sign-in.
+      final userId = data.session?.user.id;
+      if (userId != null) {
+        debugPrint('[SyncService] Token refreshed — re-subscribing Realtime');
+        _realtimeService?.subscribe(userId);
+      }
     } else if (event == AuthChangeEvent.signedOut) {
       _realtimeService?.unsubscribe();
     }
