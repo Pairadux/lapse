@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 import 'package:lapse/features/study/application/study_session_service.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
 
-final studySessionProvider = AsyncNotifierProvider.autoDispose<
-    StudySessionNotifier, StudySession?>(
+final studySessionProvider = AsyncNotifierProvider.autoDispose<StudySessionNotifier, StudySession?>(
   StudySessionNotifier.new,
 );
 
@@ -39,9 +39,7 @@ class StudySessionNotifier extends AsyncNotifier<StudySession?> {
         allCards.addAll(cards);
       }
 
-      final sessionDeckId = deckIds.length == 1
-          ? deckIds.first
-          : 'multi:${deckIds.join(",")}';
+      final sessionDeckId = deckIds.length == 1 ? deckIds.first : 'multi:${deckIds.join(",")}';
       final session = _service.startSession(sessionDeckId, allCards);
       return session;
     });
@@ -56,6 +54,7 @@ class StudySessionNotifier extends AsyncNotifier<StudySession?> {
       final result = _service.rateCard(session, card, rating);
       await ref.read(cardRepositoryProvider).update(result.updatedCard);
       ref.invalidate(deckListProvider);
+      ref.invalidate(deckDetailProvider(result.session.deckId));
       return result.session;
     });
   }
