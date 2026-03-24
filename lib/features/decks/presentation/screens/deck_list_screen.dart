@@ -40,26 +40,18 @@ class DeckListScreen extends ConsumerWidget {
       drawer: kDebugMode
           ? DevDrawer(onDataChanged: () => ref.invalidate(deckListProvider))
           : null,
-      body: Stack(
-        children: [
-          asyncDecks.when(
-            loading: () => const SizedBox.shrink(),
-            error: (e, _) => Center(child: Text('Failed to load decks: $e')),
-            data: (decks) => _DeckList(decks: decks),
-          ),
-          Positioned(
-            right: Spacing.md,
-            bottom: Spacing.md,
-            child: FloatingActionButton(
-              heroTag: 'deck_list_fab',
-              onPressed: () async {
-                await context.push(Routes.deckNew);
-                ref.invalidate(deckListProvider);
-              },
-              child: const Icon(Icons.add),
-            ),
-          ),
-        ],
+      body: asyncDecks.when(
+        loading: () => const SizedBox.shrink(),
+        error: (e, _) => Center(child: Text('Failed to load decks: $e')),
+        data: (decks) => _DeckList(decks: decks),
+      ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'deck_list_fab',
+        onPressed: () async {
+          await context.push(Routes.deckNew);
+          ref.invalidate(deckListProvider);
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -82,7 +74,7 @@ class _DeckList extends ConsumerWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(top: Spacing.sm, bottom: 76),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
       itemCount: decks.length,
       itemBuilder: (context, index) {
         final item = decks[index];

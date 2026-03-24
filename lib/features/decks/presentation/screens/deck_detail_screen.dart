@@ -287,26 +287,18 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          body,
-          Positioned(
-            right: Spacing.md,
-            bottom: Spacing.md,
-            child: SpeedDialFab(
-              actions: [
-                SpeedDialAction(
-                  icon: Icons.style_outlined,
-                  label: 'New Card',
-                  onPressed: () => context.push(Routes.cardNewPath(widget.deckId)),
-                ),
-                SpeedDialAction(
-                  icon: Icons.folder_outlined,
-                  label: 'New Deck',
-                  onPressed: () => context.push(Routes.deckNew, extra: widget.deckId),
-                ),
-              ],
-            ),
+      body: body,
+      floatingActionButton: SpeedDialFab(
+        actions: [
+          SpeedDialAction(
+            icon: Icons.style_outlined,
+            label: 'New Card',
+            onPressed: () => context.push(Routes.cardNewPath(widget.deckId)),
+          ),
+          SpeedDialAction(
+            icon: Icons.folder_outlined,
+            label: 'New Deck',
+            onPressed: () => context.push(Routes.deckNew, extra: widget.deckId),
           ),
         ],
       ),
@@ -428,8 +420,6 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               ),
             ),
           ),
-        // Clear the FAB so the last item isn't obscured.
-        const SliverPadding(padding: EdgeInsets.only(bottom: 76)),
       ],
     );
   }

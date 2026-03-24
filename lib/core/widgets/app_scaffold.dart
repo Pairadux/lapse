@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../routing/routes.dart';
-import '../theme/spacing.dart';
 import 'dev_drawer.dart';
 
 class AppScaffold extends StatelessWidget {
@@ -29,21 +28,6 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Position the FAB manually so Scaffold doesn't push the snackbar
-    // above it — instead they render side-by-side at the bottom.
-    final content = floatingActionButton != null
-        ? Stack(
-            children: [
-              body,
-              Positioned(
-                right: Spacing.md,
-                bottom: Spacing.md,
-                child: floatingActionButton!,
-              ),
-            ],
-          )
-        : body;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
@@ -78,7 +62,8 @@ class AppScaffold extends StatelessWidget {
         ],
       ),
       drawer: kDebugMode ? DevDrawer(onDataChanged: onDataChanged) : null,
-      body: content,
+      body: body,
+      floatingActionButton: floatingActionButton,
     );
   }
 }

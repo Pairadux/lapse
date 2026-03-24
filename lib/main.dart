@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:toastification/toastification.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/database/database_helper.dart';
@@ -52,7 +53,8 @@ class LapseApp extends ConsumerWidget {
     // Eagerly initialize sync service so lifecycle listener starts immediately.
     ref.watch(syncServiceProvider);
 
-    return MaterialApp.router(
+    return ToastificationWrapper(
+      child: MaterialApp.router(
       title: 'Lapse',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
@@ -73,6 +75,7 @@ class LapseApp extends ConsumerWidget {
 
         return content;
       },
+      ),
     );
   }
 }
