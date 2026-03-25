@@ -98,7 +98,7 @@ bump *args:
     fi
     new_version="${major}.${minor}.${patch}"
     new_build=$((build + 1))
-    sed -i'' -e "s/^version: .*/version: ${new_version}+${new_build}/" pubspec.yaml
+    sed -i '' "s/^version: .*/version: ${new_version}+${new_build}/" pubspec.yaml
     files="pubspec.yaml"
     if [ "$generate_migration" = true ]; then
         timestamp=$(date -u +"%Y%m%d%H%M%S")
