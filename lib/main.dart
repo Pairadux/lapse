@@ -33,6 +33,9 @@ void main() async {
             : TitleBarStyle.hidden,
       ),
       () async {
+        if (Platform.isLinux || Platform.isWindows) {
+          await windowManager.setIcon('assets/icons/icon-other.png');
+        }
         await windowManager.show();
         await windowManager.focus();
       },
