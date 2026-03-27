@@ -58,8 +58,25 @@ outdated:
 icons:
     dart run flutter_launcher_icons
 
+# Push pending Supabase migrations to remote database
+db-push:
+    npx supabase db push
+
+# Reset local Supabase database to clean state
+db-reset:
+    npx supabase db reset
+
+# Generate a migration from schema changes
+db-diff name:
+    npx supabase db diff --use-migra -f {{name}}
+
+# Show migration status (applied vs pending)
+db-status:
+    npx supabase migration list
+
 # Bump version: `just bump --minor`, `just bump 1.2.3`
 # Add -m/--migration to also generate a Supabase min_app_version migration
+# Add -n/--dry-run to preview changes without modifying anything
 bump *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -67,6 +84,7 @@ bump *args:
     build=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f2)
     IFS='.' read -r major minor patch <<< "$current"
     generate_migration=false
+    dry_run=false
     version_action=""
     for arg in {{args}}; do
         case "$arg" in
@@ -82,7 +100,8 @@ bump *args:
                 esac
                 ;;
             -m|--migration) generate_migration=true ;;
-            --*|-*) echo "Unknown flag: $arg. Use --major/--minor/--patch, -m/--migration, or a version string."; exit 1 ;;
+            -n|--dry-run) dry_run=true ;;
+            --*|-*) echo "Unknown flag: $arg. Use --major/--minor/--patch, -m/--migration, -n/--dry-run, or a version string."; exit 1 ;;
             *)
                 if [ -n "$version_action" ]; then
                     echo "Error: cannot combine $version_action and a version string"; exit 1
@@ -93,13 +112,38 @@ bump *args:
         esac
     done
     if [ -z "$version_action" ]; then
-        echo "Usage: just bump <version|--major|--minor|--patch> [-m|--migration]"
+        echo "Usage: just bump <version|--major|--minor|--patch> [-m|--migration] [-n|--dry-run]"
         exit 1
     fi
     new_version="${major}.${minor}.${patch}"
     new_build=$((build + 1))
+    release_date=$(date -u +"%Y-%m-%d")
+    if [ "$dry_run" = true ]; then
+        echo "Dry run — no files will be modified"
+        echo ""
+        echo "Version: ${current}+${build} -> ${new_version}+${new_build}"
+        echo ""
+        echo "pubspec.yaml:"
+        echo "  version: ${new_version}+${new_build}"
+        echo ""
+        echo "linux/packaging/co.lapseapp.Lapse.metainfo.xml:"
+        echo "  + <release version=\"${new_version}\" date=\"${release_date}\">"
+        if [ "$generate_migration" = true ]; then
+            echo ""
+            echo "Supabase migration:"
+            echo "  + UPDATE public.app_config SET value = '${new_version}' WHERE key = 'min_app_version';"
+        fi
+        echo ""
+        echo "Git: commit, tag v${new_version}, push"
+        exit 0
+    fi
     sed -i '' "s/^version: .*/version: ${new_version}+${new_build}/" pubspec.yaml
-    files="pubspec.yaml"
+    metainfo="linux/packaging/co.lapseapp.Lapse.metainfo.xml"
+    release_entry=$(mktemp)
+    printf '    <release version="%s" date="%s">\n      <description>\n        <p>New release.</p>\n      </description>\n    </release>\n' "$new_version" "$release_date" > "$release_entry"
+    sed -i '' "/<releases>/r ${release_entry}" "$metainfo"
+    rm "$release_entry"
+    files="pubspec.yaml $metainfo"
     if [ "$generate_migration" = true ]; then
         timestamp=$(date -u +"%Y%m%d%H%M%S")
         migration="supabase/migrations/${timestamp}_bump_min_app_version.sql"
