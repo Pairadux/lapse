@@ -1,0 +1,50 @@
+# Flatpak manifest for Lapse
+# This file is maintained in the main repo for reference and local testing.
+# The authoritative copy lives in the Flathub-managed repo after submission.
+#
+# Local testing:
+#   flatpak-builder --user --install --force-clean build co.lapseapp.Lapse.yml
+#   flatpak run co.lapseapp.Lapse
+
+app-id: co.lapseapp.Lapse
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: lapse
+
+finish-args:
+  - --share=network        # Supabase sync
+  - --share=ipc            # X11 shared memory
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri           # GPU acceleration
+
+modules:
+  - name: lapse
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 bundle/lapse /app/bin/lapse
+      - cp -r bundle/data /app/data
+      - cp -r bundle/lib /app/lib
+      - install -Dm644 co.lapseapp.Lapse.desktop /app/share/applications/co.lapseapp.Lapse.desktop
+      - install -Dm644 co.lapseapp.Lapse.metainfo.xml /app/share/metainfo/co.lapseapp.Lapse.metainfo.xml
+      - install -Dm644 lapse.png /app/share/icons/hicolor/256x256/apps/co.lapseapp.Lapse.png
+    sources:
+      # The Flutter build bundle as a tar.gz from the GitHub Release.
+      # NOTE: The release workflow currently publishes an AppImage, not a raw
+      # bundle tar.gz. Before Flathub submission, either:
+      #   1. Add a tar.gz artifact to the release workflow, or
+      #   2. Use flatpak-flutter to build from source in the sandbox.
+      # Update the url and sha256 for each release.
+      - type: archive
+        url: https://github.com/Pairadux/lapse/releases/download/v0.4.1/lapse-0.4.1-linux-x86_64.tar.gz
+        sha256: TODO  # Replace with actual SHA256
+        dest: bundle
+      - type: file
+        path: ../packaging/co.lapseapp.Lapse.desktop
+      - type: file
+        path: ../packaging/co.lapseapp.Lapse.metainfo.xml
+      - type: file
+        url: https://raw.githubusercontent.com/Pairadux/lapse/main/assets/icons/icon-other.png
+        sha256: TODO  # Replace with actual SHA256
+        dest-filename: lapse.png

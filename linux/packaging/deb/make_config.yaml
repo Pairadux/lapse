@@ -1,0 +1,12 @@
+display_name: Lapse
+package_name: lapse
+maintainer: Pairadux
+icon: assets/icons/icon-other.png
+generic_name: Flashcard Study App
+categories:
+  - Education
+keywords:
+  - flashcards
+  - spaced repetition
+  - study
+startup_notify: true
