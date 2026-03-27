@@ -5,6 +5,8 @@ import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_detail_state.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 
+const int _cardPageSize = 50;
+
 final deckDetailProvider =
     AsyncNotifierProvider.family<DeckDetailNotifier, DeckDetailState, String>(
       (arg) => DeckDetailNotifier(arg),
@@ -27,7 +29,7 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
       deckRepo.getById(deckId),
       deckRepo.getAncestors(deckId),
       deckRepo.getDecksWithCounts(parentId: deckId),
-      cardRepo.getByDeckId(deckId),
+      cardRepo.getByDeckId(deckId, limit: _cardPageSize, offset: 0),
       deckRepo.getAggregatedCounts(deckId),
     ).wait;
 
@@ -38,9 +40,54 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
       ancestors: ancestors,
       children: children,
       cards: cards,
+      hasMoreCards: cards.length == _cardPageSize,
+      isLoadingMoreCards: false,
       totalCardCount: counts.cardCount,
       totalDueCount: counts.dueCount,
     );
+  }
+
+  Future<void> loadMoreCards() async {
+    final current = state.asData?.value;
+    if (current == null ||
+        current.isLoadingMoreCards ||
+        !current.hasMoreCards) {
+      return;
+    }
+
+    state = AsyncData(current.copyWith(isLoadingMoreCards: true));
+
+    try {
+      final cardRepo = ref.read(cardRepositoryProvider);
+      // Offset pagination can skip/duplicate items if mid-list mutations
+      // shift rows. Acceptable for now; keyset pagination is more robust
+      // if this becomes a problem.
+      final nextCards = await cardRepo.getByDeckId(
+        deckId,
+        limit: _cardPageSize,
+        offset: current.cards.length,
+      );
+
+      if (nextCards.isEmpty) {
+        state = AsyncData(
+          current.copyWith(
+            hasMoreCards: false,
+            isLoadingMoreCards: false,
+          ),
+        );
+        return;
+      }
+
+      state = AsyncData(
+        current.copyWith(
+          cards: [...current.cards, ...nextCards],
+          hasMoreCards: nextCards.length == _cardPageSize,
+          isLoadingMoreCards: false,
+        ),
+      );
+    } catch (_) {
+      state = AsyncData(current.copyWith(isLoadingMoreCards: false));
+    }
   }
 
   Future<void> deleteChildDeck(String childDeckId) async {
@@ -51,7 +98,29 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
 
   Future<void> deleteCard(String cardId) async {
     await ref.read(cardRepositoryProvider).delete(cardId);
-    ref.invalidateSelf();
     ref.invalidate(deckListProvider);
+
+    final current = state.asData?.value;
+    if (current == null) return;
+
+    final cardIndex = current.cards.indexWhere((c) => c.cardId == cardId);
+    if (cardIndex == -1) return;
+
+    final deletedCard = current.cards[cardIndex];
+    final updatedCards = [...current.cards]..removeAt(cardIndex);
+    final now = DateTime.now();
+    final wasDue = !deletedCard.dueDate.isAfter(now);
+
+    state = AsyncData(
+      current.copyWith(
+        cards: updatedCards,
+        totalCardCount: current.totalCardCount > 0
+            ? current.totalCardCount - 1
+            : 0,
+        totalDueCount: wasDue && current.totalDueCount > 0
+            ? current.totalDueCount - 1
+            : current.totalDueCount,
+      ),
+    );
   }
 }

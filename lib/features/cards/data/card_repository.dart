@@ -37,13 +37,28 @@ class CardRepository {
     return Flashcard.fromMap(rows.first);
   }
 
-  Future<List<Flashcard>> getByDeckId(String deckId) async {
+  /// Returns non-deleted cards for [deckId], ordered by creation time.
+  /// Optional [limit]/[offset] support pagination.
+  Future<List<Flashcard>> getByDeckId(
+    String deckId, {
+    int? limit,
+    int? offset,
+  }) async {
+    if (limit != null && limit <= 0) {
+      throw ArgumentError.value(limit, 'limit', 'must be > 0');
+    }
+    if (offset != null && offset < 0) {
+      throw ArgumentError.value(offset, 'offset', 'must be >= 0');
+    }
     final db = await _dbHelper.database;
     final rows = await db.query(
       DatabaseConstants.tableCards,
       where:
           '${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
       whereArgs: [deckId],
+      orderBy: DatabaseConstants.colCreatedAt,
+      limit: limit,
+      offset: offset,
     );
     return rows.map(Flashcard.fromMap).toList();
   }

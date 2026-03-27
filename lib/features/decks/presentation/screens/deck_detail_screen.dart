@@ -42,6 +42,13 @@ class DeckDetailScreen extends ConsumerStatefulWidget {
 class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     with RouteAware {
   final ScrollController _breadcrumbScrollController = ScrollController();
+  final ScrollController _cardsScrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _cardsScrollController.addListener(_onCardsScroll);
+  }
 
   @override
   void didChangeDependencies() {
@@ -56,6 +63,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
   void dispose() {
     routeObserver.unsubscribe(this);
     _breadcrumbScrollController.dispose();
+    _cardsScrollController.dispose();
     super.dispose();
   }
 
@@ -64,6 +72,23 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
   @override
   void didPopNext() {
     ref.invalidate(deckDetailProvider(widget.deckId));
+  }
+
+  void _onCardsScroll() {
+    if (!_cardsScrollController.hasClients) return;
+
+    const loadMoreThreshold = 320.0;
+    final extentAfter = _cardsScrollController.position.extentAfter;
+    if (extentAfter > loadMoreThreshold) return;
+
+    final detail = ref.read(deckDetailProvider(widget.deckId)).asData?.value;
+    if (detail == null ||
+        !detail.hasMoreCards ||
+        detail.isLoadingMoreCards) {
+      return;
+    }
+
+    ref.read(deckDetailProvider(widget.deckId).notifier).loadMoreCards();
   }
 
   // ── Navigation helpers ──────────────────────────────────────────
@@ -349,6 +374,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     }
 
     return CustomScrollView(
+      controller: _cardsScrollController,
       slivers: [
         SliverToBoxAdapter(
           child: _buildHeader(
@@ -414,10 +440,16 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           SliverPadding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildCardItem(detail.cards[index]),
-                childCount: detail.cards.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                if (index < detail.cards.length) {
+                  return _buildCardItem(detail.cards[index]);
+                }
+                return _buildLoadMoreIndicator(
+                  isLoading: detail.isLoadingMoreCards,
+                );
+              },
+              childCount:
+                  detail.cards.length + (detail.hasMoreCards ? 1 : 0)),
             ),
           ),
         const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
@@ -534,6 +566,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLoadMoreIndicator({required bool isLoading}) {
+    if (!isLoading) return const SizedBox.shrink();
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: Spacing.lg),
+      child: LoadingIndicator(size: 20),
     );
   }
 

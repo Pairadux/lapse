@@ -367,6 +367,65 @@ void main() {
     });
   });
 
+  group('getByDeckId pagination', () {
+    test('limit and offset return the correct page', () async {
+      await insertParentDeck(id: 'deck-a');
+      final base = DateTime(2026, 1, 1);
+      for (var i = 1; i <= 5; i++) {
+        await cardRepo.create(
+          makeCard(
+            id: 'c$i',
+            deckId: 'deck-a',
+            createdAt: base.add(Duration(seconds: i)),
+          ),
+        );
+      }
+
+      final page = await cardRepo.getByDeckId('deck-a', limit: 2, offset: 1);
+      expect(page.map((c) => c.cardId).toList(), ['c2', 'c3']);
+    });
+
+    test('limit larger than result set returns all results', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard(id: 'c1'));
+      await cardRepo.create(makeCard(id: 'c2'));
+
+      final cards = await cardRepo.getByDeckId('deck-1', limit: 100);
+      expect(cards, hasLength(2));
+    });
+
+    test('limit without offset defaults to first page', () async {
+      await insertParentDeck(id: 'deck-a');
+      final base = DateTime(2026, 1, 1);
+      for (var i = 1; i <= 5; i++) {
+        await cardRepo.create(
+          makeCard(
+            id: 'c$i',
+            deckId: 'deck-a',
+            createdAt: base.add(Duration(seconds: i)),
+          ),
+        );
+      }
+
+      final page = await cardRepo.getByDeckId('deck-a', limit: 2);
+      expect(page.map((c) => c.cardId).toList(), ['c1', 'c2']);
+    });
+
+    test('limit of zero throws ArgumentError', () async {
+      expect(
+        () => cardRepo.getByDeckId('deck-1', limit: 0),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('negative offset throws ArgumentError', () async {
+      expect(
+        () => cardRepo.getByDeckId('deck-1', offset: -1),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+  });
+
   group('getDueCards edge cases', () {
     test('returns empty list when no cards are due', () async {
       await insertParentDeck();
