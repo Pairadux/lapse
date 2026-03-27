@@ -11,6 +11,8 @@ class DeckDetailState extends Equatable {
   final List<Deck> ancestors;
   final List<DeckWithCounts> children;
   final List<Flashcard> cards;
+  final bool hasMoreCards;
+  final bool isLoadingMoreCards;
   final int totalCardCount;
   final int totalDueCount;
 
@@ -19,9 +21,33 @@ class DeckDetailState extends Equatable {
     required this.ancestors,
     required this.children,
     required this.cards,
+    required this.hasMoreCards,
+    required this.isLoadingMoreCards,
     required this.totalCardCount,
     required this.totalDueCount,
   });
+
+  DeckDetailState copyWith({
+    Deck? deck,
+    List<Deck>? ancestors,
+    List<DeckWithCounts>? children,
+    List<Flashcard>? cards,
+    bool? hasMoreCards,
+    bool? isLoadingMoreCards,
+    int? totalCardCount,
+    int? totalDueCount,
+  }) {
+    return DeckDetailState(
+      deck: deck ?? this.deck,
+      ancestors: ancestors ?? this.ancestors,
+      children: children ?? this.children,
+      cards: cards ?? this.cards,
+      hasMoreCards: hasMoreCards ?? this.hasMoreCards,
+      isLoadingMoreCards: isLoadingMoreCards ?? this.isLoadingMoreCards,
+      totalCardCount: totalCardCount ?? this.totalCardCount,
+      totalDueCount: totalDueCount ?? this.totalDueCount,
+    );
+  }
 
   @override
   List<Object?> get props => [
@@ -29,6 +55,8 @@ class DeckDetailState extends Equatable {
     ancestors,
     children,
     cards,
+    hasMoreCards,
+    isLoadingMoreCards,
     totalCardCount,
     totalDueCount,
   ];
