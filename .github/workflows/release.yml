@@ -22,7 +22,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev plocate
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev plocate rpm
 
       - name: Install appimagetool
         run: |
@@ -35,16 +35,35 @@ jobs:
       - name: Build and package AppImage
         run: fastforge package --platform linux --targets appimage
 
-      - name: Rename artifact
+      - name: Build and package deb
+        run: fastforge package --platform linux --targets deb
+
+      - name: Build and package rpm
+        run: fastforge package --platform linux --targets rpm
+
+      - name: Package raw bundle as tar.gz
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          ARTIFACT=$(find dist/ -name "*.AppImage" | head -1)
-          cp "$ARTIFACT" "dist/lapse-${VERSION}-linux-x86_64.AppImage"
+          tar -czf "dist/lapse-${VERSION}-linux-x86_64.tar.gz" -C build/linux/x64/release bundle
+
+      - name: Rename artifacts
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          APPIMAGE=$(find dist/ -name "*.AppImage" | head -1)
+          DEB=$(find dist/ -name "*.deb" | head -1)
+          RPM=$(find dist/ -name "*.rpm" | head -1)
+          cp "$APPIMAGE" "dist/lapse-${VERSION}-linux-x86_64.AppImage"
+          cp "$DEB" "dist/lapse-${VERSION}-linux-x86_64.deb"
+          cp "$RPM" "dist/lapse-${VERSION}-linux-x86_64.rpm"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-appimage
-          path: dist/lapse-*-linux-x86_64.AppImage
+          name: linux-packages
+          path: |
+            dist/lapse-*-linux-x86_64.AppImage
+            dist/lapse-*-linux-x86_64.deb
+            dist/lapse-*-linux-x86_64.rpm
+            dist/lapse-*-linux-x86_64.tar.gz
           retention-days: 1
 
   build-macos:
@@ -145,7 +164,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: linux-appimage
+          name: linux-packages
           path: artifacts/
 
       - name: Compute SHA256
@@ -170,7 +189,7 @@ jobs:
         with:
           pkgname: lapse-appimage
           pkgbuild: ./PKGBUILD
-          assets: .github/aur/lapse.desktop
+          assets: linux/packaging/co.lapseapp.Lapse.desktop
           commit_username: Pairadux
           commit_email: pairadux@users.noreply.github.com
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>co.lapseapp.Lapse</id>
+
+  <name>Lapse</name>
+  <summary>A spaced repetition flashcard app</summary>
+  <developer id="co.lapseapp">
+    <name>Pairadux</name>
+  </developer>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      Lapse is a spaced repetition flashcard app that helps you learn and retain
+      information efficiently. Create decks and flashcards, then study them with
+      an intelligent scheduling algorithm (FSRS) that adapts to your performance.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Create and organize flashcards in nested decks</li>
+      <li>Study with spaced repetition scheduling (FSRS)</li>
+      <li>Track your progress with study session statistics</li>
+      <li>Sync across devices with optional cloud backup</li>
+      <li>Works fully offline — no account required</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">co.lapseapp.Lapse.desktop</launchable>
+
+  <url type="homepage">https://github.com/Pairadux/lapse</url>
+  <url type="bugtracker">https://github.com/Pairadux/lapse/issues</url>
+  <url type="vcs-browser">https://github.com/Pairadux/lapse</url>
+
+  <categories>
+    <category>Education</category>
+  </categories>
+
+  <keywords>
+    <keyword>flashcards</keyword>
+    <keyword>spaced repetition</keyword>
+    <keyword>study</keyword>
+    <keyword>learning</keyword>
+    <keyword>FSRS</keyword>
+  </keywords>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#7c4dff</color>
+    <color type="primary" scheme_preference="dark">#7c4dff</color>
+  </branding>
+
+  <!-- TODO: Add screenshots before Flathub submission
+  <screenshots>
+    <screenshot type="default">
+      <caption>Deck overview</caption>
+      <image>https://raw.githubusercontent.com/Pairadux/lapse/main/screenshots/deck-overview.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Study session</caption>
+      <image>https://raw.githubusercontent.com/Pairadux/lapse/main/screenshots/study-session.png</image>
+    </screenshot>
+  </screenshots>
+  -->
+
+  <releases>
+    <release version="0.4.1" date="2025-03-25">
+      <description>
+        <p>Bug fixes and packaging improvements.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+</component>
