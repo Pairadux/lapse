@@ -44,8 +44,9 @@ void main() async {
 
   await SupabaseConfig.initialize();
 
-  // Purge stale tombstones on launch (fire-and-forget, non-blocking).
-  DatabaseHelper.instance.purgeTombstones();
+  // Eagerly initialize the database so migrations complete before UI loads.
+  await DatabaseHelper.instance.database;
+  await DatabaseHelper.instance.purgeTombstones();
 
   runApp(const ProviderScope(child: LapseApp()));
 }
