@@ -127,13 +127,13 @@ class _DeckList extends ConsumerWidget {
         case ContextMenuAction.move:
           if (!context.mounted) return;
           AppSnackBar.show(context, 'Move action is coming soon',
-              withFabMargin: true);
+);
           break;
       }
     } catch (e) {
       if (context.mounted) {
         AppSnackBar.show(context, 'Action failed: $e',
-            withFabMargin: true);
+);
       }
     }
   }

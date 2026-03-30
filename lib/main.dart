@@ -83,6 +83,9 @@ class LapseApp extends ConsumerWidget {
     ref.watch(syncServiceProvider);
 
     return ToastificationWrapper(
+      config: ToastificationConfig(
+        marginBuilder: (_, _) => EdgeInsets.zero,
+      ),
       child: MaterialApp.router(
       title: 'Lapse',
       debugShowCheckedModeBanner: false,
