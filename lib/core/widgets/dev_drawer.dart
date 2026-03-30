@@ -32,7 +32,7 @@ class DevDrawer extends StatelessWidget {
     if (context.mounted) {
       Navigator.pop(context);
       onDataChanged?.call();
-      AppSnackBar.show(context, 'Database cleared', withFabMargin: true);
+      AppSnackBar.show(context, 'Database cleared');
     }
   }
 
@@ -49,7 +49,7 @@ class DevDrawer extends StatelessWidget {
     if (context.mounted) {
       Navigator.pop(context);
       onDataChanged?.call();
-      AppSnackBar.show(context, 'Mock data loaded', withFabMargin: true);
+      AppSnackBar.show(context, 'Mock data loaded');
     }
   }
 
@@ -245,8 +245,7 @@ class DevDrawer extends StatelessWidget {
             title: const Text('Trigger Snackbar'),
             onTap: () {
               Navigator.pop(context);
-              AppSnackBar.show(context, 'Test snackbar message',
-                  withFabMargin: true);
+              AppSnackBar.show(context, 'Test snackbar message');
             },
           ),
           const Divider(),

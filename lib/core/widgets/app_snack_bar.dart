@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:toastification/toastification.dart';
 
-import '../../core/routing/page_transitions.dart';
 import '../theme/app_colors.dart';
 import '../theme/spacing.dart';
 
@@ -9,26 +8,27 @@ import '../theme/spacing.dart';
 ///
 /// Uses toastification's overlay system instead of Scaffold's built-in SnackBar
 /// so toasts render independently of the FAB — no pushing, no overlap.
+///
+/// Safe area and FAB alignment are handled by the [ToastificationConfig]
+/// in main.dart (zero margin + viewPadding) plus [Spacing.lg] bottom padding
+/// here — matching the Scaffold's 16dp FAB inset on all platforms.
 abstract class AppSnackBar {
   static void show(
     BuildContext context,
     String message, {
-    bool withFabMargin = false,
     Color? backgroundColor,
     Duration duration = const Duration(seconds: 4),
   }) {
     toastification.showCustom(
       context: context,
-      alignment: withFabMargin ? Alignment.bottomLeft : Alignment.bottomCenter,
+      alignment: Alignment.bottomLeft,
       autoCloseDuration: duration,
       builder: (context, holder) {
-        final safeBottom =
-            isDesktop ? 0.0 : MediaQuery.of(context).padding.bottom;
         return Padding(
-          padding: EdgeInsets.only(
+          padding: const EdgeInsets.only(
             left: Spacing.lg,
             right: Spacing.lg,
-            bottom: Spacing.lg + safeBottom,
+            bottom: Spacing.lg,
           ),
           child: Material(
             color: backgroundColor ?? AppColors.surfaceBright,
@@ -50,33 +50,3 @@ abstract class AppSnackBar {
     );
   }
 }
-
-// ── Previous SnackBar-based implementation (kept for rollback) ──────────
-//
-// abstract class AppSnackBar {
-//   static const _padding =
-//       EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: 18);
-//
-//   static EdgeInsets _fabMargin(BuildContext context) {
-//     final safeBottom = MediaQuery.of(context).padding.bottom;
-//     return EdgeInsets.fromLTRB(15, 5, 80, (16 - safeBottom).clamp(0, 16));
-//   }
-//
-//   static void show(
-//     BuildContext context,
-//     String message, {
-//     bool withFabMargin = false,
-//     Color? backgroundColor,
-//     Duration duration = const Duration(seconds: 4),
-//   }) {
-//     ScaffoldMessenger.of(context).showSnackBar(
-//       SnackBar(
-//         content: Text(message),
-//         padding: _padding,
-//         margin: withFabMargin ? _fabMargin(context) : null,
-//         backgroundColor: backgroundColor,
-//         duration: duration,
-//       ),
-//     );
-//   }
-// }

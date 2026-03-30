@@ -198,13 +198,13 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
         case ContextMenuAction.move:
           if (!mounted) return;
           AppSnackBar.show(context, 'Move action is coming soon',
-              withFabMargin: true);
+);
           break;
       }
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context, 'Action failed: $e',
-            withFabMargin: true);
+);
       }
     }
   }
@@ -237,13 +237,13 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
         case ContextMenuAction.move:
           if (!mounted) return;
           AppSnackBar.show(context, 'Move action is coming soon',
-              withFabMargin: true);
+);
           break;
       }
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context, 'Action failed: $e',
-            withFabMargin: true);
+);
       }
     }
   }
@@ -267,7 +267,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               AppSnackBar.show(context, 'Deck not found',
-                  withFabMargin: true);
+    );
               context.pop();
             }
           });

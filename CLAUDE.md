@@ -97,11 +97,9 @@
 
 ## Known Bugs
 
-- **Database not ready on first launch (#131):** `DatabaseHelper` lazily initialized — no eager `await` in `main()`. Migration chain runs during first screen data load. Fix: eagerly await `DatabaseHelper.instance.database` in `main()` before `runApp()`.
 - **Card count aggregation sometimes off (#44):** Stale/incorrect aggregated counts on parent decks. Likely timing issue with parallel queries or stale state after mutations.
 - **Toasts render at vertical center (#143):** `AppSnackBar.show()` toasts appearing mid-screen instead of bottom edge.
 - **Realtime token refresh race (#144):** Channel doesn't always re-authenticate after JWT refresh.
-- **'Save & Add Another' may not clear fields (#45):** May still reproduce on empty decks — needs verification after Riverpod migration.
 
 ### Open Performance Issues
 
@@ -116,7 +114,7 @@
 
 ## State Management Status
 
-Riverpod migration in progress. `DeckListScreen` and `DeckDetailScreen` use providers. Form screens (#121, #122), `StudySessionScreen` (#123), and `ReviewStatsScreen` (#124) still use direct repository calls.
+Riverpod migration in progress. `DeckListScreen`, `DeckDetailScreen`, form screens, and `StudySessionScreen` use providers. `ReviewStatsScreen` (#124) still uses direct repository calls.
 
 ---
 
