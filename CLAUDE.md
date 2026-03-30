@@ -99,21 +99,16 @@
 
 - **Database not ready on first launch (#131):** `DatabaseHelper` lazily initialized — no eager `await` in `main()`. Migration chain runs during first screen data load. Fix: eagerly await `DatabaseHelper.instance.database` in `main()` before `runApp()`.
 - **Card count aggregation sometimes off (#44):** Stale/incorrect aggregated counts on parent decks. Likely timing issue with parallel queries or stale state after mutations.
-- **study_session_service.dart won't compile (#74):** Duplicate class, unreachable code, return type mismatch. Blocks FSRS integration. Assigned to Darius.
-- **Study session does not persist reviews (#75):** `_rateCard()` only updates local counters. Blocked by #74. Assigned to Darius.
-- **Dead Deck.cards/cardCount/dueCount fields (#62):** Runtime-only fields that don't belong on the domain object. Assigned to GADudley.
+- **Toasts render at vertical center (#143):** `AppSnackBar.show()` toasts appearing mid-screen instead of bottom edge.
+- **Realtime token refresh race (#144):** Channel doesn't always re-authenticate after JWT refresh.
+- **'Save & Add Another' may not clear fields (#45):** May still reproduce on empty decks — needs verification after Riverpod migration.
 
 ### Open Performance Issues
 
-- **Double card fetch in DeckDetailScreen (#56):** `_loadData()` fetches cards, then `_getAggregatedCounts()` also queries descendants.
 - **Redundant getDescendantIds() in _study() (#61):** Already computed during `_loadData()`, not cached.
-- **Mock data insertion not batched (#64):** Sequential individual inserts. Assigned to Devam.
-- **No pagination on card queries (#65):** All lists loaded fully into memory. Low impact now, high at scale.
 
 ### Open UX Improvements
 
-- **Keyboard submit for deck/card creation (#49):** Enter submits deck name. Shift+Enter saves cards (plain Enter for newline).
-- **Right-click context menu (#51):** Delete, Move, Edit on decks/cards.
 - **Full keyboard navigation (#52):** Low priority, needed for accessibility.
 - **Mobile settings UX bugs (#140):** Bottom nav overlaps scrollable content. Assigned to Pairadux.
 
@@ -121,7 +116,7 @@
 
 ## State Management Status
 
-Riverpod providers exist but are dead code. All screens use direct `DeckRepository()` / `CardRepository()` instantiation. Functional but not wired through state management (#77).
+Riverpod migration in progress. `DeckListScreen` and `DeckDetailScreen` use providers. Form screens (#121, #122), `StudySessionScreen` (#123), and `ReviewStatsScreen` (#124) still use direct repository calls.
 
 ---
 
@@ -184,7 +179,7 @@ Riverpod providers exist but are dead code. All screens use direct `DeckReposito
 
 ## Sync & Auth
 
-**Status:** Phases 1-5 complete. Phase 6 (sync engine) in progress.
+**Status:** Phases 1-6 complete. Phase 7 (production hardening) tracked in #157.
 
 **Core principle: Offline-first.** The app works fully without network. Sync is optional — account never required. No network calls until the user explicitly signs in.
 
