@@ -10,6 +10,8 @@ import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 
 class DeckFormScreen extends ConsumerStatefulWidget {
   final Deck? deck;
@@ -69,10 +71,12 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
       if (widget.isEditing) {
         final updated = widget.deck!.copyWith(deckName: name);
         await _repo.update(updated);
+        ref.invalidate(deckDetailProvider(widget.deck!.deckId));
       } else {
         final deck = Deck.create(deckName: name, parentId: widget.parentId);
         await _repo.create(deck);
       }
+      ref.invalidate(deckListProvider);
       ref.read(syncServiceProvider.notifier).schedulePush();
       if (mounted) context.pop();
     } finally {
@@ -92,6 +96,7 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
     if (!confirmed || !mounted) return;
 
     await _repo.delete(widget.deck!.deckId);
+    ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();
     if (mounted) context.go(Routes.home);
   }
