@@ -20,6 +20,8 @@ import 'package:lapse/features/study/domain/study_session.dart';
 import 'package:lapse/features/study/presentation/widgets/card_stack.dart';
 import 'package:lapse/features/study/presentation/widgets/flip_card.dart';
 import 'package:lapse/features/study/presentation/widgets/swipeable_card.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 
 /// Snapshot of FSRS-relevant card fields for debug comparison.
 class _CardSnapshot {
@@ -62,6 +64,27 @@ class _ReviewLogEntry {
   }) : timestamp = DateTime.now();
 }
 
+/// Buffers one card's DB write so the most recent rating can be undone.
+///
+/// Instead of writing card updates and reviews to the DB immediately after
+/// each rating, we hold the write here for one card. The pending write is
+/// flushed to DB when the next card is rated or when the session ends.
+/// If the user hits undo, the pending write is simply discarded — no DB
+/// rollback needed.
+class _PendingRating {
+  final StudySessionResult result;
+  final StudySession previousSession;
+  final Rating rating;
+  final bool graduated;
+
+  const _PendingRating({
+    required this.result,
+    required this.previousSession,
+    required this.rating,
+    required this.graduated,
+  });
+}
+
 class StudySessionScreen extends ConsumerStatefulWidget {
   final String deckName;
   final List<String> deckIds;
@@ -95,6 +118,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   double _swipeProgress = 0;
 
   bool _isProcessing = false;
+
+  /// Holds the most recent rating's DB write, deferred by one card for undo.
+  /// Null when there is nothing to undo (start of session or after undo).
+  _PendingRating? _pendingRating;
 
   List<Flashcard> _cards = [];
   bool _isLoading = true;
@@ -142,8 +169,26 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     _loadCards();
   }
 
+  /// Invalidates deck providers so list/detail screens show updated counts.
+  /// Must be called while ref is still valid (before pop), not in dispose.
+  void _invalidateDeckProviders() {
+    ref.invalidate(deckListProvider);
+    for (final deckId in widget.deckIds) {
+      ref.invalidate(deckDetailProvider(deckId));
+    }
+  }
+
   @override
   void dispose() {
+    // Safety-net flush: persist any remaining buffered write.
+    // Writes directly to repos without ref (which is unsafe in dispose).
+    // The primary flush + invalidation happens in Done/exit handlers.
+    final pending = _pendingRating;
+    if (pending != null) {
+      _pendingRating = null;
+      _cardRepo.update(pending.result.updatedCard);
+      _reviewRepo.addReview(pending.result.review);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncNotifier.resume();
     });
@@ -201,21 +246,67 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     await _rateCard(rating);
   }
 
+  /// Persists the buffered rating's card update and review to the database.
+  /// Called before buffering the next rating, and on session exit.
+  Future<void> _flushPendingWrite() async {
+    final pending = _pendingRating;
+    if (pending == null) return;
+    _pendingRating = null;
+    await _cardRepo.update(pending.result.updatedCard);
+    await _reviewRepo.addReview(pending.result.review);
+    ref.read(syncServiceProvider.notifier).schedulePush();
+  }
+
+  /// Undoes the most recent rating by discarding the pending DB write
+  /// and restoring local state to before that rating.
+  /// Only one level of undo — button is disabled when [_pendingRating] is null.
+  void _undo() {
+    final pending = _pendingRating;
+    if (pending == null) return;
+    HapticFeedback.lightImpact();
+    setState(() {
+      _pendingRating = null;
+      _session = pending.previousSession;
+      _cards = pending.previousSession.cards;
+      _currentIndex--;
+      _ratingCounts[pending.rating] = _ratingCounts[pending.rating]! - 1;
+      if (pending.graduated) {
+        _graduatedCardIds.remove(pending.result.updatedCard.cardId);
+      }
+      if (_reviewLog.isNotEmpty) _reviewLog.removeLast();
+      _showingAnswer = false;
+      _dismissOffset = 0;
+      _swipeProgress = 0;
+    });
+  }
+
   Future<void> _rateCard(Rating rating) async {
     if (_isProcessing) return;
     _isProcessing = true;
     try {
+      // Flush the previous card's pending write before buffering a new one.
+      // This keeps DB writes at most one card behind, balancing crash safety
+      // with the ability to undo the most recent rating.
+      await _flushPendingWrite();
+
       final before = _CardSnapshot.fromCard(_currentCard);
       final result = _studySessionService.rateCard(
         _session,
         _currentCard,
         rating,
       );
-      await _cardRepo.update(result.updatedCard);
-      await _reviewRepo.addReview(result.review);
-      ref.read(syncServiceProvider.notifier).schedulePush();
       final after = _CardSnapshot.fromCard(result.updatedCard);
+      final graduated = result.updatedCard.cardState == CardState.review;
+      final previousSession = _session;
+
       setState(() {
+        // Buffer this rating — written to DB on the next rating or session end.
+        _pendingRating = _PendingRating(
+          result: result,
+          previousSession: previousSession,
+          rating: rating,
+          graduated: graduated,
+        );
         // Reset dismiss offset atomically with card change so the old
         // card never reappears at center between animation and swap.
         _dismissOffset = 0;
@@ -223,7 +314,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         _session = result.session;
         _cards = result.session.cards;
         _ratingCounts[rating] = _ratingCounts[rating]! + 1;
-        if (result.updatedCard.cardState == CardState.review) {
+        if (graduated) {
           _graduatedCardIds.add(result.updatedCard.cardId);
         }
         _reviewLog.add(
@@ -258,6 +349,13 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         title: Text(widget.deckName),
         centerTitle: true,
         actions: [
+          // Undo: enabled when there is a buffered (not-yet-persisted) rating.
+          // Disabled after use — only one level of undo is supported.
+          IconButton(
+            icon: const Icon(Icons.undo),
+            tooltip: 'Undo last rating',
+            onPressed: _pendingRating != null ? _undo : null,
+          ),
           if (kDebugMode)
             IconButton(
               icon: Icon(
@@ -785,7 +883,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => context.pop(),
+              onPressed: () async {
+                await _flushPendingWrite();
+                _invalidateDeckProviders();
+                if (mounted) context.pop();
+              },
               child: const Text('Done'),
             ),
           ),
@@ -843,7 +945,9 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       ),
     );
     if (shouldExit == true && context.mounted) {
-      context.pop();
+      await _flushPendingWrite();
+      _invalidateDeckProviders();
+      if (context.mounted) context.pop();
     }
   }
 }

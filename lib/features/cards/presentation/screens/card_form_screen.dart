@@ -12,6 +12,8 @@ import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 
 class _SaveIntent extends Intent {
   const _SaveIntent();
@@ -130,6 +132,8 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         );
         await _repo.create(card);
       }
+      ref.invalidate(deckDetailProvider(widget.deckId));
+      ref.invalidate(deckListProvider);
       ref.read(syncServiceProvider.notifier).schedulePush();
       if (mounted) {
         final label = widget.isEditing
@@ -158,6 +162,8 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         back: _backController.text.trim(),
       );
       await _repo.create(card);
+      ref.invalidate(deckDetailProvider(widget.deckId));
+      ref.invalidate(deckListProvider);
       ref.read(syncServiceProvider.notifier).schedulePush();
 
       if (mounted) {
@@ -187,6 +193,8 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     if (!confirmed || !mounted) return;
 
     await _repo.delete(widget.card!.cardId);
+    ref.invalidate(deckDetailProvider(widget.deckId));
+    ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();
     if (mounted) context.pop();
   }
