@@ -139,6 +139,13 @@ abstract class AppTheme {
         borderRadius: BorderRadius.circular(Spacing.radiusXl),
       ),
     ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: AppColors.surfaceElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Spacing.radiusLg),
+        side: const BorderSide(color: AppColors.outline, width: 1),
+      ),
+    ),
     textTheme: const TextTheme(
       headlineLarge: TextStyle(
         color: AppColors.textPrimary,
