@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
+import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_detail_state.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 
@@ -94,6 +95,30 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
     await ref.read(deckRepositoryProvider).delete(childDeckId);
     ref.invalidateSelf();
     ref.invalidate(deckListProvider);
+  }
+
+  Future<void> moveChildDeck(String childDeckId, String? newParentId) async {
+    final deckRepo = ref.read(deckRepositoryProvider);
+    final deck = await deckRepo.getById(childDeckId);
+    if (deck == null) return;
+
+    await deckRepo.update(
+      deck.copyWith(parentId: Optional.value(newParentId)),
+    );
+    ref.invalidateSelf();
+    ref.invalidate(deckListProvider);
+    ref.read(syncServiceProvider.notifier).schedulePush();
+  }
+
+  Future<void> moveCard(String cardId, String newDeckId) async {
+    final cardRepo = ref.read(cardRepositoryProvider);
+    final card = await cardRepo.getById(cardId);
+    if (card == null) return;
+
+    await cardRepo.update(card.copyWith(deckId: newDeckId));
+    ref.invalidateSelf();
+    ref.invalidate(deckListProvider);
+    ref.read(syncServiceProvider.notifier).schedulePush();
   }
 
   Future<void> deleteCard(String cardId) async {
