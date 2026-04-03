@@ -206,4 +206,15 @@ class CardRepository {
       }
     });
   }
+
+  Future<List<Flashcard>> getAllCards() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      DatabaseConstants.tableCards,
+      where: '${DatabaseConstants.colIsDeleted} = 0',
+      orderBy: DatabaseConstants.colDeckId
+    );
+    return rows.map(Flashcard.fromMap).toList();
+  }
+
 }

@@ -62,21 +62,15 @@ class SyncPullService {
     // was pushed before the stale timestamp.
     if (lastPull != null) {
       final db = await _dbHelper.database;
-      final result = await db.rawQuery(
-        'SELECT COUNT(*) AS c FROM ${DatabaseConstants.tableDecks}',
-      );
+      final result = await db.rawQuery('SELECT COUNT(*) AS c FROM ${DatabaseConstants.tableDecks}');
       final deckCount = result.first['c'] as int;
       if (deckCount == 0) {
-        debugPrint(
-          '[SyncPull] Local DB is empty but last_pull_timestamp exists — forcing full sync',
-        );
+        debugPrint('[SyncPull] Local DB is empty but last_pull_timestamp exists — forcing full sync');
         lastPull = null;
       }
     }
 
-    debugPrint(
-      '[SyncPull] Starting pull (lastPull: ${lastPull ?? 'NEVER — full sync'})',
-    );
+    debugPrint('[SyncPull] Starting pull (lastPull: ${lastPull ?? 'NEVER — full sync'})');
 
     final stats = <String, int>{};
     final serverTimestamps = <String>[];
@@ -91,8 +85,9 @@ class SyncPullService {
         lastPull: lastPull,
       );
       stats['decks'] = result.count;
-      if (result.maxTimestamp != null)
+      if (result.maxTimestamp != null) {
         serverTimestamps.add(result.maxTimestamp!);
+      }
 
       result = await _pullTable(
         client: client,
@@ -102,13 +97,11 @@ class SyncPullService {
         lastPull: lastPull,
       );
       stats['cards'] = result.count;
-      if (result.maxTimestamp != null)
+      if (result.maxTimestamp != null) {
         serverTimestamps.add(result.maxTimestamp!);
+      }
 
-      final reviewResult = await _pullReviews(
-        client: client,
-        lastPull: lastPull,
-      );
+      final reviewResult = await _pullReviews(client: client, lastPull: lastPull);
       stats['reviews'] = reviewResult.count;
       // Intentionally NOT adding reviewResult.maxTimestamp to serverTimestamps.
       // reviewed_at is client-set (by the creating device), not server-set.
@@ -124,8 +117,7 @@ class SyncPullService {
         lastPull: lastPull,
       );
       stats['summaries'] = result.count;
-      if (result.maxTimestamp != null)
-        serverTimestamps.add(result.maxTimestamp!);
+      if (result.maxTimestamp != null) serverTimestamps.add(result.maxTimestamp!);
 
       // Derive pullTimestamp from the server's clock domain — the latest
       // timestamp across all pulled rows. This eliminates clock skew between
@@ -137,13 +129,8 @@ class SyncPullService {
       }
 
       final totalPulled = stats.values.fold(0, (a, b) => a + b);
-      final parts = stats.entries
-          .where((e) => e.value > 0)
-          .map((e) => '${e.value} ${e.key}')
-          .toList();
-      final message = totalPulled == 0
-          ? 'Nothing new to pull'
-          : 'Pulled ${parts.join(', ')}';
+      final parts = stats.entries.where((e) => e.value > 0).map((e) => '${e.value} ${e.key}').toList();
+      final message = totalPulled == 0 ? 'Nothing new to pull' : 'Pulled ${parts.join(', ')}';
       debugPrint('[SyncPull] $message');
       return SyncResult.success(message);
     } catch (e, st) {
@@ -201,34 +188,18 @@ class SyncPullService {
     debugPrint('[SyncPull] Fetching $table...');
 
     while (true) {
-      final remoteRows = await _fetchPage(
-        client,
-        table,
-        pkColumn,
-        timestampColumn,
-        lastPull,
-        offset,
-      );
-      debugPrint(
-        '[SyncPull]   $table page at offset $offset: ${remoteRows.length} rows from Supabase',
-      );
+      final remoteRows = await _fetchPage(client, table, pkColumn, timestampColumn, lastPull, offset);
+      debugPrint('[SyncPull]   $table page at offset $offset: ${remoteRows.length} rows from Supabase');
       if (remoteRows.isEmpty) break;
 
       // Batch-fetch local state for this page's PKs to avoid N+1 queries.
       final remotePks = remoteRows.map((r) => r[pkColumn] as String).toList();
-      final localIndex = await _buildLocalIndex(
-        db,
-        table,
-        pkColumn,
-        timestampColumn,
-        remotePks,
-      );
+      final localIndex = await _buildLocalIndex(db, table, pkColumn, timestampColumn, remotePks);
 
       for (final remoteRow in remoteRows) {
         // Track the latest server timestamp for pull cursor advancement.
         final ts = remoteRow[timestampColumn] as String?;
-        if (ts != null &&
-            (maxTimestamp == null || ts.compareTo(maxTimestamp) > 0)) {
+        if (ts != null && (maxTimestamp == null || ts.compareTo(maxTimestamp) > 0)) {
           maxTimestamp = ts;
         }
 
@@ -244,26 +215,16 @@ class SyncPullService {
 
         if (localInfo.syncStatus == SyncStatus.synced.name) {
           // Already synced — silent refresh (likely echo of our own push).
-          await db.insert(
-            table,
-            localRow,
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          await db.insert(table, localRow, conflictAlgorithm: ConflictAlgorithm.replace);
           refreshed++;
           continue;
         }
 
         // Local row has pending changes — compare timestamps.
-        final remoteTimestamp = DateTime.parse(
-          remoteRow[timestampColumn] as String,
-        );
+        final remoteTimestamp = DateTime.parse(remoteRow[timestampColumn] as String);
 
         if (remoteTimestamp.isAfter(localInfo.updatedAt)) {
-          await db.insert(
-            table,
-            localRow,
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          await db.insert(table, localRow, conflictAlgorithm: ConflictAlgorithm.replace);
           conflictWins++;
         } else {
           skipped++;
@@ -309,24 +270,17 @@ class SyncPullService {
         lastPull,
         offset,
       );
-      debugPrint(
-        '[SyncPull]   reviews page at offset $offset: ${remoteRows.length} rows from Supabase',
-      );
+      debugPrint('[SyncPull]   reviews page at offset $offset: ${remoteRows.length} rows from Supabase');
       if (remoteRows.isEmpty) break;
 
       final batch = db.batch();
       for (final remoteRow in remoteRows) {
         final ts = remoteRow[DatabaseConstants.colReviewedAt] as String?;
-        if (ts != null &&
-            (maxTimestamp == null || ts.compareTo(maxTimestamp) > 0)) {
+        if (ts != null && (maxTimestamp == null || ts.compareTo(maxTimestamp) > 0)) {
           maxTimestamp = ts;
         }
         final localRow = SyncAdapter.fromSupabaseRow(remoteRow);
-        batch.insert(
-          DatabaseConstants.tableReviews,
-          localRow,
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
+        batch.insert(DatabaseConstants.tableReviews, localRow, conflictAlgorithm: ConflictAlgorithm.ignore);
       }
       final results = await batch.commit();
       totalInserted += results.where((r) => r is int && r > 0).length;
