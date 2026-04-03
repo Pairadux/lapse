@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
+import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/sync/sync_pull_service.dart';
 import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
@@ -10,7 +11,8 @@ import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
-import '../routing/routes.dart';
+import 'package:lapse/core/widgets/deck_picker_dialog.dart';
+import 'package:lapse/features/import_export/data/export_service.dart';
 
 class DevDrawer extends StatelessWidget {
   final VoidCallback? onDataChanged;
@@ -188,6 +190,34 @@ class DevDrawer extends StatelessWidget {
     );
   }
 
+  Future<void> _exportDeck(BuildContext context) async {
+    final cardRepo = CardRepository();
+    final deckRepo = DeckRepository();
+    final allDecks = await deckRepo.getAll();
+
+    final selectedId = await DeckPickerDialog.show(
+      context: context,
+      decks: allDecks,
+      excludeIds: {},
+      showRoot: false,
+    );
+
+    if (selectedId == null || !context.mounted) return;
+
+    final selectedDeck = allDecks.firstWhere((d) => d.deckId == selectedId);
+    final exporter = DeckExport();
+    final csv = await exporter.exportDeckWithRepositories(selectedDeck, cardRepo, deckRepo);
+
+    if (context.mounted) {
+      print(csv);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Exported CSV length: ${csv.length}')),
+      );
+    }
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -260,10 +290,7 @@ class DevDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.file_download_outlined),
             title: const Text('Export'),
-            onTap: () {
-              Scaffold.of(context).closeDrawer();
-              AppSnackBar.show(context, 'Export triggered (not wired up)');
-            },
+            onTap: () => _exportDeck(context),
           ),
           const Divider(),
           const _AnimationSpeedSlider(),
