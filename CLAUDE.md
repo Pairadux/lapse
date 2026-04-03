@@ -98,7 +98,6 @@
 ## Known Bugs
 
 - **Card count aggregation sometimes off (#44):** Stale/incorrect aggregated counts on parent decks. Likely timing issue with parallel queries or stale state after mutations.
-- **Toasts render at vertical center (#143):** `AppSnackBar.show()` toasts appearing mid-screen instead of bottom edge.
 - **Realtime token refresh race (#144):** Channel doesn't always re-authenticate after JWT refresh.
 
 ### Open Performance Issues

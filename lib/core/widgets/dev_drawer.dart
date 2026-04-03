@@ -244,8 +244,25 @@ class DevDrawer extends StatelessWidget {
             leading: const Icon(Icons.notifications_outlined),
             title: const Text('Trigger Snackbar'),
             onTap: () {
-              Navigator.pop(context);
+              Scaffold.of(context).closeDrawer();
               AppSnackBar.show(context, 'Test snackbar message');
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.file_upload_outlined),
+            title: const Text('Import'),
+            onTap: () {
+              Scaffold.of(context).closeDrawer();
+              AppSnackBar.show(context, 'Import triggered (not wired up)');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.file_download_outlined),
+            title: const Text('Export'),
+            onTap: () {
+              Scaffold.of(context).closeDrawer();
+              AppSnackBar.show(context, 'Export triggered (not wired up)');
             },
           ),
           const Divider(),

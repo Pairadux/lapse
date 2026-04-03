@@ -8,6 +8,7 @@ import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/widgets/context_menu_region.dart';
+import 'package:lapse/core/widgets/deck_picker_dialog.dart';
 import 'package:lapse/core/widgets/empty_state_widget.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
@@ -196,15 +197,47 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               .deleteChildDeck(deck.deckId);
           break;
         case ContextMenuAction.move:
+          final deckRepo = ref.read(deckRepositoryProvider);
+          final allDecks = await deckRepo.getAll();
+          final excludeIds =
+              (await deckRepo.getDescendantIds(deck.deckId)).toSet();
+
           if (!mounted) return;
-          AppSnackBar.show(context, 'Move action is coming soon',
-);
+          final targetId = await DeckPickerDialog.show(
+            context: context,
+            decks: allDecks,
+            excludeIds: excludeIds,
+            currentParentId: deck.parentId,
+          );
+          if (targetId == null || !mounted) return;
+
+          final newParentId = targetId.isEmpty ? null : targetId;
+          if (newParentId == deck.parentId) return;
+
+          final nameConflict = await deckRepo.nameExistsAtLevel(
+            name: deck.deckName,
+            parentId: newParentId,
+            excludeDeckId: deck.deckId,
+          );
+          if (nameConflict) {
+            if (!mounted) return;
+            AppSnackBar.show(
+              context,
+              'A deck named "${deck.deckName}" already exists there',
+            );
+            return;
+          }
+
+          await ref
+              .read(deckDetailProvider(widget.deckId).notifier)
+              .moveChildDeck(deck.deckId, newParentId);
+          if (!mounted) return;
+          AppSnackBar.show(context, 'Moved "${deck.deckName}"');
           break;
       }
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, 'Action failed: $e',
-);
+        AppSnackBar.show(context, 'Action failed: $e');
       }
     }
   }
@@ -235,15 +268,30 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               .deleteCard(card.cardId);
           break;
         case ContextMenuAction.move:
+          final deckRepo = ref.read(deckRepositoryProvider);
+          final allDecks = await deckRepo.getAll();
+
           if (!mounted) return;
-          AppSnackBar.show(context, 'Move action is coming soon',
-);
+          final targetId = await DeckPickerDialog.show(
+            context: context,
+            decks: allDecks,
+            excludeIds: const <String>{},
+            currentParentId: card.deckId,
+            showRoot: false,
+          );
+          if (targetId == null || !mounted) return;
+          if (targetId == card.deckId) return;
+
+          await ref
+              .read(deckDetailProvider(widget.deckId).notifier)
+              .moveCard(card.cardId, targetId);
+          if (!mounted) return;
+          AppSnackBar.show(context, 'Card moved');
           break;
       }
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context, 'Action failed: $e',
-);
+        AppSnackBar.show(context, 'Action failed: $e');
       }
     }
   }
