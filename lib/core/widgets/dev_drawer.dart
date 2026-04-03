@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +17,7 @@ import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/core/widgets/deck_picker_dialog.dart';
 import 'package:lapse/features/import_export/data/export_service.dart';
+
 
 class DevDrawer extends StatelessWidget {
   final VoidCallback? onDataChanged;
@@ -191,32 +196,43 @@ class DevDrawer extends StatelessWidget {
   }
 
   Future<void> _exportDeck(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
     final cardRepo = CardRepository();
     final deckRepo = DeckRepository();
     final allDecks = await deckRepo.getAll();
 
+    if (!context.mounted) return;
     final selectedId = await DeckPickerDialog.show(
       context: context,
       decks: allDecks,
       excludeIds: {},
       showRoot: false,
     );
-
     if (selectedId == null || !context.mounted) return;
-
     final selectedDeck = allDecks.firstWhere((d) => d.deckId == selectedId);
     final exporter = DeckExport();
     final csv = await exporter.exportDeckWithRepositories(selectedDeck, cardRepo, deckRepo);
 
-    if (context.mounted) {
-      print(csv);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Exported CSV length: ${csv.length}')),
+    if (Platform.isAndroid || Platform.isIOS) {
+    // Mobile: use share sheet
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/${selectedDeck.deckName}.csv');
+    await file.writeAsString(csv);
+    await Share.shareXFiles([XFile(file.path, mimeType: 'text/csv')]);
+    } else {
+      final location = await getSaveLocation(
+        suggestedName: '${selectedDeck.deckName}.csv',
+        acceptedTypeGroups: [
+         const XTypeGroup(label: 'CSV', extensions: ['csv']),
+        ],
       );
+      if (location != null) {
+        final file = File(location.path);
+        await file.writeAsString(csv);
+      }
     }
+    messenger.showSnackBar(SnackBar(content: Text('Export complete')));
   }
-
-
 
   @override
   Widget build(BuildContext context) {

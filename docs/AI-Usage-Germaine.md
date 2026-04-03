@@ -22,3 +22,17 @@ Purpose: optional class
 Input Summary: asked how a variable could be set to null using copyWith
 Output Summary: recieved information on the Optional class
 Files Refrenced: lib/features/decks/domain/deck.dart
+
+
+Date: 2026-04-03
+User: Germaine
+Purpose: Export Flashcards
+Input Summary: How can I connect my backend logic for card exporting to the front end
+Output Summary: Recieved a template for _exportDeck
+Files Refrenced: lib/core/widgets/dev_drawer.dart, lib/features/import_export/data/export_service.dart
+
+Date: 2026-04-03
+User: Germaine
+Purpose: Convert exported cards to downloadable file
+Input Summary: How can I create a savable file for my exported decks
+Output Summary: code and imports to add to _exportDeck() creates a temporary file that can be downloaded for mobile and desktop.
