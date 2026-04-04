@@ -5,6 +5,7 @@ import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_detail_screen.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_form_screen.dart';
 import 'package:lapse/features/decks/presentation/screens/deck_list_screen.dart';
+import 'package:lapse/features/cards/presentation/screens/card_browser_screen.dart';
 import 'package:lapse/features/settings/presentation/screens/settings_screen.dart';
 import 'package:lapse/features/study/presentation/screens/study_session_screen.dart';
 import 'package:lapse/features/study/presentation/screens/review_stats_screen.dart';
@@ -50,6 +51,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: Routes.settings,
       pageBuilder: (context, state) => buildPage(state, const SettingsScreen()),
+    ),
+    GoRoute(
+      path: Routes.cardBrowser,
+      pageBuilder: (context, state) => buildPage(state, const CardBrowserScreen()),
     ),
     GoRoute(
       path: Routes.deckNew,

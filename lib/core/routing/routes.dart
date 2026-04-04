@@ -10,6 +10,7 @@ abstract class Routes {
   static const cardNew = '/deck/:deckId/card/new';
   static const card = '/deck/:deckId/card/:cardId';
   static const study = '/deck/:deckId/study';
+  static const cardBrowser = '/cards';
 
   static String deckPath(String deckId) => '/deck/$deckId';
   static String deckEditPath(String deckId) => '/deck/$deckId/edit';

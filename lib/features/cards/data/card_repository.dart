@@ -102,6 +102,17 @@ class CardRepository {
     return result.first['c'] as int;
   }
 
+  ///Returns all non-deleted cards across all decks.
+  Future<List<Flashcard>> getAllCards() async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      DatabaseConstants.tableCards,
+      where: '${DatabaseConstants.colIsDeleted} = 0',
+      orderBy: DatabaseConstants.colCreatedAt,
+    );
+    return rows.map(Flashcard.fromMap).toList();
+  }
+
   /// Returns the number of non-deleted cards due on each calendar day.
   /// Keys are dates (time portion zeroed), values are counts.
   Future<Map<DateTime, int>> getDueDateCounts() async {
