@@ -2,13 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/database/database_helper.dart';
+import '../../../../core/routing/routes.dart';
+import '../../../../core/sync/sync_pull_service.dart';
 import '../../../../core/sync/sync_service.dart';
-import '../../../../core/widgets/app_snack_bar.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/spacing.dart';
+import '../../../../core/widgets/app_snack_bar.dart';
+import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../auth/application/auth_service.dart';
 
 /// Obsidian-inspired settings screen with sectioned layout.
@@ -32,6 +38,20 @@ class _Section {
   _Section({required this.label, required this.icon}) : key = GlobalKey();
 }
 
+// ─── Nav item (groups one or more sections for nav controls) ───────────────
+
+class _NavItem {
+  final String label;
+  final IconData icon;
+  final List<int> sectionIndices;
+
+  const _NavItem({
+    required this.label,
+    required this.icon,
+    required this.sectionIndices,
+  });
+}
+
 // ─── Auth display states ────────────────────────────────────────────────────
 
 enum _AuthDisplayState { signInForm, confirmingEmail, accountInfo }
@@ -47,7 +67,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _authService = AuthService();
 
   late final List<_Section> _sections;
+  late final List<_NavItem> _navItems;
+  int _activeNavIndex = 0;
   int _activeSectionIndex = 0;
+  bool _isScrollingToSection = false;
 
   // Auth form state
   final _emailController = TextEditingController();
@@ -67,11 +90,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void initState() {
     super.initState();
     _sections = [
-      _Section(label: 'Account', icon: Icons.person_outline),
-      _Section(label: 'Sync', icon: Icons.cloud_outlined),
-      _Section(label: 'Study', icon: Icons.school_outlined),
-      _Section(label: 'Appearance', icon: Icons.palette_outlined),
-      _Section(label: 'About', icon: Icons.info_outline),
+      _Section(label: 'Account', icon: Icons.person_outline),       // 0
+      _Section(label: 'Sync', icon: Icons.cloud_outlined),          // 1
+      _Section(label: 'Study', icon: Icons.school_outlined),        // 2
+      _Section(label: 'Notifications', icon: Icons.notifications_outlined), // 3
+      _Section(label: 'Appearance', icon: Icons.palette_outlined),  // 4
+      _Section(label: 'Data', icon: Icons.storage_outlined),        // 5
+      _Section(label: 'About', icon: Icons.info_outline),           // 6
+    ];
+    _navItems = const [
+      _NavItem(label: 'User', icon: Icons.person_outline, sectionIndices: [0, 1]),
+      _NavItem(label: 'Study', icon: Icons.school_outlined, sectionIndices: [2]),
+      _NavItem(label: 'App', icon: Icons.apps_outlined, sectionIndices: [3, 4]),
+      _NavItem(label: 'Data', icon: Icons.storage_outlined, sectionIndices: [5]),
+      _NavItem(label: 'About', icon: Icons.info_outline, sectionIndices: [6]),
     ];
     _scrollController.addListener(_onScroll);
     _updateAuthState();
@@ -107,27 +139,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // ─── Scroll tracking ───────────────────────────────────────────────────
 
+  /// Maps a content section index to its owning nav item index.
+  int _navIndexForSection(int sectionIndex) {
+    for (var i = 0; i < _navItems.length; i++) {
+      if (_navItems[i].sectionIndices.contains(sectionIndex)) return i;
+    }
+    return 0;
+  }
+
   void _onScroll() {
+    if (_isScrollingToSection) return;
+
     final pos = _scrollController.position;
 
     // If at or near the bottom, highlight the last section.
     if (pos.pixels >= pos.maxScrollExtent - 20) {
-      if (_activeSectionIndex != _sections.length - 1) {
-        setState(() => _activeSectionIndex = _sections.length - 1);
+      final lastSection = _sections.length - 1;
+      if (_activeSectionIndex != lastSection) {
+        setState(() {
+          _activeSectionIndex = lastSection;
+          _activeNavIndex = _navIndexForSection(lastSection);
+        });
       }
       return;
     }
 
+    // Find the section whose header is closest to the top of the viewport.
     int closest = 0;
     double closestDistance = double.infinity;
+    final appBarBottom =
+        MediaQuery.of(context).padding.top + kToolbarHeight;
 
     for (var i = 0; i < _sections.length; i++) {
       final keyContext = _sections[i].key.currentContext;
       if (keyContext == null) continue;
       final box = keyContext.findRenderObject() as RenderBox;
       final position = box.localToGlobal(Offset.zero).dy;
-      // Account for app bar height (~56) and some padding
-      final distance = (position - 80).abs();
+      final distance = (position - appBarBottom).abs();
       if (distance < closestDistance) {
         closestDistance = distance;
         closest = i;
@@ -135,25 +183,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
 
     if (closest != _activeSectionIndex) {
-      setState(() => _activeSectionIndex = closest);
+      setState(() {
+        _activeSectionIndex = closest;
+        _activeNavIndex = _navIndexForSection(closest);
+      });
     }
   }
 
-  void _scrollToSection(int index) {
-    final keyContext = _sections[index].key.currentContext;
+  void _scrollToSection(int sectionIndex) {
+    final keyContext = _sections[sectionIndex].key.currentContext;
     if (keyContext == null) return;
 
-    final box = keyContext.findRenderObject() as RenderBox;
-    final screenY = box.localToGlobal(Offset.zero).dy;
+    // Lock highlight immediately so _onScroll doesn't override during animation.
+    setState(() {
+      _isScrollingToSection = true;
+      _activeSectionIndex = sectionIndex;
+      _activeNavIndex = _navIndexForSection(sectionIndex);
+    });
 
-    // Scroll so the section header lands at the top of the viewport
-    // (accounting for AppBar height + padding ≈ 80px).
-    final target = _scrollController.offset + screenY - 80;
-    _scrollController.animateTo(
-      target.clamp(0.0, _scrollController.position.maxScrollExtent),
+    Scrollable.ensureVisible(
+      keyContext,
+      alignment: 0.03,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
-    );
+    ).then((_) => _isScrollingToSection = false);
   }
 
   // ─── Auth actions ─────────────────────────────────────────────────────
@@ -610,7 +663,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return _buildScrollableContent();
   }
 
-  // ─── Sidebar (desktop) ───────────────────────────────────────────────
+  // ─── Sidebar (desktop, tree structure) ─────────────────────────────────
 
   Widget _buildSidebar() {
     return Container(
@@ -620,57 +673,90 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           vertical: Spacing.xl,
           horizontal: Spacing.sm,
         ),
-        children: List.generate(_sections.length, (i) {
-          final section = _sections[i];
-          final isActive = i == _activeSectionIndex;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: Spacing.xs),
-            child: Material(
-              color: isActive
-                  ? AppColors.primary.withValues(alpha: 0.12)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(Spacing.radiusSm),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(Spacing.radiusSm),
-                onTap: () => _scrollToSection(i),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.md,
-                    vertical: Spacing.sm,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        section.icon,
-                        size: 20,
-                        color: isActive
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: Spacing.md),
-                      Text(
-                        section.label,
-                        style: TextStyle(
-                          color: isActive
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                          fontWeight: isActive
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
+        children: [
+          for (var i = 0; i < _navItems.length; i++) ...[
+            if (i > 0) const SizedBox(height: Spacing.md),
+            ..._buildSidebarNavItem(_navItems[i]),
+          ],
+        ],
       ),
     );
   }
 
-  // ─── Bottom nav (mobile) ──────────────────────────────────────────────
+  List<Widget> _buildSidebarNavItem(_NavItem nav) {
+    if (nav.sectionIndices.length == 1) {
+      // Flat item — single section, clickable
+      final sectionIndex = nav.sectionIndices.first;
+      final section = _sections[sectionIndex];
+      final isActive = _activeSectionIndex == sectionIndex;
+      return [_buildSidebarItem(section, sectionIndex, isActive)];
+    }
+
+    // Group — clickable parent highlights when any child is active
+    final firstIndex = nav.sectionIndices.first;
+    final isGroupActive = nav.sectionIndices.contains(_activeSectionIndex);
+    return [
+      _buildSidebarItem(
+        _Section(label: nav.label, icon: nav.icon),
+        firstIndex,
+        isGroupActive,
+      ),
+      for (final sectionIndex in nav.sectionIndices)
+        Padding(
+          padding: const EdgeInsets.only(left: Spacing.xl),
+          child: _buildSidebarItem(
+            _sections[sectionIndex],
+            sectionIndex,
+            _activeSectionIndex == sectionIndex,
+          ),
+        ),
+    ];
+  }
+
+  Widget _buildSidebarItem(_Section section, int sectionIndex, bool isActive) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.xs),
+      child: Material(
+        color: isActive
+            ? AppColors.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(Spacing.radiusSm),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(Spacing.radiusSm),
+          onTap: () => _scrollToSection(sectionIndex),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.md,
+              vertical: Spacing.sm,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  section.icon,
+                  size: 18,
+                  color:
+                      isActive ? AppColors.primary : AppColors.textSecondary,
+                ),
+                const SizedBox(width: Spacing.md),
+                Text(
+                  section.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color:
+                        isActive ? AppColors.primary : AppColors.textSecondary,
+                    fontWeight:
+                        isActive ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Bottom nav (mobile, icon-only) ────────────────────────────────────
 
   Widget _buildBottomNav() {
     return Container(
@@ -680,44 +766,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+          padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(_sections.length, (i) {
-              final section = _sections[i];
-              final isActive = i == _activeSectionIndex;
-              return InkWell(
-                borderRadius: BorderRadius.circular(Spacing.radiusSm),
-                onTap: () => _scrollToSection(i),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.sm,
-                    vertical: Spacing.xs,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        section.icon,
-                        size: 20,
-                        color: isActive
-                            ? AppColors.primary
-                            : AppColors.textTertiary,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        section.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isActive
-                              ? AppColors.primary
-                              : AppColors.textTertiary,
-                          fontWeight: isActive
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ],
+            children: List.generate(_navItems.length, (i) {
+              final nav = _navItems[i];
+              final isActive = i == _activeNavIndex;
+              return Tooltip(
+                message: nav.label,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(Spacing.radiusSm),
+                  onTap: () => _scrollToSection(nav.sectionIndices.first),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.md,
+                      vertical: Spacing.xs,
+                    ),
+                    child: Icon(
+                      nav.icon,
+                      size: 22,
+                      color:
+                          isActive ? AppColors.primary : AppColors.textTertiary,
+                    ),
                   ),
                 ),
               );
@@ -749,7 +819,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: Spacing.xxxl),
               _buildStudySection(),
               const SizedBox(height: Spacing.xxxl),
+              _buildNotificationsSection(),
+              const SizedBox(height: Spacing.xxxl),
               _buildAppearanceSection(),
+              const SizedBox(height: Spacing.xxxl),
+              _buildDataSection(),
               const SizedBox(height: Spacing.xxxl),
               _buildAboutSection(),
               const SizedBox(height: Spacing.xxxl),
@@ -762,14 +836,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // ─── Section header ───────────────────────────────────────────────────
 
-  Widget _buildSectionHeader(String title, GlobalKey key) {
+  Widget _buildSectionHeader(String title, GlobalKey key, {Color? color}) {
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: color,
+          ),
+        ),
         const SizedBox(height: Spacing.sm),
-        const Divider(),
+        Divider(color: color?.withValues(alpha: 0.4)),
         const SizedBox(height: Spacing.lg),
       ],
     );
@@ -980,40 +1059,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           subtitle: 'Signed in',
         ),
         const SizedBox(height: Spacing.xl),
-        Row(
-          children: [
-            OutlinedButton.icon(
-              onPressed: _signOut,
-              icon: const Icon(Icons.logout),
-              label: const Text('Sign out'),
-            ),
-            const SizedBox(width: Spacing.md),
-            OutlinedButton.icon(
-              onPressed: () {
-                _showError('Account deletion is not yet available.');
-              },
-              style:
-                  OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textTertiary,
-                    side: const BorderSide(color: AppColors.outline),
-                  ).copyWith(
-                    foregroundColor: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.hovered)) {
-                        return AppColors.error;
-                      }
-                      return AppColors.textTertiary;
-                    }),
-                    side: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.hovered)) {
-                        return const BorderSide(color: AppColors.error);
-                      }
-                      return const BorderSide(color: AppColors.outline);
-                    }),
-                  ),
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete account'),
-            ),
-          ],
+        OutlinedButton.icon(
+          onPressed: _signOut,
+          icon: const Icon(Icons.logout),
+          label: const Text('Sign out'),
         ),
       ],
     );
@@ -1135,7 +1184,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('Appearance', _sections[3].key),
+        _buildSectionHeader('Appearance', _sections[4].key),
         _SettingsTile(
           leading: const Icon(
             Icons.dark_mode_outlined,
@@ -1190,20 +1239,159 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // ─── Notifications section (placeholder) ───────────────────────────────
+
+  Widget _buildNotificationsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Notifications', _sections[3].key),
+        _SettingsTile(
+          leading: const Icon(
+            Icons.notifications_outlined,
+            color: AppColors.textSecondary,
+          ),
+          title: 'Push notifications',
+          subtitle: 'Coming soon',
+          trailing: Switch(
+            value: false,
+            onChanged: (_) =>
+                _showError('Push notifications not yet implemented.'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Data section (danger zone) ───────────────────────────────────────
+
+  Future<void> _deleteAllData() async {
+    final confirmed = await ConfirmDialog.show(
+      context: context,
+      title: 'Delete all study data?',
+      message:
+          'This will permanently delete all decks, cards, and reviews '
+          'from this device. This action cannot be undone.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    await DatabaseHelper.instance.clearAllData();
+    await SyncPullService.resetLastPullTimestamp();
+    if (mounted) {
+      AppSnackBar.show(context, 'All study data deleted');
+      context.go(Routes.home);
+    }
+  }
+
+  Widget _buildDataSection() {
+    final isSignedIn = _authService.currentSession != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Data', _sections[5].key, color: AppColors.error),
+        Container(
+          padding: const EdgeInsets.all(Spacing.lg),
+          decoration: BoxDecoration(
+            color: AppColors.error.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(Spacing.radiusMd),
+            border: Border.all(
+              color: AppColors.error.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Column(
+            children: [
+              _SettingsTile(
+                leading: const Icon(
+                  Icons.delete_forever,
+                  color: AppColors.error,
+                ),
+                title: 'Delete all study data',
+                subtitle:
+                    'Permanently remove all decks, cards, and reviews from this device',
+                trailing: OutlinedButton(
+                  onPressed: _deleteAllData,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                  ),
+                  child: const Text('Delete'),
+                ),
+              ),
+              if (isSignedIn) ...[
+                const SizedBox(height: Spacing.md),
+                _SettingsTile(
+                  leading: const Icon(
+                    Icons.person_off_outlined,
+                    color: AppColors.error,
+                  ),
+                  title: 'Delete account',
+                  subtitle:
+                      'Permanently delete your account and all synced data',
+                  trailing: OutlinedButton(
+                    onPressed: () {
+                      _showError('Account deletion is not yet available.');
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                    ),
+                    child: const Text('Delete'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   // ─── About section ────────────────────────────────────────────────────
 
   Widget _buildAboutSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('About', _sections[4].key),
+        _buildSectionHeader('About', _sections[6].key),
+        const _SettingsTile(
+          leading: Icon(Icons.school_outlined, color: AppColors.primary),
+          title: 'Lapse',
+          subtitle: 'Spaced repetition flashcards',
+        ),
+        const SizedBox(height: Spacing.md),
         _SettingsTile(
           leading: const Icon(
             Icons.info_outline,
             color: AppColors.textSecondary,
           ),
           title: 'Version',
-          subtitle: _appVersion.isEmpty ? '…' : _appVersion,
+          subtitle: _appVersion.isEmpty ? '...' : _appVersion,
+        ),
+        const SizedBox(height: Spacing.md),
+        const _SettingsTile(
+          leading: Icon(Icons.group_outlined, color: AppColors.textSecondary),
+          title: 'Contributors',
+          subtitle: 'Pairadux, GADudley, djanderson26, DevamPatel22',
+        ),
+        const SizedBox(height: Spacing.md),
+        _SettingsTile(
+          leading: const Icon(
+            Icons.code_outlined,
+            color: AppColors.textSecondary,
+          ),
+          title: 'Source code',
+          subtitle: 'github.com/Pairadux/lapse',
+          trailing: const Icon(
+            Icons.open_in_new,
+            size: 18,
+            color: AppColors.textTertiary,
+          ),
+          onTap: () => launchUrl(
+            Uri.parse('https://github.com/Pairadux/lapse'),
+          ),
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
@@ -1218,6 +1406,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             size: 18,
             color: AppColors.textTertiary,
           ),
+          onTap: () => launchUrl(
+            Uri.parse('https://github.com/Pairadux/lapse/issues'),
+          ),
         ),
         const SizedBox(height: Spacing.md),
         _SettingsTile(
@@ -1230,6 +1421,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           trailing: const Icon(
             Icons.chevron_right,
             color: AppColors.textTertiary,
+          ),
+          onTap: () => showLicensePage(
+            context: context,
+            applicationName: 'Lapse',
+            applicationVersion: _appVersion,
           ),
         ),
       ],
@@ -1244,17 +1440,19 @@ class _SettingsTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget? trailing;
+  final VoidCallback? onTap;
 
   const _SettingsTile({
     this.leading,
     required this.title,
     this.subtitle,
     this.trailing,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.symmetric(
         vertical: Spacing.sm,
         horizontal: Spacing.sm,
@@ -1286,5 +1484,14 @@ class _SettingsTile extends StatelessWidget {
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(Spacing.radiusSm),
+        onTap: onTap,
+        child: content,
+      );
+    }
+    return content;
   }
 }
