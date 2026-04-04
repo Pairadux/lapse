@@ -116,3 +116,21 @@ Input Summary: Supplied the full list of required FSRS and repository test cases
 Output Summary: Received detailed test plans, code snippets for missing/incorrect tests, and targeted advice for fixing test logic to match FSRS and repository behaviors. All test files were updated and passing after applying the AI’s recommendations.
 Modifications: Expanded and corrected test suites for FSRS service, CardRepository, and DeckRepository. Adjusted test logic for FSRS state transitions, interval calculations, and edge cases to match actual implementation.
 Files Referenced: test/features/study/fsrs_service_test.dart, test/features/cards/data/card_repository_test.dart, test/features/decks/data/deck_repository_test.dart
+
+Date: 2026-03-22
+User: Darius Anderson
+Purpose: Implement offline indicator widget (#106) — real-time connectivity monitoring with smart notifications
+Approach: Explored codebase patterns, provided complete implementation with integration points in main.dart, form screens, and study session screen. Iteratively refined UX (persistent banner → temporary snack bars) and added cooldown/pause-resume mechanisms.
+Input Summary: Provided project scope and requested full top-to-bottom implementation guide with connectivity_plus integration.
+Output Summary: Delivered ConnectivityService singleton with real-time monitoring, GlobalKey pattern for context-free snack bars, 5-second cooldown for flaky networks, pause/resume for study sessions, and configurable toggle.
+Modifications: Fixed deprecated API (withOpacity → withValues), corrected connectivity_plus version (v1.5.0 → v7.0.0), refactored to temporary snack bars, implemented GlobalKey setup, added lifecycle pause/resume, integrated post-save checks, removed unnecessary comments.
+Files Referenced: lib/core/services/connectivity_service.dart, lib/main.dart, lib/features/cards/presentation/screens/card_form_screen.dart, lib/features/decks/presentation/screens/deck_form_screen.dart, lib/features/study/presentation/screens/study_session_screen.dart, pubspec.yaml
+
+Date: 2026-04-03
+User: Darius Anderson
+Purpose: Implement card browser screen — Anki-style flat list of all cards across all decks with search, filters, and sorting
+Approach: Explored existing codebase patterns (providers, widgets, routing), provided comprehensive implementation guide with exact line numbers, iteratively fixed issues (routing, imports, state management), and validated all functionality via manual testing.
+Input Summary: Feature requirements (#154): search/filter by text/deck/state, sort by due date/difficulty/created/reviewed/stability, tap to edit, long-press for multi-select (future). Explored DeckDetailScreen, StudySessionScreen, and provider patterns to ensure consistency.
+Output Summary: Delivered comprehensive implementation guide for complete, working card browser with 5 files: filter model (with copyWith generation), providers (FutureProvider.family with CardBrowserFilters parameter), main screen (manages filter state with setState), filter panel widget (collapsible UI), and card list item widget (with due badge). All features tested and working: search, sorting, filtering, card editing, empty states.
+Modifications: Fixed GoRouter trailing slash error (/cards/ → /cards), corrected route navigation to pass card as extra data for editing, renamed CardSortBy.ease to CardSortBy.stability for clarity, removed unused imports/constants, initialized compare variable in sort switch, changed from StateNotifier pattern to simple filter state management, added copy_with_extension to pubspec.yaml dependencies.
+Files Referenced: lib/core/routing/routes.dart, lib/core/routing/app_router.dart, lib/features/decks/presentation/screens/deck_list_screen.dart, lib/features/cards/data/card_repository.dart, lib/features/cards/presentation/models/card_browser_filters.dart, lib/features/cards/presentation/providers/card_browser_provider.dart, lib/features/cards/presentation/screens/card_browser_screen.dart, lib/features/cards/presentation/widgets/card_browser_filter_panel.dart, lib/features/cards/presentation/widgets/card_list_item.dart, pubspec.yaml
