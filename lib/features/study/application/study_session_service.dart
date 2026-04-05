@@ -8,7 +8,8 @@ import 'package:lapse/features/cards/domain/flashcard.dart';
 class StudySessionService {
   final FsrsService _fsrsService;
 
-  StudySessionService({FsrsService? fsrsService}) : _fsrsService = fsrsService ?? FsrsService();
+  StudySessionService({FsrsService? fsrsService})
+    : _fsrsService = fsrsService ?? FsrsService();
 
   /// Initialize a new study session
   StudySession startSession(String deckId, List<Flashcard> cards) {
@@ -27,12 +28,21 @@ class StudySessionService {
 
   /// Process card rating, update scheduling with FSRS, and advance session.
   /// Learning/relearning cards are re-queued at the end of the session.
-  StudySessionResult rateCard(StudySession session, Flashcard card, Rating rating) {
+  StudySessionResult rateCard(
+    StudySession session,
+    Flashcard card,
+    Rating rating,
+  ) {
     try {
       final result = _fsrsService.processReview(card, rating);
 
       return StudySessionResult(
-        session: _buildUpdatedSession(session, result.review, rating, result.updatedCard),
+        session: _buildUpdatedSession(
+          session,
+          result.review,
+          rating,
+          result.updatedCard,
+        ),
         updatedCard: result.updatedCard,
         review: result.review,
       );
@@ -67,11 +77,13 @@ class StudySessionService {
         break;
     }
 
-    final updatedCompletedReviews = List<Review>.from(session.completedReviews)..add(review);
+    final updatedCompletedReviews = List<Review>.from(session.completedReviews)
+      ..add(review);
 
     // Re-queue learning/relearning cards at the end so they reappear this session
     final updatedCards = List<Flashcard>.from(session.cards);
-    final stillLearning = updatedCard.cardState == CardState.learning ||
+    final stillLearning =
+        updatedCard.cardState == CardState.learning ||
         updatedCard.cardState == CardState.relearning;
     if (stillLearning) {
       updatedCards.add(updatedCard);
@@ -96,5 +108,9 @@ class StudySessionResult {
   final Flashcard updatedCard;
   final Review review;
 
-  StudySessionResult({required this.session, required this.updatedCard, required this.review});
+  StudySessionResult({
+    required this.session,
+    required this.updatedCard,
+    required this.review,
+  });
 }

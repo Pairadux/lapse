@@ -5,8 +5,10 @@ import 'package:lapse/core/routing/route_observer.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/widgets/context_menu_region.dart';
+import 'package:lapse/core/widgets/deck_picker_dialog.dart';
 import 'package:lapse/core/widgets/empty_state_widget.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
@@ -41,6 +43,13 @@ class DeckDetailScreen extends ConsumerStatefulWidget {
 class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     with RouteAware {
   final ScrollController _breadcrumbScrollController = ScrollController();
+  final ScrollController _cardsScrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _cardsScrollController.addListener(_onCardsScroll);
+  }
 
   @override
   void didChangeDependencies() {
@@ -55,6 +64,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
   void dispose() {
     routeObserver.unsubscribe(this);
     _breadcrumbScrollController.dispose();
+    _cardsScrollController.dispose();
     super.dispose();
   }
 
@@ -63,6 +73,23 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
   @override
   void didPopNext() {
     ref.invalidate(deckDetailProvider(widget.deckId));
+  }
+
+  void _onCardsScroll() {
+    if (!_cardsScrollController.hasClients) return;
+
+    const loadMoreThreshold = 320.0;
+    final extentAfter = _cardsScrollController.position.extentAfter;
+    if (extentAfter > loadMoreThreshold) return;
+
+    final detail = ref.read(deckDetailProvider(widget.deckId)).asData?.value;
+    if (detail == null ||
+        !detail.hasMoreCards ||
+        detail.isLoadingMoreCards) {
+      return;
+    }
+
+    ref.read(deckDetailProvider(widget.deckId).notifier).loadMoreCards();
   }
 
   // ── Navigation helpers ──────────────────────────────────────────
@@ -114,8 +141,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
       return;
     }
 
-    final allIds =
-        await ref.read(deckRepositoryProvider).getDescendantIds(widget.deckId);
+    final allIds = await ref
+        .read(deckRepositoryProvider)
+        .getDescendantIds(widget.deckId);
     if (mounted) {
       context.push(
         Routes.studyPath(widget.deckId),
@@ -159,8 +187,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           final confirmed = await ConfirmDialog.show(
             context: context,
             title: 'Delete deck?',
-            message:
-                'This will delete "${deck.deckName}" and all its cards.',
+            message: 'This will delete "${deck.deckName}" and all its cards.',
             confirmLabel: 'Delete',
             isDestructive: true,
           );
@@ -170,17 +197,47 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               .deleteChildDeck(deck.deckId);
           break;
         case ContextMenuAction.move:
+          final deckRepo = ref.read(deckRepositoryProvider);
+          final allDecks = await deckRepo.getAll();
+          final excludeIds =
+              (await deckRepo.getDescendantIds(deck.deckId)).toSet();
+
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Move action is coming soon')),
+          final targetId = await DeckPickerDialog.show(
+            context: context,
+            decks: allDecks,
+            excludeIds: excludeIds,
+            currentParentId: deck.parentId,
           );
+          if (targetId == null || !mounted) return;
+
+          final newParentId = targetId.isEmpty ? null : targetId;
+          if (newParentId == deck.parentId) return;
+
+          final nameConflict = await deckRepo.nameExistsAtLevel(
+            name: deck.deckName,
+            parentId: newParentId,
+            excludeDeckId: deck.deckId,
+          );
+          if (nameConflict) {
+            if (!mounted) return;
+            AppSnackBar.show(
+              context,
+              'A deck named "${deck.deckName}" already exists there',
+            );
+            return;
+          }
+
+          await ref
+              .read(deckDetailProvider(widget.deckId).notifier)
+              .moveChildDeck(deck.deckId, newParentId);
+          if (!mounted) return;
+          AppSnackBar.show(context, 'Moved "${deck.deckName}"');
           break;
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        AppSnackBar.show(context, 'Action failed: $e');
       }
     }
   }
@@ -211,17 +268,30 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
               .deleteCard(card.cardId);
           break;
         case ContextMenuAction.move:
+          final deckRepo = ref.read(deckRepositoryProvider);
+          final allDecks = await deckRepo.getAll();
+
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Move action is coming soon')),
+          final targetId = await DeckPickerDialog.show(
+            context: context,
+            decks: allDecks,
+            excludeIds: const <String>{},
+            currentParentId: card.deckId,
+            showRoot: false,
           );
+          if (targetId == null || !mounted) return;
+          if (targetId == card.deckId) return;
+
+          await ref
+              .read(deckDetailProvider(widget.deckId).notifier)
+              .moveCard(card.cardId, targetId);
+          if (!mounted) return;
+          AppSnackBar.show(context, 'Card moved');
           break;
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        AppSnackBar.show(context, 'Action failed: $e');
       }
     }
   }
@@ -244,9 +314,8 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
         if (e is DeckNotFoundException) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Deck not found')),
-              );
+              AppSnackBar.show(context, 'Deck not found',
+    );
               context.pop();
             }
           });
@@ -281,9 +350,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
             onPressed: deck == null
                 ? null
                 : () => context.push(
-                      Routes.deckEditPath(widget.deckId),
-                      extra: deck,
-                    ),
+                    Routes.deckEditPath(widget.deckId),
+                    extra: deck,
+                  ),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -297,14 +366,12 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           SpeedDialAction(
             icon: Icons.style_outlined,
             label: 'New Card',
-            onPressed: () =>
-                context.push(Routes.cardNewPath(widget.deckId)),
+            onPressed: () => context.push(Routes.cardNewPath(widget.deckId)),
           ),
           SpeedDialAction(
             icon: Icons.folder_outlined,
             label: 'New Deck',
-            onPressed: () =>
-                context.push(Routes.deckNew, extra: widget.deckId),
+            onPressed: () => context.push(Routes.deckNew, extra: widget.deckId),
           ),
         ],
       ),
@@ -355,6 +422,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     }
 
     return CustomScrollView(
+      controller: _cardsScrollController,
       slivers: [
         SliverToBoxAdapter(
           child: _buildHeader(
@@ -420,12 +488,19 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           SliverPadding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _buildCardItem(detail.cards[index]),
-                childCount: detail.cards.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                if (index < detail.cards.length) {
+                  return _buildCardItem(detail.cards[index]);
+                }
+                return _buildLoadMoreIndicator(
+                  isLoading: detail.isLoadingMoreCards,
+                );
+              },
+              childCount:
+                  detail.cards.length + (detail.hasMoreCards ? 1 : 0)),
             ),
           ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
       ],
     );
   }
@@ -519,10 +594,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
             child: Text(
               '·',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textTertiary),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textTertiary),
             ),
           ),
           Text(
@@ -540,6 +614,14 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLoadMoreIndicator({required bool isLoading}) {
+    if (!isLoading) return const SizedBox.shrink();
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: Spacing.lg),
+      child: LoadingIndicator(size: 20),
     );
   }
 
@@ -568,17 +650,15 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
                       ),
                       TextSpan(
                         text: '  →  ',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: AppColors.textTertiary),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textTertiary,
+                        ),
                       ),
                       TextSpan(
                         text: card.back,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: AppColors.textSecondary),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -605,11 +685,7 @@ class _BreadcrumbItem extends StatelessWidget {
   final bool isLast;
   final VoidCallback? onTap;
 
-  const _BreadcrumbItem({
-    required this.label,
-    this.isLast = false,
-    this.onTap,
-  });
+  const _BreadcrumbItem({required this.label, this.isLast = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {

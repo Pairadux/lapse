@@ -63,9 +63,13 @@ void main() {
       final resultEasy = fsrsService.processReview(easyCard, Rating.easy);
 
       expect(
-        resultEasy.updatedCard.dueDate.difference(resultEasy.updatedCard.lastReview!).inDays,
+        resultEasy.updatedCard.dueDate
+            .difference(resultEasy.updatedCard.lastReview!)
+            .inDays,
         greaterThan(
-          resultGood.updatedCard.dueDate.difference(resultGood.updatedCard.lastReview!).inDays,
+          resultGood.updatedCard.dueDate
+              .difference(resultGood.updatedCard.lastReview!)
+              .inDays,
         ),
       );
     });
@@ -77,8 +81,12 @@ void main() {
       final hardCard = makeTestCard();
       final resultHard = fsrsService.processReview(hardCard, Rating.hard);
 
-      final intervalGood = resultGood.updatedCard.dueDate.difference(resultGood.updatedCard.lastReview!).inMinutes;
-      final intervalHard = resultHard.updatedCard.dueDate.difference(resultHard.updatedCard.lastReview!).inMinutes;
+      final intervalGood = resultGood.updatedCard.dueDate
+          .difference(resultGood.updatedCard.lastReview!)
+          .inMinutes;
+      final intervalHard = resultHard.updatedCard.dueDate
+          .difference(resultHard.updatedCard.lastReview!)
+          .inMinutes;
       expect(intervalHard, lessThan(intervalGood));
     });
 
@@ -148,7 +156,10 @@ void main() {
       final resultEasy = fsrsService.processReview(card, Rating.easy);
 
       expect(resultGood.updatedCard.stability, greaterThan(card.stability));
-      expect(resultEasy.updatedCard.stability, greaterThan(resultGood.updatedCard.stability));
+      expect(
+        resultEasy.updatedCard.stability,
+        greaterThan(resultGood.updatedCard.stability),
+      );
     });
 
     test('stability decreases when card is rated Again', () {
@@ -220,13 +231,24 @@ void main() {
     });
 
     test('review rating Good produces longer interval than Hard', () {
-      final hardCard = makeTestCard(state: CardState.review, stability: 10.0, difficulty: 5.0);
-      final goodCard = makeTestCard(state: CardState.review, stability: 10.0, difficulty: 5.0);
+      final hardCard = makeTestCard(
+        state: CardState.review,
+        stability: 10.0,
+        difficulty: 5.0,
+      );
+      final goodCard = makeTestCard(
+        state: CardState.review,
+        stability: 10.0,
+        difficulty: 5.0,
+      );
 
       final resultHard = fsrsService.processReview(hardCard, Rating.hard);
       final resultGood = fsrsService.processReview(goodCard, Rating.good);
 
-      expect(resultGood.updatedCard.scheduledDays, greaterThan(resultHard.updatedCard.scheduledDays));
+      expect(
+        resultGood.updatedCard.scheduledDays,
+        greaterThan(resultHard.updatedCard.scheduledDays),
+      );
     });
   });
 
@@ -245,7 +267,12 @@ void main() {
     });
 
     test('lapses increments only on Again rating', () {
-      var card = makeTestCard(lapses: 0, state: CardState.review, stability: 10.0, difficulty: 5.0);
+      var card = makeTestCard(
+        lapses: 0,
+        state: CardState.review,
+        stability: 10.0,
+        difficulty: 5.0,
+      );
 
       card = fsrsService.processReview(card, Rating.good).updatedCard;
       expect(card.lapses, 0);
@@ -258,7 +285,12 @@ void main() {
     });
 
     test('lapses accumulate with multiple Again ratings', () {
-      var card = makeTestCard(lapses: 0, state: CardState.review, stability: 10.0, difficulty: 5.0);
+      var card = makeTestCard(
+        lapses: 0,
+        state: CardState.review,
+        stability: 10.0,
+        difficulty: 5.0,
+      );
 
       card = fsrsService.processReview(card, Rating.again).updatedCard;
       expect(card.lapses, 1);
@@ -305,7 +337,11 @@ void main() {
     });
 
     test('rapid successive reviews update correctly', () {
-      var card = makeTestCard(state: CardState.review, stability: 10.0, difficulty: 5.0);
+      var card = makeTestCard(
+        state: CardState.review,
+        stability: 10.0,
+        difficulty: 5.0,
+      );
 
       // Three reviews in a row
       card = fsrsService.processReview(card, Rating.good).updatedCard;
@@ -321,14 +357,14 @@ void main() {
       expect(stability1, greaterThanOrEqualTo(10.0));
       expect(stability2, greaterThanOrEqualTo(stability1));
       expect(stability3, greaterThanOrEqualTo(stability2));
-      expect(stability3, lessThan(stability2 * 10)); // Sanity check: not absurdly high
+      expect(
+        stability3,
+        lessThan(stability2 * 10),
+      ); // Sanity check: not absurdly high
     });
 
     test('processReview handles null lastReview gracefully', () {
-      final card = makeTestCard(
-        state: CardState.newCard,
-        lastReview: null,
-      );
+      final card = makeTestCard(state: CardState.newCard, lastReview: null);
 
       final result = fsrsService.processReview(card, Rating.good);
       expect(result.updatedCard.lastReview, isNotNull);
@@ -345,7 +381,10 @@ void main() {
       final result = fsrsService.processReview(hardCard, Rating.easy);
       expect(result.updatedCard.stability, greaterThan(0));
       expect(result.updatedCard.difficulty, greaterThan(0));
-      expect(result.updatedCard.difficulty, lessThan(9.0)); // Difficulty decreases on Easy
+      expect(
+        result.updatedCard.difficulty,
+        lessThan(9.0),
+      ); // Difficulty decreases on Easy
     });
   });
 
@@ -361,7 +400,11 @@ void main() {
     });
 
     test('review record captures rating and state', () {
-      final card = makeTestCard(state: CardState.review, stability: 10.0, difficulty: 5.0);
+      final card = makeTestCard(
+        state: CardState.review,
+        stability: 10.0,
+        difficulty: 5.0,
+      );
       final result = fsrsService.processReview(card, Rating.easy);
 
       expect(result.review.rating, Rating.easy);
@@ -370,4 +413,3 @@ void main() {
     });
   });
 }
-

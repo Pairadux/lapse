@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/domain/sync_status.dart';
@@ -18,6 +19,7 @@ void main() {
   late String dbName;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     dbName = 'test_card_repo_${DateTime.now().microsecondsSinceEpoch}.db';
     helper = DatabaseHelper.forTesting(dbName: dbName);
     deckRepo = DeckRepository(dbHelper: helper);
@@ -33,7 +35,9 @@ void main() {
   /// Insert a parent deck to satisfy FK constraints.
   Future<void> insertParentDeck({String id = 'deck-1'}) async {
     final now = DateTime.now();
-    await deckRepo.create(Deck(deckId: id, deckName: 'Parent', createdAt: now, updatedAt: now));
+    await deckRepo.create(
+      Deck(deckId: id, deckName: 'Parent', createdAt: now, updatedAt: now),
+    );
   }
 
   Flashcard makeCard({
@@ -160,8 +164,11 @@ void main() {
       await cardRepo.delete('card-1');
 
       final db = await helper.database;
-      final rows = await db.query('cards',
-          where: 'card_id = ?', whereArgs: ['card-1']);
+      final rows = await db.query(
+        'cards',
+        where: 'card_id = ?',
+        whereArgs: ['card-1'],
+      );
       expect(rows.first['sync_status'], 'pending');
     });
 
@@ -170,7 +177,10 @@ void main() {
       await cardRepo.create(makeCard(id: 'c1'));
       await cardRepo.create(makeCard(id: 'c2'));
 
-      await cardRepo.markSynced(['c1']);
+      final c1 = await cardRepo.getById('c1');
+      await cardRepo.markSynced({
+        'c1': c1!.updatedAt.toUtc().toIso8601String(),
+      });
 
       final unsynced = await cardRepo.getUnsynced();
       expect(unsynced, hasLength(1));
@@ -182,10 +192,62 @@ void main() {
       await cardRepo.create(makeCard(id: 'c1'));
       await cardRepo.create(makeCard(id: 'c2'));
 
-      await cardRepo.markSynced(['c1', 'c2']);
+      final c1 = await cardRepo.getById('c1');
+      final c2 = await cardRepo.getById('c2');
+      await cardRepo.markSynced({
+        'c1': c1!.updatedAt.toUtc().toIso8601String(),
+        'c2': c2!.updatedAt.toUtc().toIso8601String(),
+      });
 
       final unsynced = await cardRepo.getUnsynced();
       expect(unsynced, isEmpty);
+    });
+
+    test('markSynced with empty map is a no-op', () async {
+      await cardRepo.markSynced({});
+      // Should not throw
+    });
+
+    test('markSynced skips rows modified after push (TOCTOU guard)', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard(id: 'c1'));
+      final original = await cardRepo.getById('c1');
+      final pushedTimestamp = original!.updatedAt.toUtc().toIso8601String();
+
+      // Simulate user editing the card after push read it but before markSynced
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await cardRepo.update(original.copyWith(front: 'Edited'));
+
+      // markSynced with the OLD timestamp should not mark as synced
+      await cardRepo.markSynced({'c1': pushedTimestamp});
+
+      final card = await cardRepo.getById('c1');
+      expect(card!.syncStatus, SyncStatus.pending);
+      expect(card.front, 'Edited');
+    });
+
+    test('markSynced applies only to matching timestamps', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard(id: 'c1'));
+      await cardRepo.create(makeCard(id: 'c2'));
+
+      final c1 = await cardRepo.getById('c1');
+      final c2 = await cardRepo.getById('c2');
+      final c1Timestamp = c1!.updatedAt.toUtc().toIso8601String();
+
+      // Edit 'c2' so its timestamp no longer matches
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await cardRepo.update(c2!.copyWith(front: 'Edited'));
+
+      await cardRepo.markSynced({
+        'c1': c1Timestamp,
+        'c2': c2.updatedAt.toUtc().toIso8601String(), // stale
+      });
+
+      final c1After = await cardRepo.getById('c1');
+      final c2After = await cardRepo.getById('c2');
+      expect(c1After!.syncStatus, SyncStatus.synced); // matched
+      expect(c2After!.syncStatus, SyncStatus.pending); // stale, skipped
     });
 
     test('getUnsynced includes deleted items', () async {
@@ -305,6 +367,65 @@ void main() {
     });
   });
 
+  group('getByDeckId pagination', () {
+    test('limit and offset return the correct page', () async {
+      await insertParentDeck(id: 'deck-a');
+      final base = DateTime(2026, 1, 1);
+      for (var i = 1; i <= 5; i++) {
+        await cardRepo.create(
+          makeCard(
+            id: 'c$i',
+            deckId: 'deck-a',
+            createdAt: base.add(Duration(seconds: i)),
+          ),
+        );
+      }
+
+      final page = await cardRepo.getByDeckId('deck-a', limit: 2, offset: 1);
+      expect(page.map((c) => c.cardId).toList(), ['c2', 'c3']);
+    });
+
+    test('limit larger than result set returns all results', () async {
+      await insertParentDeck();
+      await cardRepo.create(makeCard(id: 'c1'));
+      await cardRepo.create(makeCard(id: 'c2'));
+
+      final cards = await cardRepo.getByDeckId('deck-1', limit: 100);
+      expect(cards, hasLength(2));
+    });
+
+    test('limit without offset defaults to first page', () async {
+      await insertParentDeck(id: 'deck-a');
+      final base = DateTime(2026, 1, 1);
+      for (var i = 1; i <= 5; i++) {
+        await cardRepo.create(
+          makeCard(
+            id: 'c$i',
+            deckId: 'deck-a',
+            createdAt: base.add(Duration(seconds: i)),
+          ),
+        );
+      }
+
+      final page = await cardRepo.getByDeckId('deck-a', limit: 2);
+      expect(page.map((c) => c.cardId).toList(), ['c1', 'c2']);
+    });
+
+    test('limit of zero throws ArgumentError', () async {
+      expect(
+        () => cardRepo.getByDeckId('deck-1', limit: 0),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('negative offset throws ArgumentError', () async {
+      expect(
+        () => cardRepo.getByDeckId('deck-1', offset: -1),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+  });
+
   group('getDueCards edge cases', () {
     test('returns empty list when no cards are due', () async {
       await insertParentDeck();
@@ -338,7 +459,12 @@ void main() {
 
       await cardRepo.create(makeCard(id: 'c-very-past', dueDate: past));
       // Set c-recent due date to just after 'recent'
-      await cardRepo.create(makeCard(id: 'c-recent', dueDate: recent.add(const Duration(minutes: 1))));
+      await cardRepo.create(
+        makeCard(
+          id: 'c-recent',
+          dueDate: recent.add(const Duration(minutes: 1)),
+        ),
+      );
       await cardRepo.create(makeCard(id: 'c-future', dueDate: future));
 
       // Query as of now - should get both past cards
@@ -355,9 +481,15 @@ void main() {
       await insertParentDeck();
       final now = DateTime.now();
 
-      await cardRepo.create(makeCard(id: 'c1', dueDate: now.subtract(const Duration(hours: 3))));
-      await cardRepo.create(makeCard(id: 'c2', dueDate: now.subtract(const Duration(hours: 1))));
-      await cardRepo.create(makeCard(id: 'c3', dueDate: now.subtract(const Duration(hours: 2))));
+      await cardRepo.create(
+        makeCard(id: 'c1', dueDate: now.subtract(const Duration(hours: 3))),
+      );
+      await cardRepo.create(
+        makeCard(id: 'c2', dueDate: now.subtract(const Duration(hours: 1))),
+      );
+      await cardRepo.create(
+        makeCard(id: 'c3', dueDate: now.subtract(const Duration(hours: 2))),
+      );
 
       final due = await cardRepo.getDueCards('deck-1');
       expect(due.map((c) => c.cardId).toList(), ['c1', 'c3', 'c2']);

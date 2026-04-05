@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 
-final cardListProvider = AsyncNotifierProvider.family<CardListNotifier, List<Flashcard>, String>(
-  (arg) => CardListNotifier(arg),
-);
+final cardListProvider =
+    AsyncNotifierProvider.family<CardListNotifier, List<Flashcard>, String>(
+      (arg) => CardListNotifier(arg),
+    );
 
 class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
   CardListNotifier(this.deckId);
@@ -22,6 +24,7 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
       return ref.read(cardRepositoryProvider).getByDeckId(card.deckId);
     });
     ref.invalidate(deckListProvider);
+    ref.read(syncServiceProvider.notifier).schedulePush();
   }
 
   Future<void> updateCard(Flashcard card) async {
@@ -30,6 +33,7 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
       return ref.read(cardRepositoryProvider).getByDeckId(card.deckId);
     });
     ref.invalidate(deckListProvider);
+    ref.read(syncServiceProvider.notifier).schedulePush();
   }
 
   Future<void> deleteCard(String cardId) async {
@@ -38,5 +42,6 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
       return ref.read(cardRepositoryProvider).getByDeckId(deckId);
     });
     ref.invalidate(deckListProvider);
+    ref.read(syncServiceProvider.notifier).schedulePush();
   }
 }

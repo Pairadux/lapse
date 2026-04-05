@@ -14,7 +14,7 @@ class AuthNotifier extends ChangeNotifier {
   StreamSubscription<AuthState>? _subscription;
 
   AuthNotifier({AuthService? authService})
-      : _authService = authService ?? AuthService() {
+    : _authService = authService ?? AuthService() {
     _subscription = _authService.onAuthStateChange.listen((_) {
       notifyListeners();
     });

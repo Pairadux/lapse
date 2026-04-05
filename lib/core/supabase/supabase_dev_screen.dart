@@ -125,10 +125,7 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
 
     await _channel!.sendBroadcastMessage(
       event: 'ping',
-      payload: {
-        'device': _deviceName,
-        'message': 'Hello from $_deviceName',
-      },
+      payload: {'device': _deviceName, 'message': 'Hello from $_deviceName'},
     );
   }
 
@@ -189,9 +186,9 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
           const SizedBox(height: Spacing.xs),
           Text(
             subtitle,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
         ],
         const SizedBox(height: Spacing.sm),
@@ -203,25 +200,21 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
   Widget _buildConnectionCard(ThemeData theme) {
     final (icon, color, label) = switch (_connectionStatus) {
       _ConnectionStatus.checking => (
-          Icons.sync,
-          AppColors.warning,
-          'Checking...',
-        ),
+        Icons.sync,
+        AppColors.warning,
+        'Checking...',
+      ),
       _ConnectionStatus.connected => (
-          Icons.check_circle,
-          AppColors.success,
-          'Connected',
-        ),
-      _ConnectionStatus.error => (
-          Icons.error,
-          AppColors.error,
-          'Error',
-        ),
+        Icons.check_circle,
+        AppColors.success,
+        'Connected',
+      ),
+      _ConnectionStatus.error => (Icons.error, AppColors.error, 'Error'),
       _ConnectionStatus.notConfigured => (
-          Icons.warning_amber,
-          AppColors.warning,
-          'Not configured',
-        ),
+        Icons.warning_amber,
+        AppColors.warning,
+        'Not configured',
+      ),
     };
 
     return Card(
@@ -237,11 +230,18 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(label, style: theme.textTheme.bodyLarge?.copyWith(color: color)),
+                      Text(
+                        label,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: color,
+                        ),
+                      ),
                       if (_connectionError != null)
                         Text(
                           _connectionError!,
-                          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -259,7 +259,11 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
               const Divider(height: Spacing.xl),
               Row(
                 children: [
-                  const Icon(Icons.link, size: 16, color: AppColors.textTertiary),
+                  const Icon(
+                    Icons.link,
+                    size: 16,
+                    color: AppColors.textTertiary,
+                  ),
                   const SizedBox(width: Spacing.sm),
                   Expanded(
                     child: Text(
@@ -287,7 +291,9 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
           padding: const EdgeInsets.all(Spacing.cardPadding),
           child: Text(
             'Supabase not configured',
-            style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       );
@@ -310,7 +316,9 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
               child: Text(
                 user?.email ?? 'Not signed in',
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: user != null ? AppColors.textPrimary : AppColors.textSecondary,
+                  color: user != null
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
                 ),
               ),
             ),
@@ -327,7 +335,9 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
           padding: const EdgeInsets.all(Spacing.cardPadding),
           child: Text(
             'Supabase not configured',
-            style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       );
@@ -370,7 +380,11 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
             const SizedBox(height: Spacing.sm),
             Row(
               children: [
-                const Icon(Icons.devices, size: 16, color: AppColors.textTertiary),
+                const Icon(
+                  Icons.devices,
+                  size: 16,
+                  color: AppColors.textTertiary,
+                ),
                 const SizedBox(width: Spacing.sm),
                 Expanded(
                   child: Text(
@@ -392,45 +406,51 @@ class _SupabaseDevScreenState extends State<SupabaseDevScreen> {
             if (_messages.isNotEmpty) ...[
               const Divider(height: Spacing.xl),
               for (final msg in _messages) ...[
-                Builder(builder: (_) {
-                  final isLocal = msg.device == _deviceName;
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        isLocal ? Icons.arrow_upward : Icons.arrow_downward,
-                        size: 14,
-                        color: isLocal ? AppColors.primary : AppColors.secondary,
-                      ),
-                      const SizedBox(width: Spacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              msg.device,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: isLocal ? AppColors.primary : AppColors.secondary,
-                              ),
-                            ),
-                            Text(
-                              msg.message,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ],
+                Builder(
+                  builder: (_) {
+                    final isLocal = msg.device == _deviceName;
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          isLocal ? Icons.arrow_upward : Icons.arrow_downward,
+                          size: 14,
+                          color: isLocal
+                              ? AppColors.primary
+                              : AppColors.secondary,
                         ),
-                      ),
-                      Text(
-                        _formatTime(msg.timestamp),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.textTertiary,
+                        const SizedBox(width: Spacing.sm),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                msg.device,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: isLocal
+                                      ? AppColors.primary
+                                      : AppColors.secondary,
+                                ),
+                              ),
+                              Text(
+                                msg.message,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  );
-                }),
+                        Text(
+                          _formatTime(msg.timestamp),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppColors.textTertiary,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
                 const SizedBox(height: Spacing.sm),
               ],
             ],

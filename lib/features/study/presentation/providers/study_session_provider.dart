@@ -6,10 +6,10 @@ import 'package:lapse/features/study/application/study_session_service.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
 
-final studySessionProvider = AsyncNotifierProvider.autoDispose<
-    StudySessionNotifier, StudySession?>(
-  StudySessionNotifier.new,
-);
+final studySessionProvider =
+    AsyncNotifierProvider.autoDispose<StudySessionNotifier, StudySession?>(
+      StudySessionNotifier.new,
+    );
 
 final currentStudyCardProvider = Provider.autoDispose<Flashcard?>((ref) {
   final session = ref.watch(studySessionProvider).asData?.value;
@@ -35,7 +35,9 @@ class StudySessionNotifier extends AsyncNotifier<StudySession?> {
     state = await AsyncValue.guard<StudySession?>(() async {
       final allCards = <Flashcard>[];
       for (final deckId in deckIds) {
-        final cards = await ref.read(cardRepositoryProvider).getDueCards(deckId);
+        final cards = await ref
+            .read(cardRepositoryProvider)
+            .getDueCards(deckId);
         allCards.addAll(cards);
       }
 

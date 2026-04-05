@@ -4,8 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/theme/spacing.dart';
+import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/widgets/context_menu_region.dart';
+import 'package:lapse/core/widgets/deck_picker_dialog.dart';
+import 'package:lapse/core/sync/sync_service.dart';
+import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/core/widgets/dev_drawer.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
@@ -25,9 +29,7 @@ class DeckListScreen extends ConsumerWidget {
         leading: Builder(
           builder: (ctx) => IconButton(
             icon: const Icon(Icons.menu),
-            onPressed: kDebugMode
-                ? () => Scaffold.of(ctx).openDrawer()
-                : null,
+            onPressed: kDebugMode ? () => Scaffold.of(ctx).openDrawer() : null,
           ),
         ),
         title: const Text('Decks'),
@@ -39,9 +41,7 @@ class DeckListScreen extends ConsumerWidget {
         ],
       ),
       drawer: kDebugMode
-          ? DevDrawer(
-              onDataChanged: () => ref.invalidate(deckListProvider),
-            )
+          ? DevDrawer(onDataChanged: () => ref.invalidate(deckListProvider))
           : null,
       body: asyncDecks.when(
         loading: () => const SizedBox.shrink(),
@@ -77,7 +77,10 @@ class _DeckList extends ConsumerWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+      padding: const EdgeInsets.only(
+        top: Spacing.sm,
+        bottom: Spacing.sm + 80,
+      ),
       itemCount: decks.length,
       itemBuilder: (context, index) {
         final item = decks[index];
@@ -117,8 +120,7 @@ class _DeckList extends ConsumerWidget {
           final confirmed = await ConfirmDialog.show(
             context: context,
             title: 'Delete deck?',
-            message:
-                'This will delete "${deck.deckName}" and all its cards.',
+            message: 'This will delete "${deck.deckName}" and all its cards.',
             confirmLabel: 'Delete',
             isDestructive: true,
           );
@@ -126,17 +128,50 @@ class _DeckList extends ConsumerWidget {
           await ref.read(deckListProvider.notifier).deleteDeck(deck.deckId);
           break;
         case ContextMenuAction.move:
+          final deckRepo = ref.read(deckRepositoryProvider);
+          final allDecks = await deckRepo.getAll();
+          final excludeIds =
+              (await deckRepo.getDescendantIds(deck.deckId)).toSet();
+
           if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Move action is coming soon')),
+          final targetId = await DeckPickerDialog.show(
+            context: context,
+            decks: allDecks,
+            excludeIds: excludeIds,
+            currentParentId: deck.parentId,
           );
+          if (targetId == null || !context.mounted) return;
+
+          final newParentId = targetId.isEmpty ? null : targetId;
+          if (newParentId == deck.parentId) return;
+
+          final nameConflict = await deckRepo.nameExistsAtLevel(
+            name: deck.deckName,
+            parentId: newParentId,
+            excludeDeckId: deck.deckId,
+          );
+          if (nameConflict) {
+            if (!context.mounted) return;
+            AppSnackBar.show(
+              context,
+              'A deck named "${deck.deckName}" already exists there',
+            );
+            return;
+          }
+
+          final deckToMove =
+              deck.copyWith(parentId: Optional.value(newParentId));
+          await deckRepo.update(deckToMove);
+          ref.invalidate(deckListProvider);
+          ref.read(syncServiceProvider.notifier).schedulePush();
+          if (!context.mounted) return;
+          AppSnackBar.show(context, 'Moved "${deck.deckName}"');
           break;
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
-        );
+        AppSnackBar.show(context, 'Action failed: $e',
+);
       }
     }
   }

@@ -30,8 +30,7 @@ final appRouter = GoRouter(
   routes: [
     GoRoute(
       path: Routes.home,
-      pageBuilder: (context, state) =>
-          buildPage(state, const DeckListScreen()),
+      pageBuilder: (context, state) => buildPage(state, const DeckListScreen()),
     ),
     GoRoute(
       path: Routes.debug,
@@ -50,8 +49,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: Routes.settings,
-      pageBuilder: (context, state) =>
-          buildPage(state, const SettingsScreen()),
+      pageBuilder: (context, state) => buildPage(state, const SettingsScreen()),
     ),
     GoRoute(
       path: Routes.deckNew,
@@ -66,9 +64,7 @@ final appRouter = GoRouter(
         // Extra can be a Deck (simple push) or a Map with deck + ancestors.
         final deck = extra is Deck
             ? extra
-            : (extra is Map<String, dynamic>
-                ? extra['deck'] as Deck?
-                : null);
+            : (extra is Map<String, dynamic> ? extra['deck'] as Deck? : null);
         final ancestors = extra is Map<String, dynamic>
             ? extra['ancestors'] as List<Deck>?
             : null;
@@ -136,4 +132,3 @@ final appRouter = GoRouter(
     ),
   ],
 );
-

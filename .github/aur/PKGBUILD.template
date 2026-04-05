@@ -12,7 +12,7 @@ provides=('lapse')
 conflicts=('lapse')
 options=(!strip !debug)
 source=("${pkgname}-${pkgver}.AppImage::https://github.com/Pairadux/lapse/releases/download/v${pkgver}/lapse-${pkgver}-linux-x86_64.AppImage"
-        "lapse.desktop::https://raw.githubusercontent.com/Pairadux/lapse/v${pkgver}/.github/aur/lapse.desktop"
+        "lapse.desktop::https://raw.githubusercontent.com/Pairadux/lapse/v${pkgver}/linux/packaging/co.lapseapp.Lapse.desktop"
         "lapse.png::https://raw.githubusercontent.com/Pairadux/lapse/v${pkgver}/assets/icons/icon-other.png")
 noextract=("${pkgname}-${pkgver}.AppImage")
 sha256sums=('%%SHA256%%'

@@ -32,7 +32,10 @@ class FsrsService {
           : 0;
 
       // Cap at ~100 years — FSRS can produce extreme due dates for easy ratings on new cards
-      final scheduledDays = updatedFsrsCard.due.difference(now).inDays.clamp(0, 36500);
+      final scheduledDays = updatedFsrsCard.due
+          .difference(now)
+          .inDays
+          .clamp(0, 36500);
 
       final newState = _fromFsrsState(updatedFsrsCard.state);
 

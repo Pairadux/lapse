@@ -33,12 +33,10 @@ void main() {
     );
     final names = tables.map((r) => r['name'] as String).toSet();
 
-    expect(names, containsAll([
-      'decks',
-      'cards',
-      'reviews',
-      'review_session_summary',
-    ]));
+    expect(
+      names,
+      containsAll(['decks', 'cards', 'reviews', 'review_session_summary']),
+    );
   });
 
   test('all 12 indexes exist', () async {
@@ -48,20 +46,23 @@ void main() {
     );
     final names = indexes.map((r) => r['name'] as String).toSet();
 
-    expect(names, containsAll([
-      'idx_decks_parent_id',
-      'idx_decks_user_id',
-      'idx_decks_sync_status',
-      'idx_cards_due_date',
-      'idx_cards_deck_due',
-      'idx_cards_sync_status',
-      'idx_reviews_card_id',
-      'idx_reviews_reviewed_at',
-      'idx_reviews_sync_status',
-      'idx_session_summary_user_id',
-      'idx_session_summary_user_date',
-      'idx_session_summary_sync_status',
-    ]));
+    expect(
+      names,
+      containsAll([
+        'idx_decks_parent_id',
+        'idx_decks_user_id',
+        'idx_decks_sync_status',
+        'idx_cards_due_date',
+        'idx_cards_deck_due',
+        'idx_cards_sync_status',
+        'idx_reviews_card_id',
+        'idx_reviews_reviewed_at',
+        'idx_reviews_sync_status',
+        'idx_session_summary_user_id',
+        'idx_session_summary_user_date',
+        'idx_session_summary_sync_status',
+      ]),
+    );
   });
 
   test('foreign keys are enforced', () async {

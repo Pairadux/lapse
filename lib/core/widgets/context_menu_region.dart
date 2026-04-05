@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../theme/app_colors.dart';
+import '../theme/spacing.dart';
 
 enum ContextMenuAction { edit, delete, move }
 
@@ -7,16 +9,33 @@ enum ContextMenuAction { edit, delete, move }
 const List<PopupMenuEntry<ContextMenuAction>> kDefaultContextMenuItems = [
   PopupMenuItem<ContextMenuAction>(
     value: ContextMenuAction.edit,
-    child: Text('Edit'),
+    child: Row(
+      children: [
+        Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+        SizedBox(width: Spacing.md),
+        Text('Edit'),
+      ],
+    ),
   ),
   PopupMenuItem<ContextMenuAction>(
     value: ContextMenuAction.delete,
-    child: Text('Delete'),
+    child: Row(
+      children: [
+        Icon(Icons.delete_outline, size: 18, color: AppColors.textSecondary),
+        SizedBox(width: Spacing.md),
+        Text('Delete'),
+      ],
+    ),
   ),
   PopupMenuItem<ContextMenuAction>(
     value: ContextMenuAction.move,
-    enabled: false,
-    child: Text('Move (Coming soon)'),
+    child: Row(
+      children: [
+        Icon(Icons.folder_open_outlined, size: 18, color: AppColors.textSecondary),
+        SizedBox(width: Spacing.md),
+        Text('Move'),
+      ],
+    ),
   ),
 ];
 
@@ -62,9 +81,9 @@ class ContextMenuRegion extends StatelessWidget {
     return GestureDetector(
       onSecondaryTapDown: (details) =>
           _show(context, globalPosition: details.globalPosition),
-      onLongPress: () {
+      onLongPressStart: (details) {
         HapticFeedback.heavyImpact();
-        _show(context);
+        _show(context, globalPosition: details.globalPosition);
       },
       child: child,
     );

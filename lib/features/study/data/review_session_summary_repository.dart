@@ -7,7 +7,7 @@ class ReviewSessionSummaryRepository {
   final DatabaseHelper _dbHelper;
 
   ReviewSessionSummaryRepository({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+    : _dbHelper = dbHelper ?? DatabaseHelper.instance;
 
   /// Persists a completed session summary.
   Future<void> add(ReviewSessionSummary summary) async {
@@ -39,7 +39,8 @@ class ReviewSessionSummaryRepository {
     final db = await _dbHelper.database;
     final maps = await db.query(
       DatabaseConstants.tableReviewSessionSummary,
-      where: '${DatabaseConstants.colDate} >= ? AND ${DatabaseConstants.colDate} <= ?',
+      where:
+          '${DatabaseConstants.colDate} >= ? AND ${DatabaseConstants.colDate} <= ?',
       whereArgs: [startDate, endDate],
       orderBy: '${DatabaseConstants.colStartedAt} ASC',
     );
@@ -67,17 +68,22 @@ class ReviewSessionSummaryRepository {
     return rows.map(ReviewSessionSummary.fromMap).toList();
   }
 
-  /// Marks the given session summary IDs as synced.
-  Future<void> markSynced(List<String> ids) async {
-    if (ids.isEmpty) return;
+  /// Marks the given session summaries as synced, guarded by `updated_at`
+  /// to prevent a TOCTOU race (local edit between push read and markSynced).
+  Future<void> markSynced(Map<String, String> idToUpdatedAt) async {
+    if (idToUpdatedAt.isEmpty) return;
     final db = await _dbHelper.database;
-    final placeholders = List.filled(ids.length, '?').join(', ');
-    await db.update(
-      DatabaseConstants.tableReviewSessionSummary,
-      {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
-      where: '${DatabaseConstants.colSessionId} IN ($placeholders)',
-      whereArgs: ids,
-    );
+    await db.transaction((txn) async {
+      for (final entry in idToUpdatedAt.entries) {
+        await txn.update(
+          DatabaseConstants.tableReviewSessionSummary,
+          {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
+          where:
+              '${DatabaseConstants.colSessionId} = ? AND ${DatabaseConstants.colUpdatedAt} = ?',
+          whereArgs: [entry.key, entry.value],
+        );
+      }
+    });
   }
 
   /// Returns aggregate daily stats: total reviews, duration, and rating
@@ -88,7 +94,8 @@ class ReviewSessionSummaryRepository {
     String endDate,
   ) async {
     final db = await _dbHelper.database;
-    return db.rawQuery('''
+    return db.rawQuery(
+      '''
       SELECT
         ${DatabaseConstants.colDate},
         SUM(${DatabaseConstants.colTotalReviews}) AS ${DatabaseConstants.colTotalReviews},
@@ -104,6 +111,8 @@ class ReviewSessionSummaryRepository {
       WHERE ${DatabaseConstants.colDate} >= ? AND ${DatabaseConstants.colDate} <= ?
       GROUP BY ${DatabaseConstants.colDate}
       ORDER BY ${DatabaseConstants.colDate} ASC
-    ''', [startDate, endDate]);
+    ''',
+      [startDate, endDate],
+    );
   }
 }

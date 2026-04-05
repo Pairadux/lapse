@@ -40,14 +40,8 @@ class _FlipCardState extends State<FlipCard>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    );
+    _controller = AnimationController(vsync: this, duration: widget.duration);
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
   }
 
   @override
@@ -88,12 +82,9 @@ class _FlipCardState extends State<FlipCard>
 
           // Front: rotates 0 → π/2 (disappears at edge).
           // Back: rotates -π/2 → 0 (appears from edge, un-mirrored).
-          final angle = showFront
-              ? value * math.pi
-              : (value - 1) * math.pi;
+          final angle = showFront ? value * math.pi : (value - 1) * math.pi;
 
-          final transform = Matrix4.identity()
-            ..setEntry(3, 2, 0.001);
+          final transform = Matrix4.identity()..setEntry(3, 2, 0.001);
           if (useVerticalFlip) {
             transform.rotateX(angle);
           } else {
