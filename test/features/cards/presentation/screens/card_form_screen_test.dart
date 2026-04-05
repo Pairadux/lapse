@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/cards/presentation/screens/card_form_screen.dart';
@@ -42,6 +43,72 @@ class _FakeCardRepository extends CardRepository {
 
   @override
   Future<void> delete(String cardId) async {}
+
+  @override
+  Future<Flashcard?> getById(String cardId) {
+    throw UnimplementedError('Unexpected getById call in CardFormScreen tests');
+  }
+
+  @override
+  Future<List<Flashcard>> getByDeckId(
+    String deckId, {
+    int? limit,
+    int? offset,
+  }) {
+    throw UnimplementedError(
+      'Unexpected getByDeckId call in CardFormScreen tests',
+    );
+  }
+
+  @override
+  Future<List<Flashcard>> getDueCards(String deckId, {DateTime? asOf}) {
+    throw UnimplementedError(
+      'Unexpected getDueCards call in CardFormScreen tests',
+    );
+  }
+
+  @override
+  Future<int> countByDeckId(String deckId) {
+    throw UnimplementedError(
+      'Unexpected countByDeckId call in CardFormScreen tests',
+    );
+  }
+
+  @override
+  Future<int> countDueByDeckId(String deckId) {
+    throw UnimplementedError(
+      'Unexpected countDueByDeckId call in CardFormScreen tests',
+    );
+  }
+
+  @override
+  Future<Map<DateTime, int>> getDueDateCounts() {
+    throw UnimplementedError(
+      'Unexpected getDueDateCounts call in CardFormScreen tests',
+    );
+  }
+
+  @override
+  Future<List<Flashcard>> getUnsynced() {
+    throw UnimplementedError(
+      'Unexpected getUnsynced call in CardFormScreen tests',
+    );
+  }
+
+  @override
+  Future<void> markSynced(Map<String, String> idToUpdatedAt) {
+    throw UnimplementedError(
+      'Unexpected markSynced call in CardFormScreen tests',
+    );
+  }
+}
+
+class _FakeSyncServiceNotifier extends SyncServiceNotifier {
+  @override
+  SyncState build() => const SyncState();
+
+  @override
+  void schedulePush() {}
 }
 
 Finder _frontFieldFinder() => find.byType(TextFormField).first;
@@ -54,28 +121,11 @@ String _fieldText(WidgetTester tester, Finder finder) {
 }
 
 Flashcard _seedCard({
-  required String cardId,
   required String deckId,
   required String front,
   required String back,
 }) {
-  final now = DateTime(2026, 1, 1, 0, 0, 0);
-  return Flashcard(
-    cardId: cardId,
-    deckId: deckId,
-    front: front,
-    back: back,
-    createdAt: now,
-    updatedAt: now,
-    dueDate: now,
-    stability: 0.0,
-    difficulty: 0.0,
-    elapsedDays: 0,
-    scheduledDays: 0,
-    reps: 0,
-    lapses: 0,
-    cardState: CardState.newCard,
-  );
+  return Flashcard.newCard(deckId: deckId, front: front, back: back);
 }
 
 Future<void> _pumpCardForm(
@@ -98,7 +148,10 @@ Future<void> _pumpCardForm(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [cardRepositoryProvider.overrideWith((ref) => repo)],
+      overrides: [
+        cardRepositoryProvider.overrideWith((ref) => repo),
+        syncServiceProvider.overrideWith(_FakeSyncServiceNotifier.new),
+      ],
       child: MaterialApp.router(routerConfig: router),
     ),
   );
@@ -116,6 +169,7 @@ Future<void> _saveAndExpectCleared(
   await tester.enterText(_frontFieldFinder(), front);
   await tester.enterText(_backFieldFinder(), back);
   await tester.tap(find.widgetWithText(OutlinedButton, 'Save & Add Another'));
+  // First frame applies form state updates; second frame renders snackbar/count.
   await tester.pump();
   await tester.pump();
 
@@ -143,59 +197,57 @@ void main() {
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
-  testWidgets(
-    'Save & Add Another clears fields in an empty top-level deck',
-    (tester) async {
-      const deckId = 'top-level-empty';
-      final repo = _FakeCardRepository();
+  testWidgets('Save & Add Another clears fields in an empty top-level deck', (
+    tester,
+  ) async {
+    const deckId = 'top-level-empty';
+    final repo = _FakeCardRepository();
 
-      await _pumpCardForm(tester, deckId: deckId, repo: repo);
+    await _pumpCardForm(tester, deckId: deckId, repo: repo);
 
-      await _saveAndExpectCleared(
-        tester,
-        repo: repo,
-        deckId: deckId,
-        front: 'Top-level question 1',
-        back: 'Top-level answer 1',
-        sessionCreatedCount: 1,
-      );
-      await _saveAndExpectCleared(
-        tester,
-        repo: repo,
-        deckId: deckId,
-        front: 'Top-level question 2',
-        back: 'Top-level answer 2',
-        sessionCreatedCount: 2,
-      );
-    },
-  );
+    await _saveAndExpectCleared(
+      tester,
+      repo: repo,
+      deckId: deckId,
+      front: 'Top-level question 1',
+      back: 'Top-level answer 1',
+      sessionCreatedCount: 1,
+    );
+    await _saveAndExpectCleared(
+      tester,
+      repo: repo,
+      deckId: deckId,
+      front: 'Top-level question 2',
+      back: 'Top-level answer 2',
+      sessionCreatedCount: 2,
+    );
+  });
 
-  testWidgets(
-    'Save & Add Another clears fields in an empty nested deck',
-    (tester) async {
-      const deckId = 'nested-empty';
-      final repo = _FakeCardRepository();
+  testWidgets('Save & Add Another clears fields in an empty nested deck', (
+    tester,
+  ) async {
+    const deckId = 'nested-empty';
+    final repo = _FakeCardRepository();
 
-      await _pumpCardForm(tester, deckId: deckId, repo: repo);
+    await _pumpCardForm(tester, deckId: deckId, repo: repo);
 
-      await _saveAndExpectCleared(
-        tester,
-        repo: repo,
-        deckId: deckId,
-        front: 'Nested question 1',
-        back: 'Nested answer 1',
-        sessionCreatedCount: 1,
-      );
-      await _saveAndExpectCleared(
-        tester,
-        repo: repo,
-        deckId: deckId,
-        front: 'Nested question 2',
-        back: 'Nested answer 2',
-        sessionCreatedCount: 2,
-      );
-    },
-  );
+    await _saveAndExpectCleared(
+      tester,
+      repo: repo,
+      deckId: deckId,
+      front: 'Nested question 1',
+      back: 'Nested answer 1',
+      sessionCreatedCount: 1,
+    );
+    await _saveAndExpectCleared(
+      tester,
+      repo: repo,
+      deckId: deckId,
+      front: 'Nested question 2',
+      back: 'Nested answer 2',
+      sessionCreatedCount: 2,
+    );
+  });
 
   testWidgets(
     'Save & Add Another clears fields when nested deck already has cards',
@@ -205,7 +257,6 @@ void main() {
         seedCards: {
           deckId: [
             _seedCard(
-              cardId: 'seed-1',
               deckId: deckId,
               front: 'Existing front',
               back: 'Existing back',
