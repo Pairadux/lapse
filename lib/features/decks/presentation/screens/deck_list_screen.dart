@@ -33,18 +33,13 @@ class DeckListScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.view_list),
-            tooltip: 'Browse all cards',
+            tooltip: 'View all cards',
             onPressed: () => context.push(Routes.cardBrowser),
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push(Routes.settings),
-          ),
+          IconButton(icon: const Icon(Icons.settings_outlined), onPressed: () => context.push(Routes.settings)),
         ],
       ),
-      drawer: kDebugMode
-          ? DevDrawer(onDataChanged: () => ref.invalidate(deckListProvider))
-          : null,
+      drawer: kDebugMode ? DevDrawer(onDataChanged: () => ref.invalidate(deckListProvider)) : null,
       body: asyncDecks.when(
         loading: () => const SizedBox.shrink(),
         error: (e, _) => Center(child: Text('Failed to load decks: $e')),
@@ -79,25 +74,18 @@ class _DeckList extends ConsumerWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(
-        top: Spacing.sm,
-        bottom: Spacing.sm + 80,
-      ),
+      padding: const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.sm + 80),
       itemCount: decks.length,
       itemBuilder: (context, index) {
         final item = decks[index];
         return ContextMenuRegion(
-          onAction: (action) =>
-              _handleContextAction(context, ref, item.deck, action),
+          onAction: (action) => _handleContextAction(context, ref, item.deck, action),
           child: DeckCard(
             deck: item.deck,
             cardCount: item.cardCount,
             dueCount: item.dueCount,
             onTap: () async {
-              await context.push(
-                Routes.deckPath(item.deck.deckId),
-                extra: item.deck,
-              );
+              await context.push(Routes.deckPath(item.deck.deckId), extra: item.deck);
               ref.invalidate(deckListProvider);
             },
           ),
@@ -106,12 +94,7 @@ class _DeckList extends ConsumerWidget {
     );
   }
 
-  Future<void> _handleContextAction(
-    BuildContext context,
-    WidgetRef ref,
-    Deck deck,
-    ContextMenuAction action,
-  ) async {
+  Future<void> _handleContextAction(BuildContext context, WidgetRef ref, Deck deck, ContextMenuAction action) async {
     try {
       switch (action) {
         case ContextMenuAction.edit:
@@ -131,14 +114,12 @@ class _DeckList extends ConsumerWidget {
           break;
         case ContextMenuAction.move:
           if (!context.mounted) return;
-          AppSnackBar.show(context, 'Move action is coming soon',
-);
+          AppSnackBar.show(context, 'Move action is coming soon');
           break;
       }
     } catch (e) {
       if (context.mounted) {
-        AppSnackBar.show(context, 'Action failed: $e',
-);
+        AppSnackBar.show(context, 'Action failed: $e');
       }
     }
   }

@@ -9,7 +9,7 @@ part of 'card_browser_filters.dart';
 abstract class _$CardBrowserFiltersCWProxy {
   CardBrowserFilters searchQuery(String searchQuery);
 
-  CardBrowserFilters deckId(String? deckId);
+  CardBrowserFilters selectedDeckId(String? selectedDeckId);
 
   CardBrowserFilters cardState(CardStateFilter cardState);
 
@@ -26,7 +26,7 @@ abstract class _$CardBrowserFiltersCWProxy {
   /// ```
   CardBrowserFilters call({
     String searchQuery,
-    String? deckId,
+    String? selectedDeckId,
     CardStateFilter cardState,
     CardSortBy sortBy,
     bool sortAscending,
@@ -45,7 +45,8 @@ class _$CardBrowserFiltersCWProxyImpl implements _$CardBrowserFiltersCWProxy {
       call(searchQuery: searchQuery);
 
   @override
-  CardBrowserFilters deckId(String? deckId) => call(deckId: deckId);
+  CardBrowserFilters selectedDeckId(String? selectedDeckId) =>
+      call(selectedDeckId: selectedDeckId);
 
   @override
   CardBrowserFilters cardState(CardStateFilter cardState) =>
@@ -68,7 +69,7 @@ class _$CardBrowserFiltersCWProxyImpl implements _$CardBrowserFiltersCWProxy {
   /// ```
   CardBrowserFilters call({
     Object? searchQuery = const $CopyWithPlaceholder(),
-    Object? deckId = const $CopyWithPlaceholder(),
+    Object? selectedDeckId = const $CopyWithPlaceholder(),
     Object? cardState = const $CopyWithPlaceholder(),
     Object? sortBy = const $CopyWithPlaceholder(),
     Object? sortAscending = const $CopyWithPlaceholder(),
@@ -79,10 +80,10 @@ class _$CardBrowserFiltersCWProxyImpl implements _$CardBrowserFiltersCWProxy {
           ? _value.searchQuery
           // ignore: cast_nullable_to_non_nullable
           : searchQuery as String,
-      deckId: deckId == const $CopyWithPlaceholder()
-          ? _value.deckId
+      selectedDeckId: selectedDeckId == const $CopyWithPlaceholder()
+          ? _value.selectedDeckId
           // ignore: cast_nullable_to_non_nullable
-          : deckId as String?,
+          : selectedDeckId as String?,
       cardState: cardState == const $CopyWithPlaceholder() || cardState == null
           ? _value.cardState
           // ignore: cast_nullable_to_non_nullable
