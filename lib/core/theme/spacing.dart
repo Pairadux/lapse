@@ -30,6 +30,7 @@ abstract class Spacing {
   static const double inputHeight = 56;
 
   // Border radius (also follows 4dp grid)
+  static const double radiusXs = 4;
   static const double radiusSm = 8;
   static const double radiusMd = 12;
   static const double radiusLg = 16;
