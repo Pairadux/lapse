@@ -7,6 +7,9 @@ import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/loading_indicator.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
+import 'package:lapse/features/study/data/review_session_summary_repository.dart';
+import 'package:lapse/features/study/data/review_session_summary_repository_provider.dart';
+import 'package:lapse/features/study/domain/review_streak.dart';
 
 class ReviewStatsScreen extends ConsumerStatefulWidget {
   const ReviewStatsScreen({super.key});
@@ -17,10 +20,13 @@ class ReviewStatsScreen extends ConsumerStatefulWidget {
 
 class _ReviewStatsScreenState extends ConsumerState<ReviewStatsScreen> {
   CardRepository get _cardRepo => ref.read(cardRepositoryProvider);
+  ReviewSessionSummaryRepository get _summaryRepo =>
+      ref.read(reviewSessionSummaryRepositoryProvider);
 
   Map<int, int> _dueCounts = {}; // dayOffset → count
   bool _isLoading = true;
   int _maxDay = 7;
+  ReviewStreak _streak = const ReviewStreak.empty();
 
   @override
   void initState() {
@@ -30,7 +36,10 @@ class _ReviewStatsScreenState extends ConsumerState<ReviewStatsScreen> {
 
   Future<void> _loadData() async {
     try {
-      final raw = await _cardRepo.getDueDateCounts();
+      final (raw, streak) = await (
+        _cardRepo.getDueDateCounts(),
+        _summaryRepo.getStreak(),
+      ).wait;
       final today = DateUtils.dateOnly(DateTime.now());
 
       // Convert calendar dates to day offsets from today.
@@ -50,6 +59,7 @@ class _ReviewStatsScreenState extends ConsumerState<ReviewStatsScreen> {
         setState(() {
           _dueCounts = byOffset;
           _maxDay = maxDay;
+          _streak = streak;
           _isLoading = false;
         });
       }
@@ -74,20 +84,13 @@ class _ReviewStatsScreenState extends ConsumerState<ReviewStatsScreen> {
   }
 
   Widget _buildBody() {
-    if (_dueCounts.isEmpty) {
-      return const Center(
-        child: Text(
-          'No cards yet — study some cards first.',
-          style: TextStyle(color: AppColors.textTertiary),
-        ),
-      );
-    }
-
     return Padding(
       padding: const EdgeInsets.all(Spacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildStreakRow(),
+          const SizedBox(height: Spacing.lg),
           Text(
             'Due Date Forecast',
             style: Theme.of(context).textTheme.titleMedium,
@@ -100,7 +103,91 @@ class _ReviewStatsScreenState extends ConsumerState<ReviewStatsScreen> {
             ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
           ),
           const SizedBox(height: Spacing.lg),
-          Expanded(child: _buildChart()),
+          Expanded(
+            child: _dueCounts.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No cards yet — study some cards first.',
+                      style: TextStyle(color: AppColors.textTertiary),
+                    ),
+                  )
+                : _buildChart(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStreakRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStreakCard(
+            label: 'Current Streak',
+            value: '${_streak.currentStreak}',
+            caption: _streak.currentStreak == 1 ? 'day' : 'days',
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: Spacing.md),
+        Expanded(
+          child: _buildStreakCard(
+            label: 'Longest Streak',
+            value: '${_streak.longestStreak}',
+            caption: _streak.longestStreak == 1 ? 'day' : 'days',
+            color: AppColors.secondary,
+          ),
+        ),
+        const SizedBox(width: Spacing.md),
+        Expanded(
+          child: _buildStreakCard(
+            label: 'Last Completed',
+            value: _streak.lastCompletedDate ?? '—',
+            caption: 'date',
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStreakCard({
+    required String label,
+    required String value,
+    required String caption,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(Spacing.radiusMd),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: AppColors.textTertiary),
+          ),
+          const SizedBox(height: Spacing.xs),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            caption,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+          ),
         ],
       ),
     );

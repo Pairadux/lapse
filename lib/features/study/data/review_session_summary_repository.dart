@@ -1,6 +1,7 @@
 import 'package:lapse/core/database/database_helper.dart';
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/domain/sync_status.dart';
+import 'package:lapse/features/study/domain/review_streak.dart';
 import 'package:lapse/features/study/domain/review_session_summary.dart';
 
 class ReviewSessionSummaryRepository {
@@ -114,5 +115,97 @@ class ReviewSessionSummaryRepository {
     ''',
       [startDate, endDate],
     );
+  }
+
+  /// Returns streak stats derived from completed review sessions.
+  ///
+  /// Rules:
+  /// - A day counts only if at least one session that day has total_reviews > 0.
+  /// - Current streak is consecutive days ending at:
+  ///   - today, if completed today
+  ///   - yesterday, if not completed today but yesterday is completed
+  ///   - otherwise 0
+  /// - Longest streak is the max consecutive run across all completed days.
+  Future<ReviewStreak> getStreak({DateTime? asOf}) async {
+    final db = await _dbHelper.database;
+    final rows = await db.rawQuery('''
+      SELECT DISTINCT ${DatabaseConstants.colDate} AS ${DatabaseConstants.colDate}
+      FROM ${DatabaseConstants.tableReviewSessionSummary}
+      WHERE ${DatabaseConstants.colTotalReviews} > 0
+      ORDER BY ${DatabaseConstants.colDate} ASC
+      ''');
+
+    if (rows.isEmpty) return const ReviewStreak.empty();
+
+    final days =
+        rows
+            .map(
+              (row) => _parseDateOnly(row[DatabaseConstants.colDate] as String),
+            )
+            .toList()
+          ..sort();
+
+    final longest = _computeLongest(days);
+    final today = _dateOnly(asOf ?? DateTime.now());
+    final yesterday = today.subtract(const Duration(days: 1));
+    final daySet = days.toSet();
+
+    int current = 0;
+    if (daySet.contains(today)) {
+      current = _countBackwardsFrom(daySet, today);
+    } else if (daySet.contains(yesterday)) {
+      current = _countBackwardsFrom(daySet, yesterday);
+    }
+
+    final lastCompleted = _formatDateOnly(days.last);
+
+    return ReviewStreak(
+      currentStreak: current,
+      longestStreak: longest,
+      lastCompletedDate: lastCompleted,
+    );
+  }
+
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  static DateTime _parseDateOnly(String date) {
+    final parsed = DateTime.parse(date);
+    return _dateOnly(parsed);
+  }
+
+  static String _formatDateOnly(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+  }
+
+  static int _computeLongest(List<DateTime> daysSortedAsc) {
+    if (daysSortedAsc.isEmpty) return 0;
+    var longest = 1;
+    var run = 1;
+
+    for (var i = 1; i < daysSortedAsc.length; i++) {
+      final prev = daysSortedAsc[i - 1];
+      final curr = daysSortedAsc[i];
+      final delta = curr.difference(prev).inDays;
+
+      if (delta == 1) {
+        run++;
+        if (run > longest) longest = run;
+      } else if (delta > 1) {
+        run = 1;
+      }
+    }
+    return longest;
+  }
+
+  static int _countBackwardsFrom(Set<DateTime> days, DateTime endDay) {
+    var count = 0;
+    var cursor = endDay;
+    while (days.contains(cursor)) {
+      count++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return count;
   }
 }
