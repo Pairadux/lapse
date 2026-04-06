@@ -1,6 +1,6 @@
 {
   "dart.lineLength": 120,
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
   "files.trimTrailingWhitespace": true,
   "editor.bracketPairColorization.enabled": true,
   "editor.guides.bracketPairs": true
