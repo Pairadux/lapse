@@ -35,6 +35,11 @@ class DeckListScreen extends ConsumerWidget {
         title: const Text('Decks'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.view_list),
+            tooltip: 'View all cards',
+            onPressed: () => context.push(Routes.cardBrowser),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.push(Routes.settings),
           ),
