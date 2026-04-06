@@ -3,7 +3,7 @@ import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 
-class DeckExport {
+class DeckExportService {
   Future<String> exportDeckWithRepositories(Deck deck, CardRepository cardRepo, DeckRepository deckRepo) async {
     final allDecks = await deckRepo.getAll();
     final allCards = await cardRepo.getAllCards();

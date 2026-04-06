@@ -316,4 +316,59 @@ class DeckRepository {
       );
     });
   }
+
+  Future<Deck?> getByName(String name) async {
+    final db = await _dbHelper.database;
+    final rows = await db.query(
+      DatabaseConstants.tableDecks,
+      where: '${DatabaseConstants.colDeckName} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
+      whereArgs: [name],
+    );
+    return rows.isNotEmpty ? Deck.fromMap(rows.first) : null;
+  }
+
+  /// Finds a deck by its full path (e.g., "Parent::Child::Grandchild").
+  /// Creates the deck hierarchy if it doesn't exist.
+  Future<Deck> getOrCreateByPath(String path) async {
+    final segments = path.split('::');
+    if (segments.isEmpty) throw ArgumentError('Path cannot be empty');
+
+    final db = await _dbHelper.database;
+
+    // Get or create root deck
+    var currentRows = await db.query(
+      DatabaseConstants.tableDecks,
+      where: '${DatabaseConstants.colDeckName} = ? AND ${DatabaseConstants.colParentId} IS NULL AND ${DatabaseConstants.colIsDeleted} = 0',
+      whereArgs: [segments[0]],
+    );
+
+    var currentDeck = currentRows.isNotEmpty
+        ? Deck.fromMap(currentRows.first)
+        : await _createDeck(name: segments[0], parentId: null);
+
+    // Traverse/create children
+    for (final segment in segments.skip(1)) {
+      final childRows = await db.query(
+        DatabaseConstants.tableDecks,
+        where: '${DatabaseConstants.colDeckName} = ? AND ${DatabaseConstants.colParentId} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
+        whereArgs: [segment, currentDeck.deckId],
+      );
+
+      currentDeck = childRows.isNotEmpty
+          ? Deck.fromMap(childRows.first)
+          : await _createDeck(name: segment, parentId: currentDeck.deckId);
+    }
+
+    return currentDeck;
+  }
+
+  Future<Deck> _createDeck({required String name, required String? parentId}) async {
+  final db = await _dbHelper.database;
+  final deck = Deck.create(deckName: name, parentId: parentId);
+  final id = await db.insert(DatabaseConstants.tableDecks, deck.toMap());
+  return Deck.fromMap({
+    ...deck.toMap(),
+    DatabaseConstants.colDeckId: id,
+  });
+}
 }

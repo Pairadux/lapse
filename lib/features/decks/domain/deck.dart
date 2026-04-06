@@ -78,9 +78,21 @@ class Deck extends Equatable {
 
   /// Deserializes from a DB column map.
   factory Deck.fromMap(Map<String, dynamic> map) {
+    // Handle parentId which might come back as int, String, or null
+    String? parentId;
+    final parentIdValue = map[DatabaseConstants.colParentId];
+    if (parentIdValue is String) {
+      parentId = parentIdValue;
+    } else if (parentIdValue is int) {
+      // Convert int to string if needed (for legacy data)
+      parentId = parentIdValue.toString();
+    } else {
+      parentId = null;
+    }
+
     return Deck(
       deckId: map[DatabaseConstants.colDeckId] as String,
-      parentId: map[DatabaseConstants.colParentId] as String?,
+      parentId: parentId,
       deckName: map[DatabaseConstants.colDeckName] as String,
       createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
       updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),

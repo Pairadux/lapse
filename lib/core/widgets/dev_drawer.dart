@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:lapse/features/import_export/data/import_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_selector/file_selector.dart';
@@ -210,7 +212,7 @@ class DevDrawer extends StatelessWidget {
     );
     if (selectedId == null || !context.mounted) return;
     final selectedDeck = allDecks.firstWhere((d) => d.deckId == selectedId);
-    final exporter = DeckExport();
+    final exporter = DeckExportService();
     final csv = await exporter.exportDeckWithRepositories(selectedDeck, cardRepo, deckRepo);
 
     if (Platform.isAndroid || Platform.isIOS) {
@@ -233,6 +235,32 @@ class DevDrawer extends StatelessWidget {
     }
     messenger.showSnackBar(SnackBar(content: Text('Export complete')));
   }
+
+  Future<void> _importDeck(BuildContext context) async {
+  final messenger = ScaffoldMessenger.of(context);
+
+  final result = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['csv'],
+  );
+
+  if (result == null || result.files.isEmpty) return;
+
+  final file = File(result.files.single.path!);
+  final importer = DeckImportService(DeckRepository(), CardRepository());
+
+  try {
+    await importer.importDeckFromCSV(file);
+    if (context.mounted) {
+      onDataChanged?.call();
+      messenger.showSnackBar(const SnackBar(content: Text('Import complete')));
+    }
+  } catch (e) {
+    if (context.mounted) {
+      messenger.showSnackBar(SnackBar(content: Text('Import failed: $e')));
+    }
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -298,10 +326,7 @@ class DevDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.file_upload_outlined),
             title: const Text('Import'),
-            onTap: () {
-              Scaffold.of(context).closeDrawer();
-              AppSnackBar.show(context, 'Import triggered (not wired up)');
-            },
+            onTap: () => _importDeck(context),
           ),
           ListTile(
             leading: const Icon(Icons.file_download_outlined),

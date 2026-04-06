@@ -55,6 +55,8 @@ dependencies:
   package_info_plus: ^9.0.0
   connectivity_plus: ^7.0.0
   toastification: ^3.0.3
+  csv: ^6.0.0
+  file_picker: ^8.0.0
 
 dev_dependencies:
   flutter_test:
