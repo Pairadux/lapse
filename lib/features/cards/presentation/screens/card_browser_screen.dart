@@ -27,7 +27,7 @@ class _CardBrowserScreenState extends ConsumerState<CardBrowserScreen> {
   @override
   void initState() {
     super.initState();
-    _filters = CardBrowserFilters();
+    _filters = const CardBrowserFilters();
   }
 
   @override
@@ -45,7 +45,6 @@ class _CardBrowserScreenState extends ConsumerState<CardBrowserScreen> {
   @override
   Widget build(BuildContext context) {
     final filteredCards = ref.watch(filteredCardsProvider(_filters));
-    final cardCount = ref.watch(filteredCardsCountProvider(_filters));
     final decksAsync = ref.watch(deckListProvider);
 
     return Scaffold(
@@ -65,11 +64,15 @@ class _CardBrowserScreenState extends ConsumerState<CardBrowserScreen> {
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           _searchController.clear();
-                          _updateFilters(_filters.copyWith(searchQuery: ''));
+                          _updateFilters(
+                            _filters.copyWith(searchQuery: ''),
+                          );
                         },
                       )
                     : null,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(Spacing.radiusSm),
+                ),
               ),
               onChanged: (value) {
                 _updateFilters(_filters.copyWith(searchQuery: value));
@@ -84,8 +87,8 @@ class _CardBrowserScreenState extends ConsumerState<CardBrowserScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: cardCount.when(
-                    data: (count) {
+                  child: filteredCards.when(
+                    data: (cards) {
                       final summary = decksAsync.when(
                         loading: () => _buildFilterSummary(null),
                         error: (_, _) => _buildFilterSummary(null),
@@ -93,32 +96,52 @@ class _CardBrowserScreenState extends ConsumerState<CardBrowserScreen> {
                           String? deckName;
                           if (_filters.selectedDeckId != null) {
                             deckName = decks
-                                .firstWhere((d) => d.deck.deckId == _filters.selectedDeckId, orElse: () => decks.first)
+                                .firstWhere(
+                                  (d) =>
+                                      d.deck.deckId ==
+                                      _filters.selectedDeckId,
+                                  orElse: () => decks.first,
+                                )
                                 .deck
                                 .deckName;
                           }
                           return _buildFilterSummary(deckName);
                         },
                       );
-                      final suffix = summary.isNotEmpty ? ' ($summary)' : '';
+                      final suffix =
+                          summary.isNotEmpty ? ' ($summary)' : '';
                       return Text(
-                        '$count cards$suffix',
+                        '${cards.length} cards$suffix',
                         style: Theme.of(context).textTheme.bodySmall,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       );
                     },
-                    loading: () => Text('... cards', style: Theme.of(context).textTheme.bodySmall),
-                    error: (_, _) => Text('0 cards', style: Theme.of(context).textTheme.bodySmall),
+                    loading: () => Text(
+                      '... cards',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    error: (_, _) => Text(
+                      '0 cards',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Sort/Filter', style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      'Sort/Filter',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     IconButton(
-                      icon: Icon(_showFilters ? Icons.expand_less : Icons.expand_more),
-                      onPressed: () => setState(() => _showFilters = !_showFilters),
+                      icon: Icon(
+                        _showFilters
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                      ),
+                      onPressed: () =>
+                          setState(() => _showFilters = !_showFilters),
                       tooltip: 'Toggle filters',
                     ),
                   ],
@@ -127,55 +150,58 @@ class _CardBrowserScreenState extends ConsumerState<CardBrowserScreen> {
             ),
           ),
 
-          // Filter panel + Cards list (scrollable when needed)
+          // Filter panel (collapsible)
+          if (_showFilters)
+            CardBrowserFilterPanel(
+              filters: _filters,
+              onFiltersChanged: _updateFilters,
+            ),
+
+          // Cards list
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  // Filter panel (collapsible)
-                  if (_showFilters) CardBrowserFilterPanel(filters: _filters, onFiltersChanged: _updateFilters),
-
-                  // Cards list
-                  filteredCards.when(
-                    loading: () => const Padding(padding: EdgeInsets.all(Spacing.lg), child: LoadingIndicator()),
-                    error: (error, st) => Center(
-                      child: Padding(padding: const EdgeInsets.all(Spacing.lg), child: Text('Error: $error')),
-                    ),
-                    data: (cards) {
-                      if (cards.isEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.all(Spacing.lg),
-                          child: EmptyStateWidget(
-                            icon: Icons.style_outlined,
-                            title: 'No cards found',
-                            subtitle: _buildEmptySubtitle(),
-                            actionLabel: 'Clear filters',
-                            onAction: () {
-                              _searchController.clear();
-                              _updateFilters(CardBrowserFilters());
-                            },
-                          ),
-                        );
-                      }
-
-                      return ListView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        shrinkWrap: true,
-                        itemCount: cards.length,
-                        itemBuilder: (context, index) {
-                          final card = cards[index];
-                          return CardListItem(
-                            card: card,
-                            onTap: () {
-                              context.push(Routes.cardPath(card.deckId, card.cardId), extra: card);
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ],
+            child: filteredCards.when(
+              loading: () => const Center(child: LoadingIndicator()),
+              error: (error, st) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(Spacing.lg),
+                  child: Text('Error: $error'),
+                ),
               ),
+              data: (cards) {
+                if (cards.isEmpty) {
+                  return Center(
+                    child: EmptyStateWidget(
+                      icon: Icons.style_outlined,
+                      title: 'No cards found',
+                      subtitle: _buildEmptySubtitle(),
+                      actionLabel: 'Clear filters',
+                      onAction: () {
+                        _searchController.clear();
+                        _updateFilters(const CardBrowserFilters());
+                      },
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.only(
+                    bottom: Spacing.sm + 80,
+                  ),
+                  itemCount: cards.length,
+                  itemBuilder: (context, index) {
+                    final card = cards[index];
+                    return CardListItem(
+                      card: card,
+                      onTap: () {
+                        context.push(
+                          Routes.cardPath(card.deckId, card.cardId),
+                          extra: card,
+                        );
+                      },
+                    );
+                  },
+                );
+              },
             ),
           ),
         ],
@@ -199,24 +225,20 @@ class _CardBrowserScreenState extends ConsumerState<CardBrowserScreen> {
   String _buildFilterSummary(String? deckName) {
     final parts = <String>[];
 
-    // 1. Deck (if selected, otherwise "All Decks")
     if (_filters.selectedDeckId != null && deckName != null) {
       parts.add(deckName);
     } else if (_filters.selectedDeckId == null) {
       parts.add('All Decks');
     }
 
-    // 2. Sort By (if not default)
     if (_filters.sortBy != CardSortBy.dueDate) {
-      parts.add(_sortLabel(_filters.sortBy));
+      parts.add(_filters.sortBy.label);
     }
 
-    // 3. Card State (if not default)
     if (_filters.cardState != CardStateFilter.all) {
-      parts.add(_stateLabel(_filters.cardState));
+      parts.add(_filters.cardState.label);
     }
 
-    // 4. Order (show ascending/descending - always show if sort by is non-default, or if descending)
     if (_filters.sortBy != CardSortBy.dueDate) {
       parts.add(_filters.sortAscending ? 'ascending' : 'descending');
     } else if (!_filters.sortAscending) {
@@ -224,26 +246,5 @@ class _CardBrowserScreenState extends ConsumerState<CardBrowserScreen> {
     }
 
     return parts.join(', ');
-  }
-
-  String _sortLabel(CardSortBy sort) {
-    return switch (sort) {
-      CardSortBy.dueDate => 'Due date',
-      CardSortBy.difficulty => 'Difficulty',
-      CardSortBy.created => 'Created',
-      CardSortBy.reviewed => 'Last reviewed',
-      CardSortBy.stability => 'Stability',
-      CardSortBy.deck => 'Deck',
-    };
-  }
-
-  String _stateLabel(CardStateFilter state) {
-    return switch (state) {
-      CardStateFilter.all => 'All',
-      CardStateFilter.newCard => 'New',
-      CardStateFilter.learning => 'Learning',
-      CardStateFilter.review => 'Review',
-      CardStateFilter.relearning => 'Relearning',
-    };
   }
 }

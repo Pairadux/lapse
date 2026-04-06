@@ -14,8 +14,13 @@ class CardRepository {
 
   Future<Flashcard> create(Flashcard card) async {
     final db = await _dbHelper.database;
-    final userId = card.userId.isEmpty ? await _authService.getCurrentUserId() : card.userId;
-    final syncReady = card.copyWith(syncStatus: SyncStatus.pending, userId: userId);
+    final userId = card.userId.isEmpty
+        ? await _authService.getCurrentUserId()
+        : card.userId;
+    final syncReady = card.copyWith(
+      syncStatus: SyncStatus.pending,
+      userId: userId,
+    );
     await db.insert(DatabaseConstants.tableCards, syncReady.toMap());
     return syncReady;
   }
@@ -24,7 +29,8 @@ class CardRepository {
     final db = await _dbHelper.database;
     final rows = await db.query(
       DatabaseConstants.tableCards,
-      where: '${DatabaseConstants.colCardId} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
+      where:
+          '${DatabaseConstants.colCardId} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
       whereArgs: [cardId],
     );
     if (rows.isEmpty) return null;
@@ -33,7 +39,11 @@ class CardRepository {
 
   /// Returns non-deleted cards for [deckId], ordered by creation time.
   /// Optional [limit]/[offset] support pagination.
-  Future<List<Flashcard>> getByDeckId(String deckId, {int? limit, int? offset}) async {
+  Future<List<Flashcard>> getByDeckId(
+    String deckId, {
+    int? limit,
+    int? offset,
+  }) async {
     if (limit != null && limit <= 0) {
       throw ArgumentError.value(limit, 'limit', 'must be > 0');
     }
@@ -43,7 +53,8 @@ class CardRepository {
     final db = await _dbHelper.database;
     final rows = await db.query(
       DatabaseConstants.tableCards,
-      where: '${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
+      where:
+          '${DatabaseConstants.colDeckId} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
       whereArgs: [deckId],
       orderBy: DatabaseConstants.colCreatedAt,
       limit: limit,
@@ -91,7 +102,7 @@ class CardRepository {
     return result.first['c'] as int;
   }
 
-  ///Returns all non-deleted cards across all decks.
+  /// Returns all non-deleted cards across all decks, ordered by creation time.
   Future<List<Flashcard>> getAllCards() async {
     final db = await _dbHelper.database;
     final rows = await db.query(
@@ -102,43 +113,18 @@ class CardRepository {
     return rows.map(Flashcard.fromMap).toList();
   }
 
-  /// Returns non-deleted cards from a deck and all its nested decks.
-  /// Uses the deck repository's getDescendantIds to find all child decks.
-  Future<List<Flashcard>> getByDeckIdWithNested(String deckId) async {
-    // Get all descendant deck IDs (including the deck itself)
+  /// Returns non-deleted cards belonging to any of the given [deckIds].
+  Future<List<Flashcard>> getByDeckIds(List<String> deckIds) async {
+    if (deckIds.isEmpty) return [];
     final db = await _dbHelper.database;
-    final descendantRows = await db.rawQuery(
-      '''
-      WITH RECURSIVE descendants(${DatabaseConstants.colDeckId}) AS (
-        SELECT ${DatabaseConstants.colDeckId}
-          FROM ${DatabaseConstants.tableDecks}
-         WHERE ${DatabaseConstants.colDeckId} = ?
-           AND ${DatabaseConstants.colIsDeleted} = 0
-        UNION ALL
-        SELECT d.${DatabaseConstants.colDeckId}
-          FROM ${DatabaseConstants.tableDecks} d
-         INNER JOIN descendants dt
-            ON d.${DatabaseConstants.colParentId} = dt.${DatabaseConstants.colDeckId}
-         WHERE d.${DatabaseConstants.colIsDeleted} = 0
-      )
-      SELECT ${DatabaseConstants.colDeckId} FROM descendants
-    ''',
-      [deckId],
-    );
-
-    final descendantIds = descendantRows.map((r) => r[DatabaseConstants.colDeckId] as String).toList();
-
-    if (descendantIds.isEmpty) return [];
-
-    // Fetch all cards from these decks
-    final placeholders = List.filled(descendantIds.length, '?').join(',');
+    final placeholders = List.filled(deckIds.length, '?').join(',');
     final rows = await db.query(
       DatabaseConstants.tableCards,
-      where: '${DatabaseConstants.colDeckId} IN ($placeholders) AND ${DatabaseConstants.colIsDeleted} = 0',
-      whereArgs: descendantIds,
+      where:
+          '${DatabaseConstants.colDeckId} IN ($placeholders) AND ${DatabaseConstants.colIsDeleted} = 0',
+      whereArgs: deckIds,
       orderBy: DatabaseConstants.colCreatedAt,
     );
-
     return rows.map(Flashcard.fromMap).toList();
   }
 
@@ -152,12 +138,19 @@ class CardRepository {
       'WHERE ${DatabaseConstants.colIsDeleted} = 0 '
       'GROUP BY day',
     );
-    return {for (final row in rows) DateTime.parse(row['day'] as String): row['c'] as int};
+    return {
+      for (final row in rows)
+        DateTime.parse(row['day'] as String): row['c'] as int,
+    };
   }
 
   /// Returns true if a non-deleted card with [front] text exists in [deckId].
   /// Use [excludeCardId] to skip self when editing.
-  Future<bool> frontExistsInDeck({required String front, required String deckId, String? excludeCardId}) async {
+  Future<bool> frontExistsInDeck({
+    required String front,
+    required String deckId,
+    String? excludeCardId,
+  }) async {
     final db = await _dbHelper.database;
     final whereParts = <String>[
       '${DatabaseConstants.colIsDeleted} = 0',
@@ -182,7 +175,10 @@ class CardRepository {
 
   Future<Flashcard> update(Flashcard card) async {
     final db = await _dbHelper.database;
-    final updated = card.copyWith(updatedAt: DateTime.now(), syncStatus: SyncStatus.pending);
+    final updated = card.copyWith(
+      updatedAt: DateTime.now(),
+      syncStatus: SyncStatus.pending,
+    );
     await db.update(
       DatabaseConstants.tableCards,
       updated.toMap(),
@@ -229,7 +225,8 @@ class CardRepository {
         await txn.update(
           DatabaseConstants.tableCards,
           {DatabaseConstants.colSyncStatus: SyncStatus.synced.name},
-          where: '${DatabaseConstants.colCardId} = ? AND ${DatabaseConstants.colUpdatedAt} = ?',
+          where:
+              '${DatabaseConstants.colCardId} = ? AND ${DatabaseConstants.colUpdatedAt} = ?',
           whereArgs: [entry.key, entry.value],
         );
       }

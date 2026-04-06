@@ -48,13 +48,13 @@ class CardListItem extends StatelessWidget {
                 vertical: 2,
               ),
               decoration: BoxDecoration(
-                color: Colors.redAccent,
-                borderRadius: BorderRadius.circular(4),
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(Spacing.radiusXs),
               ),
               child: Text(
                 'Due',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white,
+                      color: AppColors.textOnPrimary,
                       fontWeight: FontWeight.w600,
                     ),
               ),
