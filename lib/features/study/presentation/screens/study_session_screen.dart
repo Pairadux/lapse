@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +16,7 @@ import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/data/review_repository_provider.dart';
 import 'package:lapse/features/study/application/study_session_service.dart';
 import 'package:lapse/core/sync/sync_service.dart';
+import 'package:lapse/features/notifications/presentation/providers/notification_providers.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
 import 'package:lapse/features/study/presentation/widgets/card_content.dart';
 import 'package:lapse/features/study/presentation/widgets/card_stack.dart';
@@ -694,6 +697,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> with Si
               onPressed: () async {
                 await _flushPendingWrite();
                 _invalidateDeckProviders();
+                unawaited(ref.read(dueReminderSchedulerProvider).rescheduleAll());
                 if (mounted) context.pop();
               },
               child: const Text('Done'),
@@ -731,6 +735,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> with Si
     if (shouldExit == true && context.mounted) {
       await _flushPendingWrite();
       _invalidateDeckProviders();
+      unawaited(ref.read(dueReminderSchedulerProvider).rescheduleAll());
       if (context.mounted) context.pop();
     }
   }
