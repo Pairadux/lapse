@@ -1,8 +1,15 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'package:lapse/features/import_export/data/import_service.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/database/database_constants.dart';
 import 'package:lapse/core/database/database_helper.dart';
+import 'package:lapse/core/routing/routes.dart';
 import 'package:lapse/core/sync/sync_pull_service.dart';
 import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
@@ -10,7 +17,9 @@ import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
-import '../routing/routes.dart';
+import 'package:lapse/core/widgets/deck_picker_dialog.dart';
+import 'package:lapse/features/import_export/data/export_service.dart';
+
 
 class DevDrawer extends StatelessWidget {
   final VoidCallback? onDataChanged;
@@ -188,6 +197,84 @@ class DevDrawer extends StatelessWidget {
     );
   }
 
+  Future<void> _exportDeck(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+    final cardRepo = CardRepository();
+    final deckRepo = DeckRepository();
+    final allDecks = await deckRepo.getAll();
+
+    if (!context.mounted) return;
+    final selectedId = await DeckPickerDialog.show(
+      context: context,
+      decks: allDecks,
+      excludeIds: {},
+      showRoot: false,
+    );
+    if (selectedId == null || !context.mounted) return;
+    final selectedDeck = allDecks.firstWhere((d) => d.deckId == selectedId);
+    final exporter = DeckExportService();
+    final csv = await exporter.exportDeckWithRepositories(
+      selectedDeck, cardRepo, deckRepo,
+    );
+
+    final safeName = selectedDeck.deckName
+        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    var exported = false;
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$safeName.csv');
+      await file.writeAsString(csv);
+      await Share.shareXFiles([XFile(file.path, mimeType: 'text/csv')]);
+      exported = true;
+    } else {
+      final location = await getSaveLocation(
+        suggestedName: '$safeName.csv',
+        acceptedTypeGroups: [
+          const XTypeGroup(label: 'CSV', extensions: ['csv']),
+        ],
+      );
+      if (location != null) {
+        final file = File(location.path);
+        await file.writeAsString(csv);
+        exported = true;
+      }
+    }
+    if (exported) {
+      messenger.showSnackBar(const SnackBar(content: Text('Export complete')));
+    }
+  }
+
+  Future<void> _importDeck(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    final file = File(result.files.single.path!);
+    final importer = DeckImportService(DeckRepository(), CardRepository());
+
+    try {
+      await importer.importDeckFromCSV(file);
+      if (context.mounted) {
+        onDataChanged?.call();
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Import complete')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Import failed: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -252,18 +339,12 @@ class DevDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.file_upload_outlined),
             title: const Text('Import'),
-            onTap: () {
-              Scaffold.of(context).closeDrawer();
-              AppSnackBar.show(context, 'Import triggered (not wired up)');
-            },
+            onTap: () => _importDeck(context),
           ),
           ListTile(
             leading: const Icon(Icons.file_download_outlined),
             title: const Text('Export'),
-            onTap: () {
-              Scaffold.of(context).closeDrawer();
-              AppSnackBar.show(context, 'Export triggered (not wired up)');
-            },
+            onTap: () => _exportDeck(context),
           ),
           const Divider(),
           const _AnimationSpeedSlider(),

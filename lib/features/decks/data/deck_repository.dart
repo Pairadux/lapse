@@ -4,6 +4,7 @@ import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/auth/application/auth_service.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
+import 'package:sqflite/sqflite.dart';
 
 class DeckRepository {
   final DatabaseHelper _dbHelper;
@@ -13,8 +14,8 @@ class DeckRepository {
     : _dbHelper = dbHelper ?? DatabaseHelper.instance,
       _authService = authService ?? AuthService();
 
-  Future<Deck> create(Deck deck) async {
-    final db = await _dbHelper.database;
+  Future<Deck> create(Deck deck, {Transaction? txn}) async {
+    final db = txn ?? await _dbHelper.database;
     final userId = deck.userId.isEmpty
         ? await _authService.getCurrentUserId()
         : deck.userId;
@@ -314,6 +315,38 @@ class DeckRepository {
         where: '${DatabaseConstants.colDeckId} IN ($placeholders)',
         whereArgs: allIds,
       );
+    });
+  }
+
+  /// Finds a deck by its full path (e.g., "Parent::Child::Grandchild").
+  /// Creates the deck hierarchy if it doesn't exist.
+  Future<Deck> getOrCreateByPath(String path) async {
+    final segments = path.split('::');
+    if (path.trim().isEmpty) throw ArgumentError('Path cannot be empty');
+
+    final db = await _dbHelper.database;
+
+    return await db.transaction((txn) async {
+      Future<Deck> getOrCreate(String name, String? parentId) async {
+        final rows = await txn.query(
+          DatabaseConstants.tableDecks,
+          where: '${DatabaseConstants.colDeckName} = ? AND '
+              '${DatabaseConstants.colParentId} ${parentId == null ? 'IS NULL' : '= ?'} AND '
+              '${DatabaseConstants.colIsDeleted} = 0',
+          whereArgs: [name, ?parentId],
+        );
+
+        if (rows.isNotEmpty) return Deck.fromMap(rows.first);
+
+        final deck = Deck.create(deckName: name, parentId: parentId);
+        return await create(deck, txn: txn);
+      }
+
+      var current = await getOrCreate(segments[0], null);
+      for (final segment in segments.skip(1)) {
+        current = await getOrCreate(segment, current.deckId);
+      }
+      return current;
     });
   }
 }

@@ -31,50 +31,18 @@ Purpose: Optional class
 Approach: Asked about explicitly declaring a value as null as well as asking about the Optional class.
 Input Summary: asked how a variable could be set to null using copyWith()
 Output Summary: recieved information on the Optional class
-Files Referenced: lib/features/decks/domain/deck.dart
+Files Refrenced: lib/features/decks/domain/deck.dart
 
-Date: 2026-03-01
-User: Germaine
-Purpose: Wiring providers to front end
-Approach: Asked about state management and how to implement it properly
-Input summary: How do I go about connecting lapse providers to their screens
-Output summary: Tips and reccomendations on wiring state management. Also offered solutions to bugs I struggled with.
-Files Referenced: lib/features/cards/presentation/screens/card_form_screen.dart, lib/features/decks/presentation/screens/deck_detail_screen.dart, lib/features/decks/presentation/screens/deck_form_screen.dart, lib/features/decks/presentation/screens/deck_list_screen.dart, lib/features/study/presentation/screens/review_stats_screen.dart, lib/features/study/presentation/screens/study_session_screen.dart
-
-Date: 2026-03-07
-User: Germaine
-Purpose: Verifying my migrate V3 method
-Approach: Asked the ai to review my changes and ensure migrate V3 brings the database up to date with the new models
-Input Summary: I updated the object models and created migrate V3 to update the database. Does this work as intended?
-Output Summary: Verified the effectiveness of my code and offered suggestions for improvement.
-Files Referenced
 
 Date: 2026-04-03
 User: Germaine
 Purpose: Export Flashcards
-Approach: Asked about setting up the export so that the chosen deck on the front end is used as the deck to export
 Input Summary: How can I connect my backend logic for card exporting to the front end
-Output Summary: Recieved a template for \_exportDeck
+Output Summary: Recieved a template for _exportDeck
 Files Refrenced: lib/core/widgets/dev_drawer.dart, lib/features/import_export/data/export_service.dart
 
 Date: 2026-04-03
 User: Germaine
 Purpose: Convert exported cards to downloadable file
-Approach: Asked about file saving/sharing in dart
 Input Summary: How can I create a savable file for my exported decks
-Output Summary: code and imports to add to \_exportDeck() creates a temporary file that can be downloaded for mobile and desktop.
-Files Referenced: lib/features/import_export/data/export_service.dart
-
-Date: 2026-04-05
-User: Germaine
-Purpose: Using data read from a file as input for object creation
-Input Summary: How do I read data from a file in dart and use it as method inputs.
-Output Summary: File reading guidelines and an import data template.
-Files Referenced: lib/features/import_export/data/import_service.dart
-
-Date: 2026:-04-14
-User: Germaine
-Purpose: Creating cloze, audio, image, and image occlusion card templates.
-Input Summary: What should I add to my flashcards to support cloze, audio, image, and image occlusion.
-Output Summary: Offered suggestions and templates for the different card types.
-Files Referenced: lib/features/decks/presentation/widgets/card_preview.dart
+Output Summary: code and imports to add to _exportDeck() creates a temporary file that can be downloaded for mobile and desktop.
