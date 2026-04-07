@@ -128,12 +128,14 @@ class CardRepository {
     return rows.map(Flashcard.fromMap).toList();
   }
 
-  /// Returns the number of non-deleted cards due on each calendar day.
+  /// Returns the number of non-deleted cards due on each local calendar day.
   /// Keys are dates (time portion zeroed), values are counts.
+  /// Uses SQLite's 'localtime' modifier so UTC timestamps are grouped by the
+  /// user's local calendar day rather than the UTC day.
   Future<Map<DateTime, int>> getDueDateCounts() async {
     final db = await _dbHelper.database;
     final rows = await db.rawQuery(
-      'SELECT DATE(${DatabaseConstants.colDueDate}) AS day, COUNT(*) AS c '
+      'SELECT DATE(${DatabaseConstants.colDueDate}, \'localtime\') AS day, COUNT(*) AS c '
       'FROM ${DatabaseConstants.tableCards} '
       'WHERE ${DatabaseConstants.colIsDeleted} = 0 '
       'GROUP BY day',
@@ -144,23 +146,19 @@ class CardRepository {
     };
   }
 
-  /// Returns distinct calendar days that have non-deleted cards due on or
-  /// after the provided day (defaults to today).
-  Future<List<DateTime>> getDistinctDueDates({DateTime? fromDay}) async {
+  /// Returns distinct local calendar days that have non-deleted cards due on
+  /// or after today. Uses SQLite's 'localtime' modifier so UTC timestamps are
+  /// grouped by the user's local calendar day.
+  Future<List<DateTime>> getDistinctDueDates() async {
     final db = await _dbHelper.database;
-    final base = fromDay ?? DateTime.now();
-    final start = DateTime(
-      base.year,
-      base.month,
-      base.day,
-    );
+    final now = DateTime.now().toUtc().toIso8601String();
     final rows = await db.rawQuery(
-      'SELECT DISTINCT DATE(${DatabaseConstants.colDueDate}) AS day '
+      'SELECT DISTINCT DATE(${DatabaseConstants.colDueDate}, \'localtime\') AS day '
       'FROM ${DatabaseConstants.tableCards} '
       'WHERE ${DatabaseConstants.colIsDeleted} = 0 '
-      'AND DATE(${DatabaseConstants.colDueDate}) >= DATE(?) '
+      'AND DATE(${DatabaseConstants.colDueDate}, \'localtime\') >= DATE(?, \'localtime\') '
       'ORDER BY day ASC',
-      [start.toUtc().toIso8601String()],
+      [now],
     );
     return rows.map((row) => DateTime.parse(row['day'] as String)).toList();
   }

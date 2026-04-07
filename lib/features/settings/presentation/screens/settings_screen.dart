@@ -1364,10 +1364,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: 'Due today',
               subtitle: 'Notify when cards are due today',
               trailing: Switch(
-                value: settings.remindDueToday,
-                onChanged: settings.enabled
-                    ? (value) => notifier.setRemindDueToday(value)
-                    : null,
+                value: false,
+                onChanged: (_) =>
+                    _showError('Reminder window settings not yet implemented.'),
               ),
             ),
             const SizedBox(height: Spacing.md),
@@ -1379,10 +1378,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: '1 day before',
               subtitle: 'Notify one day before cards are due',
               trailing: Switch(
-                value: settings.remindOneDayBefore,
-                onChanged: settings.enabled
-                    ? (value) => notifier.setRemindOneDayBefore(value)
-                    : null,
+                value: false,
+                onChanged: (_) =>
+                    _showError('Reminder window settings not yet implemented.'),
               ),
             ),
             const SizedBox(height: Spacing.md),
@@ -1394,10 +1392,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: '1 week before',
               subtitle: 'Notify one week before cards are due',
               trailing: Switch(
-                value: settings.remindOneWeekBefore,
-                onChanged: settings.enabled
-                    ? (value) => notifier.setRemindOneWeekBefore(value)
-                    : null,
+                value: false,
+                onChanged: (_) =>
+                    _showError('Reminder window settings not yet implemented.'),
               ),
             ),
           ],

@@ -31,8 +31,7 @@ class DueReminderScheduler {
     if (!settings.enabled) return;
 
     final now = _now();
-    final today = _startOfDay(now);
-    final sortedDays = await _cardRepository.getDistinctDueDates(fromDay: today);
+    final sortedDays = await _cardRepository.getDistinctDueDates();
     if (sortedDays.isEmpty) return;
 
     sortedDays.sort((a, b) => a.compareTo(b));
@@ -72,10 +71,6 @@ class DueReminderScheduler {
     }
 
     await _prefsStore.saveScheduledDueReminderIds(scheduledIds);
-  }
-
-  static DateTime _startOfDay(DateTime value) {
-    return DateTime(value.year, value.month, value.day);
   }
 
   static int _notificationId(DateTime day) {
