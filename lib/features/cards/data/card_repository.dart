@@ -128,12 +128,14 @@ class CardRepository {
     return rows.map(Flashcard.fromMap).toList();
   }
 
-  /// Returns the number of non-deleted cards due on each calendar day.
+  /// Returns the number of non-deleted cards due on each local calendar day.
   /// Keys are dates (time portion zeroed), values are counts.
+  /// Uses SQLite's 'localtime' modifier so UTC timestamps are grouped by the
+  /// user's local calendar day rather than the UTC day.
   Future<Map<DateTime, int>> getDueDateCounts() async {
     final db = await _dbHelper.database;
     final rows = await db.rawQuery(
-      'SELECT DATE(${DatabaseConstants.colDueDate}) AS day, COUNT(*) AS c '
+      'SELECT DATE(${DatabaseConstants.colDueDate}, \'localtime\') AS day, COUNT(*) AS c '
       'FROM ${DatabaseConstants.tableCards} '
       'WHERE ${DatabaseConstants.colIsDeleted} = 0 '
       'GROUP BY day',
@@ -142,6 +144,23 @@ class CardRepository {
       for (final row in rows)
         DateTime.parse(row['day'] as String): row['c'] as int,
     };
+  }
+
+  /// Returns distinct local calendar days that have non-deleted cards due on
+  /// or after today. Uses SQLite's 'localtime' modifier so UTC timestamps are
+  /// grouped by the user's local calendar day.
+  Future<List<DateTime>> getDistinctDueDates() async {
+    final db = await _dbHelper.database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final rows = await db.rawQuery(
+      'SELECT DISTINCT DATE(${DatabaseConstants.colDueDate}, \'localtime\') AS day '
+      'FROM ${DatabaseConstants.tableCards} '
+      'WHERE ${DatabaseConstants.colIsDeleted} = 0 '
+      'AND DATE(${DatabaseConstants.colDueDate}, \'localtime\') >= DATE(?, \'localtime\') '
+      'ORDER BY day ASC',
+      [now],
+    );
+    return rows.map((row) => DateTime.parse(row['day'] as String)).toList();
   }
 
   /// Returns true if a non-deleted card with [front] text exists in [deckId].
@@ -232,15 +251,4 @@ class CardRepository {
       }
     });
   }
-
-  Future<List<Flashcard>> getAllCards() async {
-    final db = await _dbHelper.database;
-    final rows = await db.query(
-      DatabaseConstants.tableCards,
-      where: '${DatabaseConstants.colIsDeleted} = 0',
-      orderBy: DatabaseConstants.colDeckId
-    );
-    return rows.map(Flashcard.fromMap).toList();
-  }
-
 }

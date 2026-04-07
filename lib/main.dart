@@ -6,6 +6,7 @@ import 'package:toastification/toastification.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/database/database_helper.dart';
+import 'features/notifications/presentation/providers/notification_providers.dart';
 import 'core/routing/app_router.dart';
 import 'core/routing/page_transitions.dart';
 import 'core/supabase/supabase_config.dart';
@@ -81,6 +82,8 @@ class LapseApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Eagerly initialize sync service so lifecycle listener starts immediately.
     ref.watch(syncServiceProvider);
+    // Schedule due reminders when the app starts.
+    ref.watch(notificationBootstrapProvider);
 
     return ToastificationWrapper(
       config: ToastificationConfig(
