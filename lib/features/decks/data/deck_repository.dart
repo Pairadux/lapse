@@ -4,7 +4,7 @@ import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/auth/application/auth_service.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite/sqflite.dart';
 
 class DeckRepository {
   final DatabaseHelper _dbHelper;
@@ -15,17 +15,17 @@ class DeckRepository {
       _authService = authService ?? AuthService();
 
   Future<Deck> create(Deck deck, {Transaction? txn}) async {
-  final db = txn ?? await _dbHelper.database;
-  final userId = deck.userId.isEmpty
-      ? await _authService.getCurrentUserId()
-      : deck.userId;
-  final syncReady = deck.copyWith(
-    syncStatus: SyncStatus.pending,
-    userId: userId,
-  );
-  await db.insert(DatabaseConstants.tableDecks, syncReady.toMap());
-  return syncReady;
-}
+    final db = txn ?? await _dbHelper.database;
+    final userId = deck.userId.isEmpty
+        ? await _authService.getCurrentUserId()
+        : deck.userId;
+    final syncReady = deck.copyWith(
+      syncStatus: SyncStatus.pending,
+      userId: userId,
+    );
+    await db.insert(DatabaseConstants.tableDecks, syncReady.toMap());
+    return syncReady;
+  }
 
   Future<Deck?> getById(String deckId) async {
     final db = await _dbHelper.database;
@@ -316,16 +316,6 @@ class DeckRepository {
         whereArgs: allIds,
       );
     });
-  }
-
-  Future<Deck?> getByName(String name) async {
-    final db = await _dbHelper.database;
-    final rows = await db.query(
-      DatabaseConstants.tableDecks,
-      where: '${DatabaseConstants.colDeckName} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
-      whereArgs: [name],
-    );
-    return rows.isNotEmpty ? Deck.fromMap(rows.first) : null;
   }
 
   /// Finds a deck by its full path (e.g., "Parent::Child::Grandchild").

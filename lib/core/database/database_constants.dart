@@ -205,7 +205,6 @@ abstract final class DatabaseConstants {
       WHERE $colSyncStatus != 'synced'
   ''';
 
-
   /// All DDL statements executed during [onCreate], in order.
   static const List<String> createStatements = [
     createDecksTable,

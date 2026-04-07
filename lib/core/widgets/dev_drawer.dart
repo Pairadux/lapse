@@ -199,6 +199,7 @@ class DevDrawer extends StatelessWidget {
 
   Future<void> _exportDeck(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
     final cardRepo = CardRepository();
     final deckRepo = DeckRepository();
     final allDecks = await deckRepo.getAll();
@@ -213,54 +214,66 @@ class DevDrawer extends StatelessWidget {
     if (selectedId == null || !context.mounted) return;
     final selectedDeck = allDecks.firstWhere((d) => d.deckId == selectedId);
     final exporter = DeckExportService();
-    final csv = await exporter.exportDeckWithRepositories(selectedDeck, cardRepo, deckRepo);
+    final csv = await exporter.exportDeckWithRepositories(
+      selectedDeck, cardRepo, deckRepo,
+    );
+
+    final safeName = selectedDeck.deckName
+        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    var exported = false;
 
     if (Platform.isAndroid || Platform.isIOS) {
-    // Mobile: use share sheet
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/${selectedDeck.deckName}.csv');
-    await file.writeAsString(csv);
-    await Share.shareXFiles([XFile(file.path, mimeType: 'text/csv')]);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$safeName.csv');
+      await file.writeAsString(csv);
+      await Share.shareXFiles([XFile(file.path, mimeType: 'text/csv')]);
+      exported = true;
     } else {
       final location = await getSaveLocation(
-        suggestedName: '${selectedDeck.deckName}.csv',
+        suggestedName: '$safeName.csv',
         acceptedTypeGroups: [
-         const XTypeGroup(label: 'CSV', extensions: ['csv']),
+          const XTypeGroup(label: 'CSV', extensions: ['csv']),
         ],
       );
       if (location != null) {
         final file = File(location.path);
         await file.writeAsString(csv);
+        exported = true;
       }
     }
-    messenger.showSnackBar(SnackBar(content: Text('Export complete')));
+    if (exported) {
+      messenger.showSnackBar(const SnackBar(content: Text('Export complete')));
+    }
   }
 
   Future<void> _importDeck(BuildContext context) async {
-  final messenger = ScaffoldMessenger.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
 
-  final result = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['csv'],
-  );
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
 
-  if (result == null || result.files.isEmpty) return;
+    if (result == null || result.files.isEmpty) return;
 
-  final file = File(result.files.single.path!);
-  final importer = DeckImportService(DeckRepository(), CardRepository());
+    final file = File(result.files.single.path!);
+    final importer = DeckImportService(DeckRepository(), CardRepository());
 
-  try {
-    await importer.importDeckFromCSV(file);
-    if (context.mounted) {
-      onDataChanged?.call();
-      messenger.showSnackBar(const SnackBar(content: Text('Import complete')));
-    }
-  } catch (e) {
-    if (context.mounted) {
-      messenger.showSnackBar(SnackBar(content: Text('Import failed: $e')));
+    try {
+      await importer.importDeckFromCSV(file);
+      if (context.mounted) {
+        onDataChanged?.call();
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Import complete')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Import failed: $e')));
+      }
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {
