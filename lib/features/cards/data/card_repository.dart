@@ -144,6 +144,27 @@ class CardRepository {
     };
   }
 
+  /// Returns distinct calendar days that have non-deleted cards due on or
+  /// after the provided day (defaults to today).
+  Future<List<DateTime>> getDistinctDueDates({DateTime? fromDay}) async {
+    final db = await _dbHelper.database;
+    final base = fromDay ?? DateTime.now();
+    final start = DateTime(
+      base.year,
+      base.month,
+      base.day,
+    );
+    final rows = await db.rawQuery(
+      'SELECT DISTINCT DATE(${DatabaseConstants.colDueDate}) AS day '
+      'FROM ${DatabaseConstants.tableCards} '
+      'WHERE ${DatabaseConstants.colIsDeleted} = 0 '
+      'AND DATE(${DatabaseConstants.colDueDate}) >= DATE(?) '
+      'ORDER BY day ASC',
+      [start.toUtc().toIso8601String()],
+    );
+    return rows.map((row) => DateTime.parse(row['day'] as String)).toList();
+  }
+
   /// Returns true if a non-deleted card with [front] text exists in [deckId].
   /// Use [excludeCardId] to skip self when editing.
   Future<bool> frontExistsInDeck({

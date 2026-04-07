@@ -16,6 +16,7 @@ import '../../../../core/theme/spacing.dart';
 import '../../../../core/widgets/app_snack_bar.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../auth/application/auth_service.dart';
+import '../../../notifications/presentation/providers/notification_providers.dart';
 
 /// Obsidian-inspired settings screen with sectioned layout.
 ///
@@ -1239,27 +1240,169 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  // ─── Notifications section (placeholder) ───────────────────────────────
+  // ─── Notifications section ───────────────────────────────────────────────
 
   Widget _buildNotificationsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader('Notifications', _sections[3].key),
-        _SettingsTile(
-          leading: const Icon(
-            Icons.notifications_outlined,
-            color: AppColors.textSecondary,
+    final settingsAsync = ref.watch(notificationSettingsProvider);
+    final notifier = ref.read(notificationSettingsProvider.notifier);
+
+    return settingsAsync.when(
+      loading: () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader('Notifications', _sections[3].key),
+          const _SettingsTile(
+            leading: Icon(
+              Icons.notifications_outlined,
+              color: AppColors.textSecondary,
+            ),
+            title: 'Loading notification settings...',
+            trailing: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ),
-          title: 'Push notifications',
-          subtitle: 'Coming soon',
-          trailing: Switch(
-            value: false,
-            onChanged: (_) =>
-                _showError('Push notifications not yet implemented.'),
+        ],
+      ),
+      error: (error, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader('Notifications', _sections[3].key),
+          _SettingsTile(
+            leading: const Icon(Icons.error_outline, color: AppColors.error),
+            title: 'Failed to load notification settings',
+            subtitle: '$error',
+            trailing: IconButton(
+              icon: const Icon(Icons.refresh, color: AppColors.textSecondary),
+              onPressed: () => ref.invalidate(notificationSettingsProvider),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+      data: (settings) {
+        final reminderTime = TimeOfDay(
+          hour: settings.reminderHour,
+          minute: settings.reminderMinute,
+        );
+        final reminderTimeLabel = MaterialLocalizations.of(
+          context,
+        ).formatTimeOfDay(reminderTime);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader('Notifications', _sections[3].key),
+            _SettingsTile(
+              leading: const Icon(
+                Icons.notifications_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: 'Due card reminders',
+              subtitle:
+                  'Get alerts for cards due today, tomorrow, and in 1 week',
+              trailing: Switch(
+                value: settings.enabled,
+                onChanged: (value) async {
+                  final ok = await notifier.setEnabled(value);
+                  if (!ok && mounted) {
+                    _showError(
+                      'Notification permission denied. Enable it in system settings.',
+                    );
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            _SettingsTile(
+              leading: const Icon(
+                Icons.schedule_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: 'Reminder time',
+              subtitle: settings.enabled
+                  ? 'When reminders should appear'
+                  : 'Enable reminders to set a time',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    reminderTimeLabel,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: settings.enabled
+                          ? AppColors.textSecondary
+                          : AppColors.textTertiary,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.textTertiary,
+                  ),
+                ],
+              ),
+              onTap: settings.enabled
+                  ? () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: reminderTime,
+                      );
+                      if (picked == null) return;
+                      await notifier.setReminderTime(
+                        hour: picked.hour,
+                        minute: picked.minute,
+                      );
+                    }
+                  : null,
+            ),
+            const SizedBox(height: Spacing.md),
+            _SettingsTile(
+              leading: const Icon(
+                Icons.today_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: 'Due today',
+              subtitle: 'Notify when cards are due today',
+              trailing: Switch(
+                value: settings.remindDueToday,
+                onChanged: settings.enabled
+                    ? (value) => notifier.setRemindDueToday(value)
+                    : null,
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            _SettingsTile(
+              leading: const Icon(
+                Icons.event_available_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: '1 day before',
+              subtitle: 'Notify one day before cards are due',
+              trailing: Switch(
+                value: settings.remindOneDayBefore,
+                onChanged: settings.enabled
+                    ? (value) => notifier.setRemindOneDayBefore(value)
+                    : null,
+              ),
+            ),
+            const SizedBox(height: Spacing.md),
+            _SettingsTile(
+              leading: const Icon(
+                Icons.date_range_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: '1 week before',
+              subtitle: 'Notify one week before cards are due',
+              trailing: Switch(
+                value: settings.remindOneWeekBefore,
+                onChanged: settings.enabled
+                    ? (value) => notifier.setRemindOneWeekBefore(value)
+                    : null,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
