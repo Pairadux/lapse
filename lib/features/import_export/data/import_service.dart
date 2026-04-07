@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:csv/csv.dart';
+import 'package:flutter/foundation.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
@@ -38,7 +39,14 @@ class DeckImportService {
   List<CardData> parseCsv(String content) {
   final normalized = content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   final rows = const CsvToListConverter(eol: '\n').convert(normalized);
-  return rows.skip(1).map((row) {
+
+  return rows.skip(1).where((row) {
+    if (row.length < 3) {
+      debugPrint('Skipping malformed CSV row (expected 3 columns, got ${row.length}): $row');
+      return false;
+    }
+    return true;
+  }).map((row) {
     return CardData(
       path:  row[0].toString(),
       front: row[1].toString(),

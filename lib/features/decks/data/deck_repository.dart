@@ -4,6 +4,7 @@ import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/features/auth/application/auth_service.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class DeckRepository {
   final DatabaseHelper _dbHelper;
@@ -13,18 +14,18 @@ class DeckRepository {
     : _dbHelper = dbHelper ?? DatabaseHelper.instance,
       _authService = authService ?? AuthService();
 
-  Future<Deck> create(Deck deck) async {
-    final db = await _dbHelper.database;
-    final userId = deck.userId.isEmpty
-        ? await _authService.getCurrentUserId()
-        : deck.userId;
-    final syncReady = deck.copyWith(
-      syncStatus: SyncStatus.pending,
-      userId: userId,
-    );
-    await db.insert(DatabaseConstants.tableDecks, syncReady.toMap());
-    return syncReady;
-  }
+  Future<Deck> create(Deck deck, {Transaction? txn}) async {
+  final db = txn ?? await _dbHelper.database;
+  final userId = deck.userId.isEmpty
+      ? await _authService.getCurrentUserId()
+      : deck.userId;
+  final syncReady = deck.copyWith(
+    syncStatus: SyncStatus.pending,
+    userId: userId,
+  );
+  await db.insert(DatabaseConstants.tableDecks, syncReady.toMap());
+  return syncReady;
+}
 
   Future<Deck?> getById(String deckId) async {
     final db = await _dbHelper.database;
@@ -331,44 +332,31 @@ class DeckRepository {
   /// Creates the deck hierarchy if it doesn't exist.
   Future<Deck> getOrCreateByPath(String path) async {
     final segments = path.split('::');
-    if (segments.isEmpty) throw ArgumentError('Path cannot be empty');
+    if (path.trim().isEmpty) throw ArgumentError('Path cannot be empty');
 
     final db = await _dbHelper.database;
 
-    // Get or create root deck
-    var currentRows = await db.query(
-      DatabaseConstants.tableDecks,
-      where: '${DatabaseConstants.colDeckName} = ? AND ${DatabaseConstants.colParentId} IS NULL AND ${DatabaseConstants.colIsDeleted} = 0',
-      whereArgs: [segments[0]],
-    );
+    return await db.transaction((txn) async {
+      Future<Deck> getOrCreate(String name, String? parentId) async {
+        final rows = await txn.query(
+          DatabaseConstants.tableDecks,
+          where: '${DatabaseConstants.colDeckName} = ? AND '
+              '${DatabaseConstants.colParentId} ${parentId == null ? 'IS NULL' : '= ?'} AND '
+              '${DatabaseConstants.colIsDeleted} = 0',
+          whereArgs: [name, ?parentId],
+        );
 
-    var currentDeck = currentRows.isNotEmpty
-        ? Deck.fromMap(currentRows.first)
-        : await _createDeck(name: segments[0], parentId: null);
+        if (rows.isNotEmpty) return Deck.fromMap(rows.first);
 
-    // Traverse/create children
-    for (final segment in segments.skip(1)) {
-      final childRows = await db.query(
-        DatabaseConstants.tableDecks,
-        where: '${DatabaseConstants.colDeckName} = ? AND ${DatabaseConstants.colParentId} = ? AND ${DatabaseConstants.colIsDeleted} = 0',
-        whereArgs: [segment, currentDeck.deckId],
-      );
+        final deck = Deck.create(deckName: name, parentId: parentId);
+        return await create(deck, txn: txn);
+      }
 
-      currentDeck = childRows.isNotEmpty
-          ? Deck.fromMap(childRows.first)
-          : await _createDeck(name: segment, parentId: currentDeck.deckId);
-    }
-
-    return currentDeck;
+      var current = await getOrCreate(segments[0], null);
+      for (final segment in segments.skip(1)) {
+        current = await getOrCreate(segment, current.deckId);
+      }
+      return current;
+    });
   }
-
-  Future<Deck> _createDeck({required String name, required String? parentId}) async {
-  final db = await _dbHelper.database;
-  final deck = Deck.create(deckName: name, parentId: parentId);
-  final id = await db.insert(DatabaseConstants.tableDecks, deck.toMap());
-  return Deck.fromMap({
-    ...deck.toMap(),
-    DatabaseConstants.colDeckId: id,
-  });
-}
 }

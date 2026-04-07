@@ -6,7 +6,15 @@ import 'package:lapse/features/decks/domain/deck.dart';
 class DeckExportService {
   Future<String> exportDeckWithRepositories(Deck deck, CardRepository cardRepo, DeckRepository deckRepo) async {
     final allDecks = await deckRepo.getAll();
-    final allCards = await cardRepo.getAllCards();
+    final deckIds = _collectDeckAndDescendants(deck.deckId, allDecks);
+    
+    // Fetch all cards from descendant decks
+    final allCards = <Flashcard>[];
+    for (final deckId in deckIds) {
+      final cards = await cardRepo.getByDeckId(deckId);
+      allCards.addAll(cards);
+    }
+    
     return exportDeck(deck, allCards, allDecks);
   }
 
