@@ -13,8 +13,15 @@ class SyncRealtimeService {
   final VoidCallback _onRemoteChange;
   Timer? _debounceTimer;
   RealtimeChannel? _channel;
+  bool _disposed = false;
+
+  /// Monotonically increasing counter so a newer [subscribe] call
+  /// silently cancels any in-flight retry from a previous call.
+  int _generation = 0;
 
   static const _debounceDelay = Duration(seconds: 2);
+  static const _maxAttempts = 3;
+  static const _subscribeTimeout = Duration(seconds: 10);
 
   SyncRealtimeService({
     required SupabaseClient client,
@@ -23,23 +30,57 @@ class SyncRealtimeService {
        _onRemoteChange = onRemoteChange;
 
   /// Subscribes to the user's private sync broadcast channel.
-  void subscribe(String userId) {
-    unsubscribe();
+  ///
+  /// Retries with exponential backoff (1s, 2s, 4s) on failure. A newer
+  /// call to [subscribe] cancels any in-flight retry from a previous call.
+  Future<void> subscribe(String userId, {int attempt = 0, int? generation}) async {
+    final gen = generation ?? ++_generation;
+
+    // A newer subscribe() or dispose() was called — abandon this attempt.
+    if (gen != _generation || _disposed) return;
+
+    await unsubscribe();
+
+    if (_disposed) return;
 
     _channel = _client.channel(
       'user:$userId:sync',
       opts: const RealtimeChannelConfig(private: true),
     );
 
-    _channel!.onBroadcast(event: 'sync_change', callback: (_) => _onChange());
+    final completer = Completer<void>();
 
     _channel!.subscribe((status, [error]) {
+      if (completer.isCompleted) return;
       if (status == RealtimeSubscribeStatus.subscribed) {
-        debugPrint('[SyncRealtime] Subscribed to user:$userId:sync');
+        completer.complete();
       } else if (error != null) {
-        debugPrint('[SyncRealtime] Subscribe error: $error');
+        completer.completeError(error);
       }
     });
+
+    try {
+      await completer.future.timeout(_subscribeTimeout);
+
+      // Register broadcast listener AFTER subscription is confirmed.
+      if (gen != _generation || _disposed) return;
+      _channel?.onBroadcast(event: 'sync_change', callback: (_) => _onChange());
+      debugPrint('[SyncRealtime] Subscribed to user:$userId:sync');
+    } catch (e) {
+      debugPrint(
+        '[SyncRealtime] Subscribe attempt ${attempt + 1} failed: $e',
+      );
+
+      if (attempt + 1 < _maxAttempts && gen == _generation && !_disposed) {
+        final delay = Duration(seconds: 1 << attempt); // 1s, 2s, 4s
+        await Future.delayed(delay);
+        return subscribe(userId, attempt: attempt + 1, generation: gen);
+      }
+
+      debugPrint(
+        '[SyncRealtime] Giving up after ${attempt + 1} attempt(s)',
+      );
+    }
   }
 
   void _onChange() {
@@ -48,15 +89,18 @@ class SyncRealtimeService {
   }
 
   /// Unsubscribes from the channel and cancels any pending debounce.
-  void unsubscribe() {
+  Future<void> unsubscribe() async {
     _debounceTimer?.cancel();
     if (_channel != null) {
-      _client.removeChannel(_channel!);
+      final channel = _channel!;
       _channel = null;
+      await _client.removeChannel(channel);
     }
   }
 
   void dispose() {
+    _disposed = true;
+    _generation++; // Cancel any in-flight retries.
     unsubscribe();
   }
 }
