@@ -211,7 +211,7 @@ class DevDrawer extends StatelessWidget {
       excludeIds: {},
       showRoot: false,
     );
-    if (selectedId == null || !context.mounted) return;
+    if (selectedId == null) return;
     final selectedDeck = allDecks.firstWhere((d) => d.deckId == selectedId);
     final exporter = DeckExportService();
     final csv = await exporter.exportDeckWithRepositories(
