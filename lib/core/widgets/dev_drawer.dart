@@ -210,6 +210,7 @@ class DevDrawer extends StatelessWidget {
       showRoot: false,
       title: 'Export deck',
       confirmLabel: 'Export',
+      allowReselect: true,
     );
     if (selectedId == null) return;
     final selectedDeck = allDecks.firstWhere((d) => d.deckId == selectedId);
@@ -258,6 +259,7 @@ class DevDrawer extends StatelessWidget {
       excludeIds: {},
       showRoot: true,
       title: 'Import destination',
+      allowReselect: true,
     );
     if (parentId == null) return;
 

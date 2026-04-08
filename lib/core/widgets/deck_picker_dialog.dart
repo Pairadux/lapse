@@ -17,6 +17,10 @@ class DeckPickerDialog extends StatefulWidget {
   final String title;
   final String confirmLabel;
 
+  /// When true, any selection is valid — there's no "current" location to
+  /// prevent reselecting. Use for import/export where there's no origin.
+  final bool allowReselect;
+
   const DeckPickerDialog({
     super.key,
     required this.decks,
@@ -25,6 +29,7 @@ class DeckPickerDialog extends StatefulWidget {
     this.showRoot = true,
     this.title = 'Select deck',
     this.confirmLabel = 'Select',
+    this.allowReselect = false,
   });
 
   static Future<String?> show({
@@ -35,6 +40,7 @@ class DeckPickerDialog extends StatefulWidget {
     bool showRoot = true,
     String title = 'Select deck',
     String confirmLabel = 'Select',
+    bool allowReselect = false,
   }) {
     return showDialog<String>(
       context: context,
@@ -45,6 +51,7 @@ class DeckPickerDialog extends StatefulWidget {
         showRoot: showRoot,
         title: title,
         confirmLabel: confirmLabel,
+        allowReselect: allowReselect,
       ),
     );
   }
@@ -62,9 +69,10 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
     _selectedId = widget.showRoot ? '' : null;
   }
 
-  /// Whether a new (non-current) destination has been picked.
-  bool get _hasNewSelection {
+  /// Whether a valid selection has been made.
+  bool get _hasSelection {
     if (_selectedId == null) return false;
+    if (widget.allowReselect) return true;
     // Root selected and current parent is already root.
     if (_selectedId!.isEmpty && widget.currentParentId == null) return false;
     // Specific deck selected that matches current parent.
@@ -91,7 +99,7 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
           icon: Icons.home_outlined,
           id: '',
           indent: 0,
-          isCurrent: widget.currentParentId == null,
+          isCurrent: !widget.allowReselect && widget.currentParentId == null,
         ),
       ..._buildTree(childrenMap, null, 0),
     ];
@@ -115,7 +123,7 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        if (_hasNewSelection)
+        if (_hasSelection)
           FilledButton(
             onPressed: () => Navigator.of(context).pop(_selectedId),
             child: Text(widget.confirmLabel),
@@ -144,7 +152,7 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
         icon: Icons.folder_outlined,
         id: deck.deckId,
         indent: depth + 1,
-        isCurrent: widget.currentParentId == deck.deckId,
+        isCurrent: !widget.allowReselect && widget.currentParentId == deck.deckId,
       ));
       widgets.addAll(_buildTree(childrenMap, deck.deckId, depth + 1));
     }

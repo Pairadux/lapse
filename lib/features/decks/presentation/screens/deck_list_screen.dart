@@ -9,10 +9,12 @@ import 'package:lapse/core/widgets/confirm_dialog.dart';
 import 'package:lapse/core/widgets/context_menu_region.dart';
 import 'package:lapse/core/widgets/deck_picker_dialog.dart';
 import 'package:lapse/core/sync/sync_service.dart';
+import 'package:lapse/features/cards/presentation/providers/card_list_provider.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/core/widgets/dev_drawer.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
+import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 import 'package:lapse/features/decks/presentation/widgets/empty_deck_state.dart';
@@ -46,7 +48,11 @@ class DeckListScreen extends ConsumerWidget {
         ],
       ),
       drawer: kDebugMode
-          ? DevDrawer(onDataChanged: () => ref.invalidate(deckListProvider))
+          ? DevDrawer(onDataChanged: () {
+              ref.invalidate(deckListProvider);
+              ref.invalidate(deckDetailProvider);
+              ref.invalidate(cardListProvider);
+            })
           : null,
       body: asyncDecks.when(
         loading: () => const SizedBox.shrink(),
