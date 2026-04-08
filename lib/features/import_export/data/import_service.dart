@@ -14,18 +14,26 @@ class DeckImportService {
   /// Imports cards from a CSV file, optionally under [parentDeckId].
   ///
   /// When [parentDeckId] is null, decks are created from the root.
+  /// When [skipDuplicates] is true, cards whose front text already
+  /// exists in the target deck are skipped.
   Future<void> importDeckFromCSV(
     File csvFile, {
     String? parentDeckId,
+    bool skipDuplicates = false,
   }) async {
     final content = csvFile.readAsStringSync();
     final cards = parseCsv(content);
-    await _createCardsInDecks(cards, parentDeckId: parentDeckId);
+    await _createCardsInDecks(
+      cards,
+      parentDeckId: parentDeckId,
+      skipDuplicates: skipDuplicates,
+    );
   }
 
   Future<void> _createCardsInDecks(
     List<CardData> cards, {
     String? parentDeckId,
+    bool skipDuplicates = false,
   }) async {
     final Map<String, List<CardData>> cardsByDeck = {};
     for (final card in cards) {
@@ -37,7 +45,17 @@ class DeckImportService {
         entry.key,
         parentId: parentDeckId,
       );
+
+      Set<String>? existingFronts;
+      if (skipDuplicates) {
+        final existing = await _cardRepository.getByDeckId(deck.deckId);
+        existingFronts = existing.map((c) => c.front).toSet();
+      }
+
       for (final cardData in entry.value) {
+        if (existingFronts != null && existingFronts.contains(cardData.front)) {
+          continue;
+        }
         final card = Flashcard.newCard(
           deckId: deck.deckId,
           front: cardData.front,

@@ -272,6 +272,10 @@ class DevDrawer extends StatelessWidget {
 
     if (result == null || result.files.isEmpty) return;
 
+    if (!context.mounted) return;
+    final skipDuplicates = await _showImportOptionsDialog(context);
+    if (skipDuplicates == null) return;
+
     final file = File(result.files.single.path!);
     final importer = DeckImportService(deckRepo, CardRepository());
 
@@ -279,6 +283,7 @@ class DevDrawer extends StatelessWidget {
       await importer.importDeckFromCSV(
         file,
         parentDeckId: parentId.isEmpty ? null : parentId,
+        skipDuplicates: skipDuplicates,
       );
       if (context.mounted) {
         onDataChanged?.call();
@@ -291,6 +296,38 @@ class DevDrawer extends StatelessWidget {
         messenger.showSnackBar(SnackBar(content: Text('Import failed: $e')));
       }
     }
+  }
+
+  /// Shows import options dialog. Returns `true` to skip duplicates,
+  /// `false` to import all, or `null` if cancelled.
+  Future<bool?> _showImportOptionsDialog(BuildContext context) {
+    var skipDuplicates = false;
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Import options'),
+          content: CheckboxListTile(
+            value: skipDuplicates,
+            onChanged: (v) => setState(() => skipDuplicates = v ?? false),
+            title: const Text('Skip duplicate cards'),
+            subtitle: const Text('Cards with matching front text are skipped'),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(skipDuplicates),
+              child: const Text('Import'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
