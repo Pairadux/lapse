@@ -198,7 +198,6 @@ class DevDrawer extends StatelessWidget {
   }
 
   Future<void> _exportDeck(BuildContext context) async {
-    Navigator.pop(context);
     final cardRepo = CardRepository();
     final deckRepo = DeckRepository();
     final allDecks = await deckRepo.getAll();
@@ -243,13 +242,12 @@ class DevDrawer extends StatelessWidget {
       }
     }
     if (exported && context.mounted) {
+      Navigator.pop(context);
       AppSnackBar.show(context, 'Export complete');
     }
   }
 
   Future<void> _importDeck(BuildContext context) async {
-    Navigator.pop(context);
-
     final deckRepo = DeckRepository();
     final allDecks = await deckRepo.getAll();
 
@@ -284,11 +282,13 @@ class DevDrawer extends StatelessWidget {
         skipDuplicates: skipDuplicates,
       );
       if (context.mounted) {
+        Navigator.pop(context);
         onDataChanged?.call();
         AppSnackBar.show(context, 'Import complete');
       }
     } catch (e) {
       if (context.mounted) {
+        Navigator.pop(context);
         AppSnackBar.show(context, 'Import failed: $e');
       }
     }
