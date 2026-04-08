@@ -106,6 +106,9 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
       deck.copyWith(parentId: Optional.value(newParentId)),
     );
     ref.invalidateSelf();
+    if (newParentId != null) {
+      ref.invalidate(deckDetailProvider(newParentId));
+    }
     ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();
   }

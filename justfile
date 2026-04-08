@@ -64,7 +64,7 @@ db-push:
 
 # Reset local Supabase database to clean state
 db-reset:
-    npx supabase db reset
+    npx supabase db reset --linked
 
 # Generate a migration from schema changes
 db-diff name:

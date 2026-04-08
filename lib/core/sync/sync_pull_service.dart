@@ -217,7 +217,14 @@ class SyncPullService {
 
         if (localInfo.syncStatus == SyncStatus.synced.name) {
           // Already synced — silent refresh (likely echo of our own push).
-          await db.insert(table, localRow, conflictAlgorithm: ConflictAlgorithm.replace);
+          // Use UPDATE instead of INSERT OR REPLACE to avoid triggering
+          // ON DELETE CASCADE on foreign keys (e.g. cards → decks).
+          await db.update(
+            table,
+            localRow,
+            where: '$pkColumn = ?',
+            whereArgs: [pk],
+          );
           refreshed++;
           continue;
         }
@@ -226,7 +233,13 @@ class SyncPullService {
         final remoteTimestamp = DateTime.parse(remoteRow[timestampColumn] as String);
 
         if (remoteTimestamp.isAfter(localInfo.updatedAt)) {
-          await db.insert(table, localRow, conflictAlgorithm: ConflictAlgorithm.replace);
+          // Remote wins — use UPDATE to avoid CASCADE deletes.
+          await db.update(
+            table,
+            localRow,
+            where: '$pkColumn = ?',
+            whereArgs: [pk],
+          );
           conflictWins++;
         } else {
           skipped++;
