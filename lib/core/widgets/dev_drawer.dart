@@ -198,7 +198,6 @@ class DevDrawer extends StatelessWidget {
   }
 
   Future<void> _exportDeck(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
     Navigator.pop(context);
     final cardRepo = CardRepository();
     final deckRepo = DeckRepository();
@@ -243,13 +242,12 @@ class DevDrawer extends StatelessWidget {
         exported = true;
       }
     }
-    if (exported) {
-      messenger.showSnackBar(const SnackBar(content: Text('Export complete')));
+    if (exported && context.mounted) {
+      AppSnackBar.show(context, 'Export complete');
     }
   }
 
   Future<void> _importDeck(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
     Navigator.pop(context);
 
     final deckRepo = DeckRepository();
@@ -287,13 +285,11 @@ class DevDrawer extends StatelessWidget {
       );
       if (context.mounted) {
         onDataChanged?.call();
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Import complete')),
-        );
+        AppSnackBar.show(context, 'Import complete');
       }
     } catch (e) {
       if (context.mounted) {
-        messenger.showSnackBar(SnackBar(content: Text('Import failed: $e')));
+        AppSnackBar.show(context, 'Import failed: $e');
       }
     }
   }
