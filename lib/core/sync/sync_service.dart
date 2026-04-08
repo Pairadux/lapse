@@ -11,6 +11,9 @@ import 'sync_pull_service.dart';
 import 'sync_push_service.dart';
 import 'sync_realtime_service.dart';
 import 'sync_adapter.dart';
+import '../../features/cards/presentation/providers/card_browser_provider.dart';
+import '../../features/cards/presentation/providers/card_list_provider.dart';
+import '../../features/decks/presentation/providers/deck_detail_provider.dart';
 import '../../features/decks/presentation/providers/deck_list_provider.dart';
 
 /// Sync orchestrator state exposed to the UI.
@@ -284,8 +287,13 @@ class SyncServiceNotifier extends Notifier<SyncState> {
 
       if (ok) {
         state = state.copyWith(isSyncing: false, lastSyncTime: DateTime.now());
-        // Refresh the deck list so UI reflects any pulled changes.
+        // Refresh all data providers so UI reflects pulled changes.
+        // deckDetailProvider also rebuilds via its lastSyncTime watcher, but
+        // explicit invalidation prevents regressions if that watcher is removed.
         ref.invalidate(deckListProvider);
+        ref.invalidate(deckDetailProvider);
+        ref.invalidate(cardListProvider);
+        ref.invalidate(filteredCardsProvider);
         return SyncResult.success(message);
       } else {
         final errors = <String>[
