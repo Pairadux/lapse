@@ -198,8 +198,6 @@ class DevDrawer extends StatelessWidget {
   }
 
   Future<void> _exportDeck(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.pop(context);
     final cardRepo = CardRepository();
     final deckRepo = DeckRepository();
     final allDecks = await deckRepo.getAll();
@@ -210,6 +208,9 @@ class DevDrawer extends StatelessWidget {
       decks: allDecks,
       excludeIds: {},
       showRoot: false,
+      title: 'Export deck',
+      confirmLabel: 'Export',
+      allowReselect: true,
     );
     if (selectedId == null) return;
     final selectedDeck = allDecks.firstWhere((d) => d.deckId == selectedId);
@@ -241,14 +242,26 @@ class DevDrawer extends StatelessWidget {
         exported = true;
       }
     }
-    if (exported) {
-      messenger.showSnackBar(const SnackBar(content: Text('Export complete')));
+    if (exported && context.mounted) {
+      Navigator.pop(context);
+      AppSnackBar.show(context, 'Export complete');
     }
   }
 
   Future<void> _importDeck(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.pop(context);
+    final deckRepo = DeckRepository();
+    final allDecks = await deckRepo.getAll();
+
+    if (!context.mounted) return;
+    final parentId = await DeckPickerDialog.show(
+      context: context,
+      decks: allDecks,
+      excludeIds: {},
+      showRoot: true,
+      title: 'Import destination',
+      allowReselect: true,
+    );
+    if (parentId == null) return;
 
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -257,22 +270,62 @@ class DevDrawer extends StatelessWidget {
 
     if (result == null || result.files.isEmpty) return;
 
+    if (!context.mounted) return;
+    final skipDuplicates = await _showImportOptionsDialog(context);
+    if (skipDuplicates == null) return;
+
     final file = File(result.files.single.path!);
-    final importer = DeckImportService(DeckRepository(), CardRepository());
+    final importer = DeckImportService(deckRepo, CardRepository());
 
     try {
-      await importer.importDeckFromCSV(file);
+      await importer.importDeckFromCSV(
+        file,
+        parentDeckId: parentId.isEmpty ? null : parentId,
+        skipDuplicates: skipDuplicates,
+      );
       if (context.mounted) {
+        Navigator.pop(context);
         onDataChanged?.call();
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Import complete')),
-        );
+        AppSnackBar.show(context, 'Import complete');
       }
     } catch (e) {
       if (context.mounted) {
-        messenger.showSnackBar(SnackBar(content: Text('Import failed: $e')));
+        Navigator.pop(context);
+        AppSnackBar.show(context, 'Import failed: $e');
       }
     }
+  }
+
+  /// Shows import options dialog. Returns `true` to skip duplicates,
+  /// `false` to import all, or `null` if cancelled.
+  Future<bool?> _showImportOptionsDialog(BuildContext context) {
+    var skipDuplicates = false;
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Import options'),
+          content: CheckboxListTile(
+            value: skipDuplicates,
+            onChanged: (v) => setState(() => skipDuplicates = v ?? false),
+            title: const Text('Skip duplicate cards'),
+            subtitle: const Text('Cards with matching front text are skipped'),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(skipDuplicates),
+              child: const Text('Import'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

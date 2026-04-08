@@ -3,7 +3,7 @@ import '../theme/app_colors.dart';
 import '../theme/spacing.dart';
 import '../../features/decks/domain/deck.dart';
 
-/// Dialog for selecting a destination deck when moving a deck or card.
+/// Dialog for selecting a deck from the deck tree.
 ///
 /// Returns the selected deck ID via [show]:
 /// - `null` = cancelled
@@ -14,6 +14,12 @@ class DeckPickerDialog extends StatefulWidget {
   final Set<String> excludeIds;
   final String? currentParentId;
   final bool showRoot;
+  final String title;
+  final String confirmLabel;
+
+  /// When true, any selection is valid — there's no "current" location to
+  /// prevent reselecting. Use for import/export where there's no origin.
+  final bool allowReselect;
 
   const DeckPickerDialog({
     super.key,
@@ -21,6 +27,9 @@ class DeckPickerDialog extends StatefulWidget {
     required this.excludeIds,
     this.currentParentId,
     this.showRoot = true,
+    this.title = 'Select deck',
+    this.confirmLabel = 'Select',
+    this.allowReselect = false,
   });
 
   static Future<String?> show({
@@ -29,6 +38,9 @@ class DeckPickerDialog extends StatefulWidget {
     required Set<String> excludeIds,
     String? currentParentId,
     bool showRoot = true,
+    String title = 'Select deck',
+    String confirmLabel = 'Select',
+    bool allowReselect = false,
   }) {
     return showDialog<String>(
       context: context,
@@ -37,6 +49,9 @@ class DeckPickerDialog extends StatefulWidget {
         excludeIds: excludeIds,
         currentParentId: currentParentId,
         showRoot: showRoot,
+        title: title,
+        confirmLabel: confirmLabel,
+        allowReselect: allowReselect,
       ),
     );
   }
@@ -54,9 +69,10 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
     _selectedId = widget.showRoot ? '' : null;
   }
 
-  /// Whether a new (non-current) destination has been picked.
-  bool get _hasNewSelection {
+  /// Whether a valid selection has been made.
+  bool get _hasSelection {
     if (_selectedId == null) return false;
+    if (widget.allowReselect) return true;
     // Root selected and current parent is already root.
     if (_selectedId!.isEmpty && widget.currentParentId == null) return false;
     // Specific deck selected that matches current parent.
@@ -83,13 +99,13 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
           icon: Icons.home_outlined,
           id: '',
           indent: 0,
-          isCurrent: widget.currentParentId == null,
+          isCurrent: !widget.allowReselect && widget.currentParentId == null,
         ),
       ..._buildTree(childrenMap, null, 0),
     ];
 
     return AlertDialog(
-      title: const Text('Move to'),
+      title: Text(widget.title),
       content: SizedBox(
         width: double.maxFinite,
         child: treeItems.isEmpty
@@ -107,15 +123,15 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        if (_hasNewSelection)
+        if (_hasSelection)
           FilledButton(
             onPressed: () => Navigator.of(context).pop(_selectedId),
-            child: const Text('Move'),
+            child: Text(widget.confirmLabel),
           )
         else
           TextButton(
             onPressed: null,
-            child: const Text('Move'),
+            child: Text(widget.confirmLabel),
           ),
       ],
     );
@@ -136,7 +152,7 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
         icon: Icons.folder_outlined,
         id: deck.deckId,
         indent: depth + 1,
-        isCurrent: widget.currentParentId == deck.deckId,
+        isCurrent: !widget.allowReselect && widget.currentParentId == deck.deckId,
       ));
       widgets.addAll(_buildTree(childrenMap, deck.deckId, depth + 1));
     }

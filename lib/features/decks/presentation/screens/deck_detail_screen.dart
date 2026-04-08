@@ -177,6 +177,8 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> with RouteA
             decks: allDecks,
             excludeIds: excludeIds,
             currentParentId: deck.parentId,
+            title: 'Move to',
+            confirmLabel: 'Move',
           );
           if (targetId == null || !mounted) return;
 
@@ -234,6 +236,8 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen> with RouteA
             excludeIds: const <String>{},
             currentParentId: card.deckId,
             showRoot: false,
+            title: 'Move to',
+            confirmLabel: 'Move',
           );
           if (targetId == null || !mounted) return;
           if (targetId == card.deckId) return;
