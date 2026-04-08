@@ -210,6 +210,8 @@ class DevDrawer extends StatelessWidget {
       decks: allDecks,
       excludeIds: {},
       showRoot: false,
+      title: 'Export deck',
+      confirmLabel: 'Export',
     );
     if (selectedId == null) return;
     final selectedDeck = allDecks.firstWhere((d) => d.deckId == selectedId);
@@ -250,6 +252,19 @@ class DevDrawer extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     Navigator.pop(context);
 
+    final deckRepo = DeckRepository();
+    final allDecks = await deckRepo.getAll();
+
+    if (!context.mounted) return;
+    final parentId = await DeckPickerDialog.show(
+      context: context,
+      decks: allDecks,
+      excludeIds: {},
+      showRoot: true,
+      title: 'Import destination',
+    );
+    if (parentId == null) return;
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
@@ -258,10 +273,13 @@ class DevDrawer extends StatelessWidget {
     if (result == null || result.files.isEmpty) return;
 
     final file = File(result.files.single.path!);
-    final importer = DeckImportService(DeckRepository(), CardRepository());
+    final importer = DeckImportService(deckRepo, CardRepository());
 
     try {
-      await importer.importDeckFromCSV(file);
+      await importer.importDeckFromCSV(
+        file,
+        parentDeckId: parentId.isEmpty ? null : parentId,
+      );
       if (context.mounted) {
         onDataChanged?.call();
         messenger.showSnackBar(

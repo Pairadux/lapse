@@ -144,6 +144,8 @@ class _DeckList extends ConsumerWidget {
             decks: allDecks,
             excludeIds: excludeIds,
             currentParentId: deck.parentId,
+            title: 'Move to',
+            confirmLabel: 'Move',
           );
           if (targetId == null || !context.mounted) return;
 

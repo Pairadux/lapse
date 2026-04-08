@@ -3,7 +3,7 @@ import '../theme/app_colors.dart';
 import '../theme/spacing.dart';
 import '../../features/decks/domain/deck.dart';
 
-/// Dialog for selecting a destination deck when moving a deck or card.
+/// Dialog for selecting a deck from the deck tree.
 ///
 /// Returns the selected deck ID via [show]:
 /// - `null` = cancelled
@@ -14,6 +14,8 @@ class DeckPickerDialog extends StatefulWidget {
   final Set<String> excludeIds;
   final String? currentParentId;
   final bool showRoot;
+  final String title;
+  final String confirmLabel;
 
   const DeckPickerDialog({
     super.key,
@@ -21,6 +23,8 @@ class DeckPickerDialog extends StatefulWidget {
     required this.excludeIds,
     this.currentParentId,
     this.showRoot = true,
+    this.title = 'Select deck',
+    this.confirmLabel = 'Select',
   });
 
   static Future<String?> show({
@@ -29,6 +33,8 @@ class DeckPickerDialog extends StatefulWidget {
     required Set<String> excludeIds,
     String? currentParentId,
     bool showRoot = true,
+    String title = 'Select deck',
+    String confirmLabel = 'Select',
   }) {
     return showDialog<String>(
       context: context,
@@ -37,6 +43,8 @@ class DeckPickerDialog extends StatefulWidget {
         excludeIds: excludeIds,
         currentParentId: currentParentId,
         showRoot: showRoot,
+        title: title,
+        confirmLabel: confirmLabel,
       ),
     );
   }
@@ -89,7 +97,7 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
     ];
 
     return AlertDialog(
-      title: const Text('Move to'),
+      title: Text(widget.title),
       content: SizedBox(
         width: double.maxFinite,
         child: treeItems.isEmpty
@@ -110,12 +118,12 @@ class _DeckPickerDialogState extends State<DeckPickerDialog> {
         if (_hasNewSelection)
           FilledButton(
             onPressed: () => Navigator.of(context).pop(_selectedId),
-            child: const Text('Move'),
+            child: Text(widget.confirmLabel),
           )
         else
           TextButton(
             onPressed: null,
-            child: const Text('Move'),
+            child: Text(widget.confirmLabel),
           ),
       ],
     );

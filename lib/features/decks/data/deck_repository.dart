@@ -320,29 +320,32 @@ class DeckRepository {
 
   /// Finds a deck by its full path (e.g., "Parent::Child::Grandchild").
   /// Creates the deck hierarchy if it doesn't exist.
-  Future<Deck> getOrCreateByPath(String path) async {
+  ///
+  /// When [parentId] is provided, the first path segment is created under
+  /// that deck instead of at the root.
+  Future<Deck> getOrCreateByPath(String path, {String? parentId}) async {
     final segments = path.split('::');
     if (path.trim().isEmpty) throw ArgumentError('Path cannot be empty');
 
     final db = await _dbHelper.database;
 
     return await db.transaction((txn) async {
-      Future<Deck> getOrCreate(String name, String? parentId) async {
+      Future<Deck> getOrCreate(String name, String? deckParentId) async {
         final rows = await txn.query(
           DatabaseConstants.tableDecks,
           where: '${DatabaseConstants.colDeckName} = ? AND '
-              '${DatabaseConstants.colParentId} ${parentId == null ? 'IS NULL' : '= ?'} AND '
+              '${DatabaseConstants.colParentId} ${deckParentId == null ? 'IS NULL' : '= ?'} AND '
               '${DatabaseConstants.colIsDeleted} = 0',
-          whereArgs: [name, ?parentId],
+          whereArgs: [name, ?deckParentId],
         );
 
         if (rows.isNotEmpty) return Deck.fromMap(rows.first);
 
-        final deck = Deck.create(deckName: name, parentId: parentId);
+        final deck = Deck.create(deckName: name, parentId: deckParentId);
         return await create(deck, txn: txn);
       }
 
-      var current = await getOrCreate(segments[0], null);
+      var current = await getOrCreate(segments[0], parentId);
       for (final segment in segments.skip(1)) {
         current = await getOrCreate(segment, current.deckId);
       }

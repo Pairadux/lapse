@@ -11,20 +11,32 @@ class DeckImportService {
 
   DeckImportService(this._deckRepository, this._cardRepository);
 
-  Future<void> importDeckFromCSV(File csvFile) async {
+  /// Imports cards from a CSV file, optionally under [parentDeckId].
+  ///
+  /// When [parentDeckId] is null, decks are created from the root.
+  Future<void> importDeckFromCSV(
+    File csvFile, {
+    String? parentDeckId,
+  }) async {
     final content = csvFile.readAsStringSync();
     final cards = parseCsv(content);
-    await _createCardsInDecks(cards);
+    await _createCardsInDecks(cards, parentDeckId: parentDeckId);
   }
 
-  Future<void> _createCardsInDecks(List<CardData> cards) async {
+  Future<void> _createCardsInDecks(
+    List<CardData> cards, {
+    String? parentDeckId,
+  }) async {
     final Map<String, List<CardData>> cardsByDeck = {};
     for (final card in cards) {
       cardsByDeck.putIfAbsent(card.path, () => []).add(card);
     }
 
     for (final entry in cardsByDeck.entries) {
-      final deck = await _deckRepository.getOrCreateByPath(entry.key);
+      final deck = await _deckRepository.getOrCreateByPath(
+        entry.key,
+        parentId: parentDeckId,
+      );
       for (final cardData in entry.value) {
         final card = Flashcard.newCard(
           deckId: deck.deckId,
