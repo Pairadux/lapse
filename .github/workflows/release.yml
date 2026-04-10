@@ -185,7 +185,7 @@ jobs:
             .github/aur/PKGBUILD.template > PKGBUILD
 
       - name: Publish to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.2
         with:
           pkgname: lapse-appimage
           pkgbuild: ./PKGBUILD
