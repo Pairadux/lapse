@@ -64,6 +64,11 @@
   -->
 
   <releases>
+    <release version="0.5.0" date="2026-04-10">
+      <description>
+        <p>New release.</p>
+      </description>
+    </release>
     <release version="0.4.1" date="2025-03-25">
       <description>
         <p>Bug fixes and packaging improvements.</p>
