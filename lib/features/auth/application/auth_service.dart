@@ -91,6 +91,20 @@ class AuthService {
     await _client.auth.resend(type: OtpType.signup, email: email);
   }
 
+  /// Verify the 6-digit OTP code sent during sign-up.
+  Future<AuthResponse> verifyOtp(String email, String token) async {
+    _requireAvailable();
+    final response = await _client.auth.verifyOTP(
+      type: OtpType.signup,
+      email: email,
+      token: token,
+    );
+    if (response.session != null && response.user != null) {
+      await _onAuthenticated(response.user!.id);
+    }
+    return response;
+  }
+
   /// Returns the user_id to stamp on new data.
   ///
   /// Priority:
