@@ -1,6 +1,11 @@
 display_name: Lapse
 package_name: lapse
-maintainer: Pairadux
+maintainer:
+  name: Pairadux
+  email: pairadux@users.noreply.github.com
+priority: optional
+section: x11
+installed_size: 35000
 icon: assets/icons/icon-other.png
 generic_name: Flashcard Study App
 categories:
