@@ -1,6 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -80,9 +79,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isAuthLoading = false;
   bool _obscurePassword = true;
   String? _pendingEmail;
-  String? _pendingPassword;
-  Timer? _confirmationTimer;
-  int _confirmationElapsed = 0;
+  final _otpController = TextEditingController();
+  bool _isVerifying = false;
 
   // App info
   String _appVersion = '';
@@ -116,7 +114,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _scrollController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmationTimer?.cancel();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -374,14 +372,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           });
                           _showSuccess('Account created and signed in.');
                         } else {
-                          // Email confirmation required
+                          // Email confirmation required — show OTP input
                           setState(() {
                             _pendingEmail = email;
-                            _pendingPassword = password;
                             _authDisplayState =
                                 _AuthDisplayState.confirmingEmail;
                           });
-                          _startConfirmationPolling(email);
                         }
                       } on AuthException catch (e) {
                         setDialogState(() {
@@ -502,48 +498,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     emailCtrl.dispose();
   }
 
-  void _startConfirmationPolling(String email) {
-    _confirmationElapsed = 0;
-    _confirmationTimer?.cancel();
-    _confirmationTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      _confirmationElapsed++;
-
-      // Phase 1: every 1s for 60s
-      // Phase 2: every 5s for 30min (1800s)
-      // Phase 3: stop
-      if (_confirmationElapsed > 1860) {
-        _confirmationTimer?.cancel();
-        return;
-      }
-      if (_confirmationElapsed > 60 && _confirmationElapsed % 5 != 0) return;
-
-      try {
-        final response = await _authService.signInWithEmail(
-          email,
-          _pendingPassword ?? '',
-        );
-        if (response.session != null && mounted) {
-          _confirmationTimer?.cancel();
-          _pendingPassword = null;
-          setState(() {
-            _pendingEmail = null;
-            _authDisplayState = _AuthDisplayState.accountInfo;
-          });
-          _showSuccess('Email confirmed. Signed in.');
-        }
-      } catch (_) {
-        // Not confirmed yet — keep polling
-      }
-    });
-  }
-
   void _cancelConfirmation() {
-    _confirmationTimer?.cancel();
-    _pendingPassword = null;
+    _otpController.clear();
     setState(() {
       _pendingEmail = null;
       _authDisplayState = _AuthDisplayState.signInForm;
     });
+  }
+
+  Future<void> _verifyOtp() async {
+    final code = _otpController.text.trim();
+    if (code.length != 6 || _pendingEmail == null) return;
+
+    setState(() => _isVerifying = true);
+    try {
+      final response = await _authService.verifyOtp(_pendingEmail!, code);
+      if (response.session != null && mounted) {
+        _otpController.clear();
+        setState(() {
+          _pendingEmail = null;
+          _isVerifying = false;
+          _authDisplayState = _AuthDisplayState.accountInfo;
+        });
+        _showSuccess('Email confirmed. Signed in.');
+      } else if (mounted) {
+        setState(() => _isVerifying = false);
+        _showError('Verification failed. Please try again.');
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        setState(() => _isVerifying = false);
+        _showError(e.message);
+      }
+    }
   }
 
   Future<void> _resendConfirmation() async {
@@ -1006,30 +993,58 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           color: AppColors.primary,
         ),
         const SizedBox(height: Spacing.lg),
-        Text('Check your email', style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          'Enter confirmation code',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: Spacing.sm),
         Text(
-          'We sent a confirmation link to $_pendingEmail. '
-          'Once you confirm, you\'ll be signed in automatically.',
+          'We sent a 6-digit code to $_pendingEmail',
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: Spacing.lg),
-        if (_confirmationElapsed < 1860)
-          const Padding(
-            padding: EdgeInsets.only(bottom: Spacing.lg),
-            child: LinearProgressIndicator(),
+        TextField(
+          controller: _otpController,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          textAlign: TextAlign.center,
+          autofocus: true,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            letterSpacing: 8,
           ),
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(
+            hintText: '000000',
+            counterText: '',
+          ),
+          enabled: !_isVerifying,
+          onChanged: (value) {
+            if (value.length == 6) _verifyOtp();
+          },
+        ),
+        const SizedBox(height: Spacing.lg),
         Row(
           children: [
+            FilledButton(
+              onPressed: _isVerifying ? null : _verifyOtp,
+              child: _isVerifying
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Verify'),
+            ),
+            const SizedBox(width: Spacing.md),
             OutlinedButton(
-              onPressed: _resendConfirmation,
-              child: const Text('Resend email'),
+              onPressed: _isVerifying ? null : _resendConfirmation,
+              child: const Text('Resend code'),
             ),
             const SizedBox(width: Spacing.md),
             TextButton(
-              onPressed: _cancelConfirmation,
+              onPressed: _isVerifying ? null : _cancelConfirmation,
               child: const Text('Cancel'),
             ),
           ],
