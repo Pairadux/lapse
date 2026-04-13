@@ -32,14 +32,18 @@ jobs:
       - name: Install Fastforge
         run: dart pub global activate fastforge
 
+      - name: Write env.json
+        run: |
+          echo '{"SUPABASE_URL":"${{ secrets.SUPABASE_URL }}","SUPABASE_PUBLISHABLE_KEY":"${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"}' > env.json
+
       - name: Build and package AppImage
-        run: fastforge package --platform linux --targets appimage
+        run: fastforge release --name release --jobs linux-appimage
 
       - name: Build and package deb
-        run: fastforge package --platform linux --targets deb
+        run: fastforge release --name release --jobs linux-deb --skip-clean
 
       - name: Build and package rpm
-        run: fastforge package --platform linux --targets rpm
+        run: fastforge release --name release --jobs linux-rpm --skip-clean
 
       - name: Package raw bundle as tar.gz
         run: |
@@ -82,8 +86,12 @@ jobs:
       - name: Install Fastforge
         run: dart pub global activate fastforge
 
+      - name: Write env.json
+        run: |
+          echo '{"SUPABASE_URL":"${{ secrets.SUPABASE_URL }}","SUPABASE_PUBLISHABLE_KEY":"${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"}' > env.json
+
       - name: Build and package DMG
-        run: fastforge package --platform macos --targets dmg
+        run: fastforge release --name release --jobs macos-dmg
 
       - name: Rename artifact
         run: |
@@ -110,8 +118,13 @@ jobs:
       - name: Install Fastforge
         run: dart pub global activate fastforge
 
+      - name: Write env.json
+        shell: bash
+        run: |
+          echo '{"SUPABASE_URL":"${{ secrets.SUPABASE_URL }}","SUPABASE_PUBLISHABLE_KEY":"${{ secrets.SUPABASE_PUBLISHABLE_KEY }}"}' > env.json
+
       - name: Build and package ZIP
-        run: fastforge package --platform windows --targets zip
+        run: fastforge release --name release --jobs windows-zip
 
       - name: Rename artifact
         shell: bash
