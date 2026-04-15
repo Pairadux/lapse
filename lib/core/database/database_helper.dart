@@ -13,18 +13,14 @@ class DatabaseHelper {
   final String _dbName;
   final bool _forTesting;
 
-  DatabaseHelper._({String? dbName})
-    : _dbName = dbName ?? DatabaseConstants.databaseName,
-      _forTesting = false;
+  DatabaseHelper._({String? dbName}) : _dbName = dbName ?? DatabaseConstants.databaseName, _forTesting = false;
   static final DatabaseHelper instance = DatabaseHelper._();
 
   /// Creates an independent instance with its own DB file for testing.
   /// Bypasses [getApplicationSupportDirectory] so tests run without
   /// a Flutter engine.
   @visibleForTesting
-  DatabaseHelper.forTesting({String dbName = 'test.db'})
-    : _dbName = dbName,
-      _forTesting = true;
+  DatabaseHelper.forTesting({String dbName = 'test.db'}) : _dbName = dbName, _forTesting = true;
 
   Database? _database;
 
@@ -89,6 +85,9 @@ class DatabaseHelper {
         case 5:
           await _migrateV5(db);
           break;
+        case 6:
+          await _migrateV6(db);
+          break;
         default:
           break;
       }
@@ -97,16 +96,10 @@ class DatabaseHelper {
 
   /// v2: Add step column to cards table for FSRS learning step tracking.
   Future<void> _migrateV2(Database db) async {
-    final columns = await db.rawQuery(
-      'PRAGMA table_info(${DatabaseConstants.tableCards})',
-    );
-    final hasStep = columns.any(
-      (col) => col['name'] == DatabaseConstants.colStep,
-    );
+    final columns = await db.rawQuery('PRAGMA table_info(${DatabaseConstants.tableCards})');
+    final hasStep = columns.any((col) => col['name'] == DatabaseConstants.colStep);
     if (!hasStep) {
-      await db.execute(
-        'ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colStep} INTEGER',
-      );
+      await db.execute('ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colStep} INTEGER');
     }
   }
 
@@ -127,9 +120,7 @@ class DatabaseHelper {
     );
 
     // reviews
-    await db.execute(
-      "ALTER TABLE ${DatabaseConstants.tableReviews} ADD COLUMN ${DatabaseConstants.colUserId} TEXT",
-    );
+    await db.execute("ALTER TABLE ${DatabaseConstants.tableReviews} ADD COLUMN ${DatabaseConstants.colUserId} TEXT");
     await db.execute(
       "ALTER TABLE ${DatabaseConstants.tableReviews} ADD COLUMN ${DatabaseConstants.colSyncStatus} TEXT NOT NULL DEFAULT 'synced'",
     );
@@ -171,10 +162,8 @@ class DatabaseHelper {
           DatabaseConstants.colCardId: row[DatabaseConstants.colCardId],
           DatabaseConstants.colReviewedAt: row[DatabaseConstants.colReviewedAt],
           DatabaseConstants.colRating: row[DatabaseConstants.colRating],
-          DatabaseConstants.colScheduledDays:
-              row[DatabaseConstants.colScheduledDays],
-          DatabaseConstants.colElapsedDays:
-              row[DatabaseConstants.colElapsedDays],
+          DatabaseConstants.colScheduledDays: row[DatabaseConstants.colScheduledDays],
+          DatabaseConstants.colElapsedDays: row[DatabaseConstants.colElapsedDays],
           DatabaseConstants.colState: row[DatabaseConstants.colState],
           DatabaseConstants.colUserId: row[DatabaseConstants.colUserId],
           DatabaseConstants.colSyncStatus: row[DatabaseConstants.colSyncStatus],
@@ -185,9 +174,7 @@ class DatabaseHelper {
 
     // Swap tables
     await db.execute('DROP TABLE ${DatabaseConstants.tableReviews}');
-    await db.execute(
-      'ALTER TABLE reviews_v2 RENAME TO ${DatabaseConstants.tableReviews}',
-    );
+    await db.execute('ALTER TABLE reviews_v2 RENAME TO ${DatabaseConstants.tableReviews}');
 
     // Recreate indexes
     await db.execute(DatabaseConstants.createIndexReviewsCardId);
@@ -203,16 +190,20 @@ class DatabaseHelper {
     await db.execute(DatabaseConstants.createIndexSessionSummarySyncStatus);
   }
 
+  /// v6: Add card_type column to cards table for advanced card types.
+  Future<void> _migrateV6(Database db) async {
+    await db.execute(
+      'ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colCardType} INTEGER NOT NULL DEFAULT 0',
+    );
+  }
+
   /// Purges soft-deleted rows older than 7 days that are safe to remove.
   ///
   /// Rows with `sync_status = 'pending'` and a non-empty `user_id` are never
   /// purged — they still need to push the deletion tombstone to the server.
   Future<void> purgeTombstones() async {
     final db = await database;
-    final cutoff = DateTime.now()
-        .subtract(const Duration(days: 7))
-        .toUtc()
-        .toIso8601String();
+    final cutoff = DateTime.now().subtract(const Duration(days: 7)).toUtc().toIso8601String();
 
     await db.transaction((txn) async {
       // Purge cards first (safe — no dependents).

@@ -5,11 +5,20 @@ import 'package:lapse/core/database/database_constants.dart';
 
 enum CardState { newCard, learning, review, relearning }
 
+enum CardType {
+  basic, // Simple front/back text
+  cloze, // Cloze deletion with {{c1::answer}} syntax
+  image, // Image-based cards
+  audio, // Audio-based cards
+  imageOcclusion, // Image with occluded areas
+}
+
 class Flashcard extends Equatable {
   final String cardId; // UUID
   final String deckId; // Parent deck
-  final String front; // Question/prompt side
-  final String back; // Answer side
+  final CardType cardType; // Type of card content
+  final String front; // Question/prompt side (format depends on cardType)
+  final String back; // Answer side (format depends on cardType)
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted; // Soft delete for sync
@@ -24,14 +33,14 @@ class Flashcard extends Equatable {
   final int lapses; // Times forgotten (rated "Again")
   final DateTime? lastReview;
   final CardState cardState;
-  final int?
-  step; // Learning step progress (null for new/review cards, 0+ for learning/relearning)
+  final int? step; // Learning step progress (null for new/review cards, 0+ for learning/relearning)
   final SyncStatus syncStatus; // Synced, pending, conflict
   final String userId; // For multi-user support (optional)
 
   const Flashcard({
     required this.cardId,
     required this.deckId,
+    this.cardType = CardType.basic,
     required this.front,
     required this.back,
     required this.createdAt,
@@ -54,6 +63,7 @@ class Flashcard extends Equatable {
   /// Creates a new card with auto-generated ID, timestamps, and FSRS defaults.
   factory Flashcard.newCard({
     required String deckId,
+    CardType cardType = CardType.basic,
     required String front,
     required String back,
   }) {
@@ -61,6 +71,7 @@ class Flashcard extends Equatable {
     return Flashcard(
       cardId: const Uuid().v4(),
       deckId: deckId,
+      cardType: cardType,
       front: front,
       back: back,
       dueDate: now,
@@ -83,6 +94,7 @@ class Flashcard extends Equatable {
 
   Flashcard copyWith({
     String? deckId,
+    CardType? cardType,
     String? front,
     String? back,
     DateTime? updatedAt,
@@ -103,6 +115,7 @@ class Flashcard extends Equatable {
     return Flashcard(
       cardId: cardId, // cardId cannot be changed
       deckId: deckId ?? this.deckId,
+      cardType: cardType ?? this.cardType,
       front: front ?? this.front,
       back: back ?? this.back,
       createdAt: createdAt, // immutable — set at creation
@@ -128,6 +141,7 @@ class Flashcard extends Equatable {
     return {
       DatabaseConstants.colCardId: cardId,
       DatabaseConstants.colDeckId: deckId,
+      DatabaseConstants.colCardType: cardType.index,
       DatabaseConstants.colFront: front,
       DatabaseConstants.colBack: back,
       DatabaseConstants.colCreatedAt: createdAt.toUtc().toIso8601String(),
@@ -154,6 +168,7 @@ class Flashcard extends Equatable {
     return Flashcard(
       cardId: map[DatabaseConstants.colCardId] as String,
       deckId: map[DatabaseConstants.colDeckId] as String,
+      cardType: CardType.values[map[DatabaseConstants.colCardType] as int],
       front: map[DatabaseConstants.colFront] as String,
       back: map[DatabaseConstants.colBack] as String,
       createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
@@ -170,9 +185,7 @@ class Flashcard extends Equatable {
       cardState: CardState.values[map[DatabaseConstants.colCardState] as int],
       step: map[DatabaseConstants.colStep] as int?,
       userId: map[DatabaseConstants.colUserId] as String,
-      syncStatus: SyncStatus.values.byName(
-        map[DatabaseConstants.colSyncStatus] as String,
-      ),
+      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
     );
   }
 
@@ -180,6 +193,7 @@ class Flashcard extends Equatable {
   List<Object?> get props => [
     cardId,
     deckId,
+    cardType,
     front,
     back,
     createdAt,

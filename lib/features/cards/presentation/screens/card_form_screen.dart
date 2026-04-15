@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/theme/app_colors.dart';
@@ -14,6 +12,7 @@ import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
+import 'package:lapse/features/study/presentation/widgets/card_content.dart';
 
 class _SaveIntent extends Intent {
   const _SaveIntent();
@@ -46,12 +45,14 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
   bool _saving = false;
   int _createdCount = 0;
   bool _showPreview = false;
+  CardType _cardType = CardType.basic;
 
   @override
   void initState() {
     super.initState();
     _frontController = TextEditingController(text: widget.card?.front ?? '');
     _backController = TextEditingController(text: widget.card?.back ?? '');
+    _cardType = widget.card?.cardType ?? CardType.basic;
   }
 
   @override
@@ -77,18 +78,10 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Duplicate card'),
-        content: const Text(
-          'A card with this front already exists in this deck. Save anyway?',
-        ),
+        content: const Text('A card with this front already exists in this deck. Save anyway?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save anyway'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save anyway')),
         ],
       ),
     );
@@ -120,6 +113,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     try {
       if (widget.isEditing) {
         final updated = widget.card!.copyWith(
+          cardType: _cardType,
           front: _frontController.text.trim(),
           back: _backController.text.trim(),
         );
@@ -127,6 +121,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       } else {
         final card = Flashcard.newCard(
           deckId: widget.deckId,
+          cardType: _cardType,
           front: _frontController.text.trim(),
           back: _backController.text.trim(),
         );
@@ -141,8 +136,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             : _createdCount > 0
             ? '${_createdCount + 1} cards created'
             : 'Card created';
-        AppSnackBar.show(context, label,
-            duration: const Duration(seconds: 2));
+        AppSnackBar.show(context, label, duration: const Duration(seconds: 2));
         context.pop();
       }
     } finally {
@@ -158,6 +152,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     try {
       final card = Flashcard.newCard(
         deckId: widget.deckId,
+        cardType: _cardType,
         front: _frontController.text.trim(),
         back: _backController.text.trim(),
       );
@@ -227,21 +222,14 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         onBack: _goBack,
         actions: [
           IconButton(
-            icon: Icon(
-              _showPreview ? Icons.edit_outlined : Icons.visibility_outlined,
-            ),
+            icon: Icon(_showPreview ? Icons.edit_outlined : Icons.visibility_outlined),
             onPressed: () => setState(() => _showPreview = !_showPreview),
           ),
-          if (widget.isEditing)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: _delete,
-            ),
+          if (widget.isEditing) IconButton(icon: const Icon(Icons.delete_outline), onPressed: _delete),
         ],
         body: Shortcuts(
           shortcuts: const {
-            SingleActivator(LogicalKeyboardKey.enter, shift: true):
-                _SaveAndAddAnotherIntent(),
+            SingleActivator(LogicalKeyboardKey.enter, shift: true): _SaveAndAddAnotherIntent(),
             SingleActivator(LogicalKeyboardKey.enter, alt: true): _SaveIntent(),
           },
           child: Actions(
@@ -252,27 +240,22 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
                   return null;
                 },
               ),
-              _SaveAndAddAnotherIntent:
-                  CallbackAction<_SaveAndAddAnotherIntent>(
-                    onInvoke: (intent) {
-                      if (widget.isEditing) {
-                        _save();
-                      } else {
-                        _saveAndAddAnother();
-                      }
-                      return null;
-                    },
-                  ),
+              _SaveAndAddAnotherIntent: CallbackAction<_SaveAndAddAnotherIntent>(
+                onInvoke: (intent) {
+                  if (widget.isEditing) {
+                    _save();
+                  } else {
+                    _saveAndAddAnother();
+                  }
+                  return null;
+                },
+              ),
             },
             child: Form(
               key: _formKey,
               child: Column(
                 children: [
-                  Expanded(
-                    child: _showPreview
-                        ? _buildPreviewContent()
-                        : _buildEditContent(),
-                  ),
+                  Expanded(child: _showPreview ? _buildPreviewContent() : _buildEditContent()),
                   _buildActionButtons(),
                 ],
               ),
@@ -299,12 +282,24 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             padding: const EdgeInsets.only(bottom: Spacing.lg),
             child: Text(
               '$_createdCount card${_createdCount == 1 ? '' : 's'} added',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w500,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.primary, fontWeight: FontWeight.w500),
             ),
           ),
+        DropdownButtonFormField<CardType>(
+          initialValue: _cardType,
+          decoration: const InputDecoration(labelText: 'Card Type'),
+          items: CardType.values.map((type) {
+            return DropdownMenuItem(value: type, child: Text(_getCardTypeDisplayName(type)));
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _cardType = value);
+            }
+          },
+        ),
+        const SizedBox(height: Spacing.lg),
         TextFormField(
           controller: _frontController,
           focusNode: _frontFocus,
@@ -313,14 +308,12 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
           maxLines: 4,
           maxLength: maxCardTextLength,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Front',
-            hintText: 'Question or prompt (Markdown supported)',
+            hintText: _getFrontHintText(_cardType),
             alignLabelWithHint: true,
           ),
-          validator: (value) => (value == null || value.trim().isEmpty)
-              ? 'Front is required'
-              : null,
+          validator: (value) => (value == null || value.trim().isEmpty) ? 'Front is required' : null,
         ),
         const SizedBox(height: Spacing.lg),
         TextFormField(
@@ -329,14 +322,12 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
           maxLines: 4,
           maxLength: maxCardTextLength,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Back',
-            hintText: 'Answer (Markdown supported)',
+            hintText: _getBackHintText(_cardType),
             alignLabelWithHint: true,
           ),
-          validator: (value) => (value == null || value.trim().isEmpty)
-              ? 'Back is required'
-              : null,
+          validator: (value) => (value == null || value.trim().isEmpty) ? 'Back is required' : null,
         ),
         const SizedBox(height: Spacing.md),
         Row(
@@ -344,9 +335,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             Expanded(
               child: Text(
                 '**bold**  *italic*  `code`  # heading  - list  > quote',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
               ),
             ),
             const SizedBox(width: Spacing.sm),
@@ -355,11 +344,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.visibility_outlined,
-                    size: 14,
-                    color: AppColors.textTertiary,
-                  ),
+                  Icon(Icons.visibility_outlined, size: 14, color: AppColors.textTertiary),
                   const SizedBox(width: 4),
                   Text(
                     'Preview',
@@ -386,50 +371,51 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildPreviewContent() {
+    // Create a temporary card for preview
+    final now = DateTime.now();
+    final previewCard = Flashcard(
+      cardId: 'preview',
+      deckId: 'preview',
+      cardType: _cardType,
+      front: _frontController.text.trim(),
+      back: _backController.text.trim(),
+      createdAt: now,
+      updatedAt: now,
+      dueDate: now,
+      stability: 0.0,
+      difficulty: 0.0,
+      elapsedDays: 0,
+      scheduledDays: 0,
+      reps: 0,
+      lapses: 0,
+      cardState: CardState.newCard,
+    );
+
     return ListView(
       padding: const EdgeInsets.all(Spacing.lg),
       children: [
-        _buildPreviewField(
-          label: 'Front',
-          text: _frontController.text,
-          placeholder: '_No front text_',
-        ),
+        _buildPreviewField(label: 'Front Preview', child: CardContentFactory.buildFront(previewCard)),
         const SizedBox(height: Spacing.lg),
         const Divider(),
         const SizedBox(height: Spacing.lg),
-        _buildPreviewField(
-          label: 'Back',
-          text: _backController.text,
-          placeholder: '_No back text_',
-        ),
+        _buildPreviewField(label: 'Back Preview', child: CardContentFactory.buildBack(previewCard)),
       ],
     );
   }
 
-  Widget _buildPreviewField({
-    required String label,
-    required String text,
-    required String placeholder,
-  }) {
-    final hasContent = text.trim().isNotEmpty;
+  Widget _buildPreviewField({required String label, required Widget child}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: AppColors.textSecondary),
-        ),
+        Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: Spacing.sm),
-        MarkdownBody(
-          data: hasContent ? text : placeholder,
-          onTapLink: (text, href, title) {
-            if (href != null) launchUrl(Uri.parse(href));
-          },
-          styleSheet: MarkdownStyleSheet.fromTheme(
-            Theme.of(context),
-          ).copyWith(p: Theme.of(context).textTheme.bodyLarge),
+        Container(
+          constraints: const BoxConstraints(minHeight: 200),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.outlineVariant),
+            borderRadius: BorderRadius.circular(Spacing.radiusMd),
+          ),
+          child: child,
         ),
       ],
     );
@@ -441,17 +427,10 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
 
   Widget _buildActionButtons() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        Spacing.lg,
-        Spacing.md,
-        Spacing.lg,
-        Spacing.lg,
-      ),
+      padding: const EdgeInsets.fromLTRB(Spacing.lg, Spacing.md, Spacing.lg, Spacing.lg),
       decoration: BoxDecoration(
         color: AppColors.background,
-        border: Border(
-          top: BorderSide(color: AppColors.outlineVariant, width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: AppColors.outlineVariant, width: 0.5)),
       ),
       child: SafeArea(
         top: false,
@@ -484,5 +463,50 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         ),
       ),
     );
+  }
+
+  String _getCardTypeDisplayName(CardType type) {
+    switch (type) {
+      case CardType.basic:
+        return 'Basic';
+      case CardType.cloze:
+        return 'Cloze Deletion';
+      case CardType.image:
+        return 'Image';
+      case CardType.audio:
+        return 'Audio';
+      case CardType.imageOcclusion:
+        return 'Image Occlusion';
+    }
+  }
+
+  String _getFrontHintText(CardType type) {
+    switch (type) {
+      case CardType.basic:
+        return 'Question or prompt (Markdown supported)';
+      case CardType.cloze:
+        return 'Text with {{c1::answer}} for cloze deletions';
+      case CardType.image:
+        return 'Image URL or path (optional caption after | )';
+      case CardType.audio:
+        return 'Audio URL or path (optional transcript after | )';
+      case CardType.imageOcclusion:
+        return 'Image URL with occlusion data after |';
+    }
+  }
+
+  String _getBackHintText(CardType type) {
+    switch (type) {
+      case CardType.basic:
+        return 'Answer (Markdown supported)';
+      case CardType.cloze:
+        return 'Full text with answers revealed';
+      case CardType.image:
+        return 'Answer or explanation';
+      case CardType.audio:
+        return 'Answer or explanation';
+      case CardType.imageOcclusion:
+        return 'Answer or explanation';
+    }
   }
 }
