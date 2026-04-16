@@ -34,7 +34,7 @@ class _FakeCardRepository extends CardRepository {
     final target = front.trim().toLowerCase();
     return (_cardsByDeck[deckId] ?? <Flashcard>[]).any((card) {
       final sameCard = excludeCardId != null && card.cardId == excludeCardId;
-      return !sameCard && card.front.trim().toLowerCase() == target;
+      return !sameCard && (card as TwoSidedCard).front.trim().toLowerCase() == target;
     });
   }
 
@@ -125,7 +125,7 @@ Flashcard _seedCard({
   required String front,
   required String back,
 }) {
-  return Flashcard.newCard(deckId: deckId, front: front, back: back);
+  return TwoSidedCard.newCard(deckId: deckId, front: front, back: back);
 }
 
 Future<void> _pumpCardForm(

@@ -107,7 +107,8 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     if (_showPreview) {
       final frontEmpty = _frontController.text.trim().isEmpty;
       final backEmpty = _backController.text.trim().isEmpty;
-      if (frontEmpty || backEmpty) {
+      final isCloze = _cardType == CardType.cloze;
+      if (frontEmpty || (!isCloze && backEmpty)) {
         setState(() => _showPreview = false);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _formKey.currentState?.validate();
@@ -371,19 +372,20 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
           validator: (value) => (value == null || value.trim().isEmpty) ? 'Front is required' : null,
         ),
         const SizedBox(height: Spacing.lg),
-        TextFormField(
-          controller: _backController,
-          onChanged: (_) => setState(() {}),
-          maxLines: 4,
-          maxLength: maxCardTextLength,
-          maxLengthEnforcement: MaxLengthEnforcement.enforced,
-          decoration: InputDecoration(
-            labelText: 'Back',
-            hintText: _getBackHintText(_cardType),
-            alignLabelWithHint: true,
+        if (_cardType != CardType.cloze)
+          TextFormField(
+            controller: _backController,
+            onChanged: (_) => setState(() {}),
+            maxLines: 4,
+            maxLength: maxCardTextLength,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            decoration: InputDecoration(
+              labelText: 'Back',
+              hintText: _getBackHintText(_cardType),
+              alignLabelWithHint: true,
+            ),
+            validator: (value) => (value == null || value.trim().isEmpty) ? 'Back is required' : null,
           ),
-          validator: (value) => (value == null || value.trim().isEmpty) ? 'Back is required' : null,
-        ),
         const SizedBox(height: Spacing.md),
         Row(
           children: [
@@ -445,7 +447,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       cardState: CardState.newCard,
       isDeleted: false,
       syncStatus: SyncStatus.synced,
-      userId: userId, // not sure why it needs this when the old version didnt
+      userId: '', // preview card
     );
 
     return ListView(

@@ -40,7 +40,7 @@ void main() {
     );
   }
 
-  Flashcard makeCard({
+  TwoSidedCard makeCard({
     String id = 'card-1',
     String deckId = 'deck-1',
     String front = 'Q',
@@ -51,13 +51,12 @@ void main() {
   }) {
     final now = DateTime.now();
     final created = createdAt ?? now;
-    return Flashcard(
+    return TwoSidedCard(
       cardId: id,
       deckId: deckId,
-      front: front,
-      back: back,
       createdAt: created,
       updatedAt: updatedAt ?? created,
+      isDeleted: false,
       dueDate: dueDate ?? created,
       stability: 0.0,
       difficulty: 0.0,
@@ -66,6 +65,10 @@ void main() {
       reps: 0,
       lapses: 0,
       cardState: CardState.newCard,
+      syncStatus: SyncStatus.synced,
+      userId: 'user-1',
+      front: front,
+      back: back,
     );
   }
 
@@ -77,8 +80,8 @@ void main() {
     final fetched = await cardRepo.getById('card-1');
     expect(fetched, isNotNull);
     expect(fetched!.cardId, 'card-1');
-    expect(fetched.front, 'Hello');
-    expect(fetched.back, 'World');
+    expect((fetched as TwoSidedCard).front, 'Hello');
+    expect((fetched as TwoSidedCard).back, 'World');
     expect(fetched.cardState, CardState.newCard);
   });
 
@@ -117,12 +120,12 @@ void main() {
 
     final modified = original.copyWith(front: 'Updated Q', back: 'Updated A');
     final updated = await cardRepo.update(modified);
-    expect(updated.front, 'Updated Q');
+    expect((updated as TwoSidedCard).front, 'Updated Q');
     expect(updated.updatedAt.isAfter(original.updatedAt), isTrue);
 
     final fetched = await cardRepo.getById('card-1');
-    expect(fetched!.front, 'Updated Q');
-    expect(fetched.back, 'Updated A');
+    expect((fetched! as TwoSidedCard).front, 'Updated Q');
+    expect((fetched as TwoSidedCard).back, 'Updated A');
   });
 
   test('delete soft-removes card', () async {
@@ -153,7 +156,7 @@ void main() {
     test('update sets syncStatus to pending', () async {
       await insertParentDeck();
       await cardRepo.create(makeCard());
-      final card = (await cardRepo.getById('card-1'))!;
+      final card = (await cardRepo.getById('card-1'))! as TwoSidedCard;
       final updated = await cardRepo.update(card.copyWith(front: 'New Q'));
       expect(updated.syncStatus, SyncStatus.pending);
     });
@@ -216,14 +219,14 @@ void main() {
 
       // Simulate user editing the card after push read it but before markSynced
       await Future<void>.delayed(const Duration(milliseconds: 10));
-      await cardRepo.update(original.copyWith(front: 'Edited'));
+      await cardRepo.update((original as TwoSidedCard).copyWith(front: 'Edited'));
 
       // markSynced with the OLD timestamp should not mark as synced
       await cardRepo.markSynced({'c1': pushedTimestamp});
 
       final card = await cardRepo.getById('c1');
       expect(card!.syncStatus, SyncStatus.pending);
-      expect(card.front, 'Edited');
+      expect((card as TwoSidedCard).front, 'Edited');
     });
 
     test('markSynced applies only to matching timestamps', () async {
@@ -237,7 +240,7 @@ void main() {
 
       // Edit 'c2' so its timestamp no longer matches
       await Future<void>.delayed(const Duration(milliseconds: 10));
-      await cardRepo.update(c2!.copyWith(front: 'Edited'));
+      await cardRepo.update((c2 as TwoSidedCard).copyWith(front: 'Edited'));
 
       await cardRepo.markSynced({
         'c1': c1Timestamp,

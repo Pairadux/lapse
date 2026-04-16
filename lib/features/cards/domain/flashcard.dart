@@ -229,7 +229,7 @@ class TwoSidedCard extends Flashcard {
       lapses: 0,
       cardState: CardState.newCard,
       syncStatus: SyncStatus.pending,
-      userId: userId,
+      userId: '',
       front: front,
       back: back,
     );
@@ -361,7 +361,7 @@ class ReverseCard extends Flashcard {
       lapses: 0,
       cardState: CardState.newCard,
       syncStatus: SyncStatus.pending,
-      userId: userId,
+      userId: '',
       front: front,
       back: back,
     );
@@ -422,6 +422,7 @@ class ClozeCard extends Flashcard {
     return {
       ...baseMap(),
       DatabaseConstants.colFront: text, // Cloze text stored in 'front' column
+      DatabaseConstants.colBack: '', // No back content for cloze cards but database expects a back
     };
   }
 
@@ -468,7 +469,7 @@ class ClozeCard extends Flashcard {
       lapses: 0,
       cardState: CardState.newCard,
       syncStatus: SyncStatus.pending,
-      userId: userId,
+      userId: '',
       text: text,
     );
   }
