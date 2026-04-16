@@ -1,6 +1,7 @@
 import 'package:lapse/features/notifications/data/notification_prefs_store.dart';
 import 'package:lapse/features/notifications/application/notification_service.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
+import 'package:lapse/features/notifications/domain/notification_settings.dart';
 
 class DueReminderScheduler {
   static const int maxScheduledReminders = 30;
@@ -30,9 +31,76 @@ class DueReminderScheduler {
 
     if (!settings.enabled) return;
 
+    final plans = await _buildDesiredPlans(settings);
+    if (plans.isEmpty) return;
+
+    final scheduledIds = <int>[];
+    for (final plan in plans.take(maxScheduledReminders)) {
+      await _notificationService.scheduleDueReminder(
+        id: plan.id,
+        title: plan.title,
+        body: plan.body,
+        whenLocal: plan.fireAt,
+      );
+      scheduledIds.add(plan.id);
+    }
+
+    await _prefsStore.saveScheduledDueReminderIds(scheduledIds);
+  }
+
+  /// Incrementally syncs scheduled reminder IDs to current due dates by
+  /// canceling/scheduling only the delta.
+  Future<void> syncSchedule() async {
+    await _notificationService.initialize();
+
+    final settings = await _prefsStore.load();
+    final existingIds = (await _prefsStore.loadScheduledDueReminderIds())
+        .toSet();
+
+    if (!settings.enabled) {
+      if (existingIds.isNotEmpty) {
+        await _notificationService.cancelDueReminders(existingIds);
+      }
+      await _prefsStore.saveScheduledDueReminderIds(const <int>[]);
+      return;
+    }
+
+    final desiredPlans = (await _buildDesiredPlans(settings))
+        .take(maxScheduledReminders)
+        .toList(growable: false);
+    final desiredIds = desiredPlans.map((p) => p.id).toSet();
+
+    final toCancel = existingIds.difference(desiredIds);
+    if (toCancel.isNotEmpty) {
+      await _notificationService.cancelDueReminders(toCancel);
+    }
+
+    final planById = <int, _ReminderPlan>{
+      for (final plan in desiredPlans) plan.id: plan,
+    };
+    final toAdd = desiredIds.difference(existingIds);
+    for (final id in toAdd) {
+      final plan = planById[id];
+      if (plan == null) continue;
+      await _notificationService.scheduleDueReminder(
+        id: plan.id,
+        title: plan.title,
+        body: plan.body,
+        whenLocal: plan.fireAt,
+      );
+    }
+
+    await _prefsStore.saveScheduledDueReminderIds(
+      desiredPlans.map((p) => p.id).toList(),
+    );
+  }
+
+  Future<List<_ReminderPlan>> _buildDesiredPlans(
+    NotificationSettings settings,
+  ) async {
     final now = _now();
     final sortedDays = await _cardRepository.getDistinctDueDates();
-    if (sortedDays.isEmpty) return;
+    if (sortedDays.isEmpty) return const <_ReminderPlan>[];
 
     sortedDays.sort((a, b) => a.compareTo(b));
 
@@ -56,21 +124,8 @@ class DueReminderScheduler {
         ),
       );
     }
-
     plans.sort((a, b) => a.fireAt.compareTo(b.fireAt));
-
-    final scheduledIds = <int>[];
-    for (final plan in plans.take(maxScheduledReminders)) {
-      await _notificationService.scheduleDueReminder(
-        id: plan.id,
-        title: plan.title,
-        body: plan.body,
-        whenLocal: plan.fireAt,
-      );
-      scheduledIds.add(plan.id);
-    }
-
-    await _prefsStore.saveScheduledDueReminderIds(scheduledIds);
+    return plans;
   }
 
   static int _notificationId(DateTime day) {

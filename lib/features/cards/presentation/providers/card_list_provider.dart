@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
+import 'package:lapse/features/notifications/presentation/providers/notification_providers.dart';
 
 final cardListProvider =
     AsyncNotifierProvider.family<CardListNotifier, List<Flashcard>, String>(
@@ -43,5 +46,6 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
     });
     ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
   }
 }
