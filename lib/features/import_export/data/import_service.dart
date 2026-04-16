@@ -46,23 +46,42 @@ class DeckImportService {
         parentId: parentDeckId,
       );
 
-      Set<String>? existingFronts;
-      if (skipDuplicates) {
-        final existing = await _cardRepository.getByDeckId(deck.deckId);
-        existingFronts = existing.map((c) => c.front).toSet();
-      }
+    Set<String>? existingFronts;
+    if (skipDuplicates) {
+      final existing = await _cardRepository.getByDeckId(deck.deckId);
+      existingFronts = existing.map((c) => switch (c) {
+        TwoSidedCard c => c.front,
+        ReverseCard c => c.front,
+        ClozeCard c => c.text,
+      }).toSet();
+    }
 
       for (final cardData in entry.value) {
-        if (existingFronts != null && existingFronts.contains(cardData.front)) {
-          continue;
-        }
-        final card = Flashcard.newCard(
-          deckId: deck.deckId,
-          front: cardData.front,
-          back: cardData.back,
-        );
-        await _cardRepository.create(card);
+      if (existingFronts != null && existingFronts.contains(cardData.front)) {
+        continue;
       }
+      final cardType = CardType.values.firstWhere( // prevent unknown card types from crashing the import
+      (e) => e.name == cardData.cardType,
+      orElse: () => throw StateError('Unknown card type: ${cardData.cardType}'),
+      );
+      final card = switch (cardType) {
+        CardType.twoSided => TwoSidedCard.newCard(
+            deckId: deck.deckId,
+            front: cardData.front,
+            back: cardData.back,
+          ),
+        CardType.reverse => ReverseCard.newCard(
+            deckId: deck.deckId,
+            front: cardData.front,
+            back: cardData.back,
+          ),
+        CardType.cloze => ClozeCard.newCard(
+            deckId: deck.deckId,
+            text: cardData.front,
+          ),
+      };
+      await _cardRepository.create(card);
+    }
     }
   }
 
@@ -78,9 +97,10 @@ class DeckImportService {
     return true;
   }).map((row) {
     return CardData(
-      path:  row[0].toString(),
-      front: row[1].toString(),
-      back:  row[2].toString(),
+      cardType: row[0].toString(),
+      path:  row[1].toString(),
+      front: row[2].toString(),
+      back:  row[3].toString(),
     );
   }).toList();
 }
@@ -90,5 +110,6 @@ class CardData {
   final String path;
   final String front;
   final String back;
-  CardData({required this.path, required this.front, required this.back});
+  final String cardType;
+  CardData({required this.path, required this.front, required this.back, required this.cardType});
 }

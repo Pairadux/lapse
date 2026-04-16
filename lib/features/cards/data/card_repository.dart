@@ -34,7 +34,7 @@ class CardRepository {
       whereArgs: [cardId],
     );
     if (rows.isEmpty) return null;
-    return Flashcard.fromMap(rows.first);
+    return FlashcardMapper.fromMap(rows.first);
   }
 
   /// Returns non-deleted cards for [deckId], ordered by creation time.
@@ -60,7 +60,7 @@ class CardRepository {
       limit: limit,
       offset: offset,
     );
-    return rows.map(Flashcard.fromMap).toList();
+    return rows.map(FlashcardMapper.fromMap).toList();
   }
 
   /// Returns non-deleted cards due on or before [asOf] (defaults to now),
@@ -75,7 +75,7 @@ class CardRepository {
       whereArgs: [deckId, cutoff],
       orderBy: DatabaseConstants.colDueDate,
     );
-    return rows.map(Flashcard.fromMap).toList();
+    return rows.map(FlashcardMapper.fromMap).toList();
   }
 
   /// Returns the number of non-deleted cards in [deckId].
@@ -110,7 +110,7 @@ class CardRepository {
       where: '${DatabaseConstants.colIsDeleted} = 0',
       orderBy: DatabaseConstants.colCreatedAt,
     );
-    return rows.map(Flashcard.fromMap).toList();
+    return rows.map(FlashcardMapper.fromMap).toList();
   }
 
   /// Returns non-deleted cards belonging to any of the given [deckIds].
@@ -125,7 +125,7 @@ class CardRepository {
       whereArgs: deckIds,
       orderBy: DatabaseConstants.colCreatedAt,
     );
-    return rows.map(Flashcard.fromMap).toList();
+    return rows.map(FlashcardMapper.fromMap).toList();
   }
 
   /// Returns the number of non-deleted cards due on each local calendar day.
@@ -230,7 +230,7 @@ class CardRepository {
       where: '${DatabaseConstants.colSyncStatus} != ?',
       whereArgs: [SyncStatus.synced.name],
     );
-    return rows.map(Flashcard.fromMap).toList();
+    return rows.map(FlashcardMapper.fromMap).toList();
   }
 
   /// Marks the given cards as synced, guarded by [updated_at] to prevent

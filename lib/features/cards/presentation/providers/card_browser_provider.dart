@@ -25,16 +25,16 @@ final filteredCardsProvider =
   // Apply text filter (front/back search)
   var filtered = allCards;
   if (filters.searchQuery.isNotEmpty) {
-    final query = filters.searchQuery.toLowerCase();
-    filtered =
-        filtered
-            .where(
-              (card) =>
-                  card.front.toLowerCase().contains(query) ||
-                  card.back.toLowerCase().contains(query),
-            )
-            .toList();
-  }
+  final query = filters.searchQuery.toLowerCase();
+  filtered = filtered.where((card) {
+    final text = switch (card) {
+      TwoSidedCard c => '${c.front} ${c.back}',
+      ReverseCard c => '${c.front} ${c.back}',
+      ClozeCard c => c.text,
+    };
+    return text.toLowerCase().contains(query);
+  }).toList();
+}
 
   // Apply card state filter
   if (filters.cardState != CardStateFilter.all) {

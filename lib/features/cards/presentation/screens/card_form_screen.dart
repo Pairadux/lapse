@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_scaffold.dart';
@@ -45,14 +46,27 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
   bool _saving = false;
   int _createdCount = 0;
   bool _showPreview = false;
-  CardType _cardType = CardType.basic;
+  CardType _cardType = CardType.twoSided;
 
   @override
   void initState() {
     super.initState();
-    _frontController = TextEditingController(text: widget.card?.front ?? '');
-    _backController = TextEditingController(text: widget.card?.back ?? '');
-    _cardType = widget.card?.cardType ?? CardType.basic;
+    _cardType = widget.card?.cardType ?? CardType.twoSided;
+
+    switch (widget.card) {
+      case TwoSidedCard(:final front, :final back):
+        _frontController = TextEditingController(text: front);
+        _backController = TextEditingController(text: back);
+      case ReverseCard(:final front, :final back):
+        _frontController = TextEditingController(text: front);
+        _backController = TextEditingController(text: back);
+      case ClozeCard(:final text):
+        _frontController = TextEditingController(text: text);
+        _backController = TextEditingController(text: '');
+      case null:
+        _frontController = TextEditingController();
+        _backController = TextEditingController();
+    }
   }
 
   @override
@@ -106,43 +120,61 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
   }
 
   Future<void> _save() async {
-    if (!_validateFields() || _saving) return;
-    if (!await _checkDuplicate()) return;
-    setState(() => _saving = true);
-
-    try {
-      if (widget.isEditing) {
-        final updated = widget.card!.copyWith(
-          cardType: _cardType,
-          front: _frontController.text.trim(),
-          back: _backController.text.trim(),
-        );
-        await _repo.update(updated);
-      } else {
-        final card = Flashcard.newCard(
-          deckId: widget.deckId,
-          cardType: _cardType,
-          front: _frontController.text.trim(),
-          back: _backController.text.trim(),
-        );
-        await _repo.create(card);
-      }
-      ref.invalidate(deckDetailProvider(widget.deckId));
+  if (!_validateFields() || _saving) return;
+  if (!await _checkDuplicate()) return;
+  setState(() => _saving = true);
+  try {
+    if (widget.isEditing) {
+      final updated = switch (widget.card!) {
+        TwoSidedCard c => c.copyWith(
+            front: _frontController.text.trim(),
+            back: _backController.text.trim(),
+          ),
+        ReverseCard c => c.copyWith(
+            front: _frontController.text.trim(),
+            back: _backController.text.trim(),
+          ),
+        ClozeCard c => c.copyWith(
+            text: _frontController.text.trim(),
+          ),
+      };
+      await _repo.update(updated);
+    } else {
+      final card = switch (_cardType) {
+        // these need user ID which seems to be an auth isssue
+        CardType.twoSided => TwoSidedCard.newCard(
+            deckId: widget.deckId,
+            front: _frontController.text.trim(),
+            back: _backController.text.trim(),
+          ),
+        CardType.reverse => ReverseCard.newCard(
+            deckId: widget.deckId,
+            front: _frontController.text.trim(),
+            back: _backController.text.trim(),
+          ),
+        CardType.cloze => ClozeCard.newCard(
+            deckId: widget.deckId,
+            text: _frontController.text.trim(),
+          ),
+      };
+      await _repo.create(card);
+    }
+    ref.invalidate(deckDetailProvider(widget.deckId));
       ref.invalidate(deckListProvider);
       ref.read(syncServiceProvider.notifier).schedulePush();
       if (mounted) {
-        final label = widget.isEditing
-            ? 'Card updated'
-            : _createdCount > 0
-            ? '${_createdCount + 1} cards created'
-            : 'Card created';
-        AppSnackBar.show(context, label, duration: const Duration(seconds: 2));
-        context.pop();
+        setState(() {
+      _createdCount++;
+      _frontController.clear();
+      _backController.clear();
+      });
+      AppSnackBar.show(context, '$_createdCount card(s) created', duration: const Duration(seconds: 2));
       }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+  } finally {
+    if (mounted) setState(() => _saving = false);
   }
+
+}
 
   Future<void> _saveAndAddAnother() async {
     if (!_validateFields() || _saving) return;
@@ -150,27 +182,50 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     setState(() => _saving = true);
 
     try {
-      final card = Flashcard.newCard(
-        deckId: widget.deckId,
-        cardType: _cardType,
-        front: _frontController.text.trim(),
-        back: _backController.text.trim(),
-      );
+    if (widget.isEditing) {
+      final updated = switch (widget.card!) {
+        TwoSidedCard c => c.copyWith(
+            front: _frontController.text.trim(),
+            back: _backController.text.trim(),
+          ),
+        ReverseCard c => c.copyWith(
+            front: _frontController.text.trim(),
+            back: _backController.text.trim(),
+          ),
+        ClozeCard c => c.copyWith(
+            text: _frontController.text.trim(),
+          ),
+      };
+      await _repo.update(updated);
+    } else {
+      final card = switch (_cardType) {
+        CardType.twoSided => TwoSidedCard.newCard(
+            deckId: widget.deckId,
+            front: _frontController.text.trim(),
+            back: _backController.text.trim(),
+          ),
+        CardType.reverse => ReverseCard.newCard(
+            deckId: widget.deckId,
+            front: _frontController.text.trim(),
+            back: _backController.text.trim(),
+          ),
+        CardType.cloze => ClozeCard.newCard(
+            deckId: widget.deckId,
+            text: _frontController.text.trim(),
+          ),
+      };
       await _repo.create(card);
+    }
       ref.invalidate(deckDetailProvider(widget.deckId));
       ref.invalidate(deckListProvider);
       ref.read(syncServiceProvider.notifier).schedulePush();
-
       if (mounted) {
         setState(() {
-          _createdCount++;
-          _showPreview = false;
-          _frontController.clear();
-          _backController.clear();
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _frontFocus.requestFocus();
-        });
+      _createdCount++;
+      _frontController.clear();
+      _backController.clear();
+      });
+      AppSnackBar.show(context, '$_createdCount card(s) created', duration: const Duration(seconds: 2));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -373,10 +428,9 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
   Widget _buildPreviewContent() {
     // Create a temporary card for preview
     final now = DateTime.now();
-    final previewCard = Flashcard(
+    final previewCard = TwoSidedCard(
       cardId: 'preview',
       deckId: 'preview',
-      cardType: _cardType,
       front: _frontController.text.trim(),
       back: _backController.text.trim(),
       createdAt: now,
@@ -389,6 +443,9 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       reps: 0,
       lapses: 0,
       cardState: CardState.newCard,
+      isDeleted: false,
+      syncStatus: SyncStatus.synced,
+      userId: userId, // not sure why it needs this when the old version didnt
     );
 
     return ListView(
@@ -467,46 +524,34 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
 
   String _getCardTypeDisplayName(CardType type) {
     switch (type) {
-      case CardType.basic:
-        return 'Basic';
+      case CardType.twoSided:
+        return 'Standard front and back card';
       case CardType.cloze:
         return 'Cloze Deletion';
-      case CardType.image:
-        return 'Image';
-      case CardType.audio:
-        return 'Audio';
-      case CardType.imageOcclusion:
-        return 'Image Occlusion';
+      case CardType.reverse:
+        return 'Reverse (both sides can be front or back)';
     }
   }
 
   String _getFrontHintText(CardType type) {
     switch (type) {
-      case CardType.basic:
+      case CardType.twoSided:
         return 'Question or prompt (Markdown supported)';
+      case CardType.reverse:
+        return 'Both sides can appear as front or back.';
       case CardType.cloze:
         return 'Text with {{c1::answer}} for cloze deletions';
-      case CardType.image:
-        return 'Image URL or path (optional caption after | )';
-      case CardType.audio:
-        return 'Audio URL or path (optional transcript after | )';
-      case CardType.imageOcclusion:
-        return 'Image URL with occlusion data after |';
     }
   }
 
   String _getBackHintText(CardType type) {
     switch (type) {
-      case CardType.basic:
+      case CardType.twoSided:
         return 'Answer (Markdown supported)';
+      case CardType.reverse:
+        return 'Both sides can appear as front or back.';
       case CardType.cloze:
-        return 'Full text with answers revealed';
-      case CardType.image:
-        return 'Answer or explanation';
-      case CardType.audio:
-        return 'Answer or explanation';
-      case CardType.imageOcclusion:
-        return 'Answer or explanation';
+        throw StateError('$type cards do not have a back field');
     }
   }
 }

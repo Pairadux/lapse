@@ -14,7 +14,7 @@ class DeckExportService {
   // Deck is the root
   // allDecks is the full list of decks to build the path map for labeling
   String exportDeck(Deck deck, List<Flashcard> cards, List<Deck> allDecks) {
-   final pathMap = buildPathMap(allDecks);
+    final pathMap = buildPathMap(allDecks);
     final rootPath = pathMap[deck.deckId] ?? '';
     final prefix = rootPath.contains('::') ? rootPath.substring(0, rootPath.lastIndexOf('::') + 2) : '';
     final deckIds = _collectDeckAndDescendants(deck.deckId, allDecks);
@@ -24,13 +24,20 @@ class DeckExportService {
       .toList()
       ..sort((a, b) => (pathMap[a.deckId] ?? '').compareTo(pathMap[b.deckId] ?? ''));
 
-    final cardRows = deckCards.map((card) => {
-      'deck_id': card.deckId,
-      'deck_path': (pathMap[card.deckId] ?? '').replaceFirst(prefix, ''),
-      'front': card.front,
-      'back': card.back,
+    final cardRows = deckCards.map((card) {
+      final (String front, String? back) = switch (card) {
+        TwoSidedCard c => (c.front, c.back),
+        ReverseCard c => (c.front, c.back),
+        ClozeCard c => (c.text, null),
+      };
+      return {
+        'cardType': card.cardType,
+        'deck_id': card.deckId,
+        'deck_path': (pathMap[card.deckId] ?? '').replaceFirst(prefix, ''),
+        'front': front,
+        'back': back ?? '',
+      };
     }).toList();
-
     return writeCsv(cardRows, pathMap);
   }
 

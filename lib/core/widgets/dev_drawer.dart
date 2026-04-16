@@ -112,7 +112,7 @@ class DevDrawer extends StatelessWidget {
 
     final seedFlashcards = [
       for (final (deckId, front, back) in mockCards)
-        Flashcard.newCard(deckId: deckId, front: front, back: back),
+        TwoSidedCard.newCard(deckId: deckId, front: front, back: back),
     ];
 
     await db.transaction((txn) async {
@@ -149,7 +149,7 @@ class DevDrawer extends StatelessWidget {
     }
     // Add a card in the deepest deck so it's studyable
     await cardRepo.create(
-      Flashcard.newCard(
+      TwoSidedCard.newCard(
         deckId: deepLeafDeckId,
         front: 'Deep card front',
         back: 'Deep card back',
@@ -166,7 +166,7 @@ class DevDrawer extends StatelessWidget {
     await deckRepo.create(maxNameDeck);
 
     await cardRepo.create(
-      Flashcard.newCard(
+      TwoSidedCard.newCard(
         deckId: maxNameDeck.deckId,
         front: 'F' * maxCardTextLength,
         back: 'B' * maxCardTextLength,
@@ -180,7 +180,7 @@ class DevDrawer extends StatelessWidget {
 
     for (var i = 1; i <= bulkCardCount; i++) {
       await cardRepo.create(
-        Flashcard.newCard(
+        TwoSidedCard.newCard(
           deckId: bulkDeck.deckId,
           front: 'Card $i front',
           back: 'Card $i back',
@@ -193,7 +193,7 @@ class DevDrawer extends StatelessWidget {
     await deckRepo.create(minimalDeck);
 
     await cardRepo.create(
-      Flashcard.newCard(deckId: minimalDeck.deckId, front: 'A', back: 'B'),
+      TwoSidedCard.newCard(deckId: minimalDeck.deckId, front: 'A', back: 'B'),
     );
   }
 

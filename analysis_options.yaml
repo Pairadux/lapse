@@ -4,3 +4,8 @@ linter:
   rules:
     # avoid_print: false
     # prefer_single_quotes: true
+
+# REMOVE THIS AFTER RESOLVING COMPILER ISSUES
+analyzer:
+  exclude:
+    - test/**

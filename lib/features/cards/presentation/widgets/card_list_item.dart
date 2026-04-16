@@ -19,6 +19,12 @@ class CardListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDue = card.dueDate.isBefore(DateTime.now());
 
+    final (String title, String? subtitle) = switch (card) {
+      TwoSidedCard c => (c.front, c.back),
+      ReverseCard c => (c.front, c.back),
+      ClozeCard c => (c.text, null),
+    };
+
     return ListTile(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -27,18 +33,18 @@ class CardListItem extends StatelessWidget {
         vertical: Spacing.sm,
       ),
       title: Text(
-        card.front,
+        title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodyMedium,
       ),
-      subtitle: Text(
-        card.back,
+      subtitle: subtitle != null ? Text(
+        subtitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall,
-      ),
-      trailing: Row(
+      ) : null,
+        trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isDue)

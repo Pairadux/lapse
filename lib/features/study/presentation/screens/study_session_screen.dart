@@ -292,9 +292,18 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> with Si
         if (graduated) {
           _graduatedCardIds.add(result.updatedCard.cardId);
         }
-        _reviewLog.add(_ReviewLogEntry(cardFront: _currentCard.front, rating: rating, before: before, after: after));
-        _currentIndex++;
-        _showingAnswer = false;
+        _reviewLog.add(_ReviewLogEntry(
+        cardFront: switch (_currentCard) {
+            TwoSidedCard c => c.front,
+            ReverseCard c => c.front,
+            ClozeCard c => c.text,
+          },
+          rating: rating,
+          before: before,
+          after: after,
+        ));
+          _currentIndex++;
+          _showingAnswer = false;
       });
     } catch (e) {
       if (mounted) {
@@ -361,8 +370,13 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> with Si
     Widget? currentCardInfo;
     if (!_isSessionComplete) {
       final c = _currentCard;
+      final front = switch (c) {
+        TwoSidedCard c => c.front,
+        ReverseCard c => c.front,
+        ClozeCard c => c.text,
+      };
       currentCardInfo = _buildDebugSection('Next Card', AppColors.primary, {
-        'front': c.front.length > 40 ? '${c.front.substring(0, 40)}...' : c.front,
+        'front': front.length > 40 ? '${front.substring(0, 40)}...' : front,
         'state': c.cardState.name,
         'step': '${c.step ?? '-'}',
         'stability': c.stability.toStringAsFixed(4),

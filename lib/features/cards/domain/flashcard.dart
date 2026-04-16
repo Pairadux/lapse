@@ -1,5 +1,6 @@
 import 'package:lapse/core/domain/sync_status.dart';
 import 'package:lapse/core/database/database_constants.dart';
+import 'package:uuid/uuid.dart';
 
 enum CardState { newCard, learning, review, relearning }
 
@@ -207,6 +208,32 @@ class TwoSidedCard extends Flashcard {
       back: map[DatabaseConstants.colBack] as String,
     );
   }
+
+   static TwoSidedCard newCard({
+    required String deckId,
+    required String front,
+    required String back,
+  }) {
+    return TwoSidedCard(
+      cardId: const Uuid().v4(),
+      deckId: deckId,
+      createdAt: DateTime.now().toUtc(),
+      updatedAt: DateTime.now().toUtc(),
+      isDeleted: false,
+      dueDate: DateTime.now().toUtc(),
+      stability: 0,
+      difficulty: 5,
+      elapsedDays: 0,
+      scheduledDays: 0,
+      reps: 0,
+      lapses: 0,
+      cardState: CardState.newCard,
+      syncStatus: SyncStatus.pending,
+      userId: userId,
+      front: front,
+      back: back,
+    );
+  }
 }
 
 class ReverseCard extends Flashcard {
@@ -313,6 +340,32 @@ class ReverseCard extends Flashcard {
       back: map[DatabaseConstants.colBack] as String,
     );
   }
+
+   static ReverseCard newCard({
+    required String deckId,
+    required String front,
+    required String back,
+  }) {
+    return ReverseCard(
+      cardId: const Uuid().v4(),
+      deckId: deckId,
+      createdAt: DateTime.now().toUtc(),
+      updatedAt: DateTime.now().toUtc(),
+      isDeleted: false,
+      dueDate: DateTime.now().toUtc(),
+      stability: 0,
+      difficulty: 5,
+      elapsedDays: 0,
+      scheduledDays: 0,
+      reps: 0,
+      lapses: 0,
+      cardState: CardState.newCard,
+      syncStatus: SyncStatus.pending,
+      userId: userId,
+      front: front,
+      back: back,
+    );
+  }
 }
 
 class ClozeCard extends Flashcard {
@@ -393,6 +446,30 @@ class ClozeCard extends Flashcard {
       userId: map[DatabaseConstants.colUserId] as String,
       syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
       text: map[DatabaseConstants.colFront] as String, // Cloze text stored in 'front' column
+    );
+  }
+
+   static ClozeCard newCard({
+    required String deckId,
+    required String text,
+  }) {
+    return ClozeCard(
+      cardId: const Uuid().v4(),
+      deckId: deckId,
+      createdAt: DateTime.now().toUtc(),
+      updatedAt: DateTime.now().toUtc(),
+      isDeleted: false,
+      dueDate: DateTime.now().toUtc(),
+      stability: 0,
+      difficulty: 5,
+      elapsedDays: 0,
+      scheduledDays: 0,
+      reps: 0,
+      lapses: 0,
+      cardState: CardState.newCard,
+      syncStatus: SyncStatus.pending,
+      userId: userId,
+      text: text,
     );
   }
 }
