@@ -107,6 +107,36 @@ void main() {
     expect(fetched, isNull);
   });
 
+  test('moveDecks moves multiple decks to new parent', () async {
+    await repo.create(makeDeck(id: 'root-a', name: 'Root A'));
+    await repo.create(makeDeck(id: 'root-b', name: 'Root B'));
+    await repo.create(makeDeck(id: 'd1', parentId: 'root-a', name: 'Deck 1'));
+    await repo.create(makeDeck(id: 'd2', parentId: 'root-a', name: 'Deck 2'));
+
+    await repo.moveDecks(['d1', 'd2'], 'root-b');
+
+    final d1 = await repo.getById('d1');
+    final d2 = await repo.getById('d2');
+    expect(d1, isNotNull);
+    expect(d2, isNotNull);
+    expect(d1!.parentId, 'root-b');
+    expect(d2!.parentId, 'root-b');
+    expect(d1.syncStatus, SyncStatus.pending);
+    expect(d2.syncStatus, SyncStatus.pending);
+  });
+
+  test('moveDecks supports moving decks to root level', () async {
+    await repo.create(makeDeck(id: 'parent', name: 'Parent'));
+    await repo.create(makeDeck(id: 'child', parentId: 'parent', name: 'Child'));
+
+    await repo.moveDecks(['child'], null);
+
+    final moved = await repo.getById('child');
+    expect(moved, isNotNull);
+    expect(moved!.parentId, isNull);
+    expect(moved.syncStatus, SyncStatus.pending);
+  });
+
   group('sync status', () {
     test('create sets syncStatus to pending', () async {
       final deck = makeDeck();

@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
-import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_detail_state.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 
@@ -97,14 +96,28 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
     ref.invalidate(deckListProvider);
   }
 
-  Future<void> moveChildDeck(String childDeckId, String? newParentId) async {
+  Future<void> deleteChildDecks(List<String> childDeckIds) async {
+    if (childDeckIds.isEmpty) return;
     final deckRepo = ref.read(deckRepositoryProvider);
-    final deck = await deckRepo.getById(childDeckId);
-    if (deck == null) return;
+    for (final deckId in childDeckIds) {
+      await deckRepo.delete(deckId);
+    }
+    ref.invalidateSelf();
+    ref.invalidate(deckListProvider);
+    ref.read(syncServiceProvider.notifier).schedulePush();
+  }
 
-    await deckRepo.update(
-      deck.copyWith(parentId: Optional.value(newParentId)),
-    );
+  Future<void> moveChildDeck(String childDeckId, String? newParentId) async {
+    await moveChildDecks([childDeckId], newParentId);
+  }
+
+  Future<void> moveChildDecks(
+    List<String> childDeckIds,
+    String? newParentId,
+  ) async {
+    if (childDeckIds.isEmpty) return;
+    final deckRepo = ref.read(deckRepositoryProvider);
+    await deckRepo.moveDecks(childDeckIds, newParentId);
     ref.invalidateSelf();
     if (newParentId != null) {
       ref.invalidate(deckDetailProvider(newParentId));
@@ -114,11 +127,21 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
   }
 
   Future<void> moveCard(String cardId, String newDeckId) async {
-    final cardRepo = ref.read(cardRepositoryProvider);
-    final card = await cardRepo.getById(cardId);
-    if (card == null) return;
+    await moveCards([cardId], newDeckId);
+  }
 
-    await cardRepo.update(card.copyWith(deckId: newDeckId));
+  Future<void> moveCards(List<String> cardIds, String newDeckId) async {
+    if (cardIds.isEmpty) return;
+    final cardRepo = ref.read(cardRepositoryProvider);
+    await cardRepo.moveCards(cardIds, newDeckId);
+    ref.invalidateSelf();
+    ref.invalidate(deckListProvider);
+    ref.read(syncServiceProvider.notifier).schedulePush();
+  }
+
+  Future<void> deleteCards(List<String> cardIds) async {
+    if (cardIds.isEmpty) return;
+    await ref.read(cardRepositoryProvider).bulkDelete(cardIds);
     ref.invalidateSelf();
     ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();

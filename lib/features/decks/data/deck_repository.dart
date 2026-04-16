@@ -318,6 +318,30 @@ class DeckRepository {
     });
   }
 
+  /// Bulk-moves non-deleted decks to [newParentId] in a single transaction.
+  Future<void> moveDecks(List<String> deckIds, String? newParentId) async {
+    if (deckIds.isEmpty) return;
+
+    final db = await _dbHelper.database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final placeholders = List.filled(deckIds.length, '?').join(', ');
+
+    await db.transaction((txn) async {
+      await txn.update(
+        DatabaseConstants.tableDecks,
+        {
+          DatabaseConstants.colParentId: newParentId,
+          DatabaseConstants.colUpdatedAt: now,
+          DatabaseConstants.colSyncStatus: SyncStatus.pending.name,
+        },
+        where:
+            '${DatabaseConstants.colDeckId} IN ($placeholders) '
+            'AND ${DatabaseConstants.colIsDeleted} = 0',
+        whereArgs: deckIds,
+      );
+    });
+  }
+
   /// Finds a deck by its full path (e.g., "Parent::Child::Grandchild").
   /// Creates the deck hierarchy if it doesn't exist.
   ///
