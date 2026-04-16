@@ -5,7 +5,6 @@ enum CardState { newCard, learning, review, relearning }
 
 enum CardType {
   twoSided, // Simple front/back text
-  oneSided, // One sided card
   reverse, // two sided card that can be reviewed in either direction (front/back or back/front)
   cloze, // Cloze deletion with {{c1::answer}} syntax, one sided
 }
@@ -210,88 +209,6 @@ class TwoSidedCard extends Flashcard {
   }
 }
 
-class OneSidedCard extends Flashcard {
-  final String front;
-
-  const OneSidedCard({
-    required super.cardId,
-    required super.deckId,
-    required super.createdAt,
-    required super.updatedAt,
-    required super.isDeleted,
-    required super.dueDate,
-    required super.stability,
-    required super.difficulty,
-    required super.elapsedDays,
-    required super.scheduledDays,
-    required super.reps,
-    required super.lapses,
-    super.lastReview,
-    required super.cardState,
-    super.step,
-    required super.syncStatus,
-    required super.userId,
-    required this.front,
-  }) : super(cardType: CardType.oneSided);
-
-  @override
-  Flashcard copyWith({String? deckId, CardType? cardType, DateTime? updatedAt, bool? isDeleted, DateTime? dueDate, double? stability, double? difficulty, int? elapsedDays, int? scheduledDays, int? reps, int? lapses, DateTime? lastReview, CardState? cardState, int? step, String? userId, SyncStatus? syncStatus, String? front}) {
-    return OneSidedCard(
-      cardId: cardId,
-      deckId: deckId ?? this.deckId,
-      createdAt: createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      isDeleted: isDeleted ?? this.isDeleted,
-      dueDate: dueDate ?? this.dueDate,
-      stability: stability ?? this.stability,
-      difficulty: difficulty ?? this.difficulty,
-      elapsedDays: elapsedDays ?? this.elapsedDays,
-      scheduledDays: scheduledDays ?? this.scheduledDays,
-      reps: reps ?? this.reps,
-      lapses: lapses ?? this.lapses,
-      lastReview: lastReview ?? this.lastReview,
-      cardState: cardState ?? this.cardState,
-      step: step ?? this.step,
-      userId: userId ?? this.userId,
-      syncStatus: syncStatus ?? this.syncStatus,
-      // field specific
-      front: front ?? this.front,
-    );
-  }
-
-  @override
-  Map<String, dynamic> toMap() {
-    return {
-      ...baseMap(),
-      DatabaseConstants.colFront: front,
-    };
-  }
-
-  static OneSidedCard fromMap(Map<String, dynamic> map) {
-    final lastReviewStr = map[DatabaseConstants.colLastReview] as String?;
-    return OneSidedCard(
-      cardId: map[DatabaseConstants.colCardId] as String,
-      deckId: map[DatabaseConstants.colDeckId] as String,
-      createdAt: DateTime.parse(map[DatabaseConstants.colCreatedAt] as String),
-      updatedAt: DateTime.parse(map[DatabaseConstants.colUpdatedAt] as String),
-      isDeleted: map[DatabaseConstants.colIsDeleted] == 1,
-      dueDate: DateTime.parse(map[DatabaseConstants.colDueDate] as String),
-      stability: (map[DatabaseConstants.colStability] as num).toDouble(),
-      difficulty: (map[DatabaseConstants.colDifficulty] as num).toDouble(),
-      elapsedDays: map[DatabaseConstants.colElapsedDays] as int,
-      scheduledDays: map[DatabaseConstants.colScheduledDays] as int,
-      reps: map[DatabaseConstants.colReps] as int,
-      lapses: map[DatabaseConstants.colLapses] as int,
-      lastReview: lastReviewStr != null ? DateTime.parse(lastReviewStr) : null,
-      cardState: CardState.values[map[DatabaseConstants.colCardState] as int],
-      step: map[DatabaseConstants.colStep] as int?,
-      userId: map[DatabaseConstants.colUserId] as String,
-      syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
-      front: map[DatabaseConstants.colFront] as String,
-    );
-  }
-}
-
 class ReverseCard extends Flashcard {
   final String front;
   final String back;
@@ -486,8 +403,6 @@ class FlashcardMapper { // Factories cannot exist inside sealed classes so we us
     switch (cardType) {
       case CardType.twoSided:
         return TwoSidedCard.fromMap(map);
-      case CardType.oneSided:
-        return OneSidedCard.fromMap(map);
       case CardType.reverse:
         return ReverseCard.fromMap(map);
       case CardType.cloze:
