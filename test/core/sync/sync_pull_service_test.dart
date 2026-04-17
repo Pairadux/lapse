@@ -526,7 +526,7 @@ void main() {
       ]);
 
       final service = buildService();
-      final result = await service.pull();
+      await service.pull();
 
       final card = await cardRepo.getById('card-1');
       expect(card, isNotNull);
