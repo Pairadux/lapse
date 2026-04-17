@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/database/database_helper.dart';
 import '../../../../core/routing/routes.dart';
+import '../../../../core/supabase/supabase_config.dart';
 import '../../../../core/sync/sync_pull_service.dart';
 import '../../../../core/sync/sync_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -849,12 +850,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader('Account', _sections[0].key),
-        switch (_authDisplayState) {
-          _AuthDisplayState.signInForm => _buildSignInForm(),
-          _AuthDisplayState.confirmingEmail => _buildConfirmingEmail(),
-          _AuthDisplayState.accountInfo => _buildAccountInfo(),
-        },
+        if (!SupabaseConfig.isConfigured)
+          _buildAuthUnavailableNotice()
+        else
+          switch (_authDisplayState) {
+            _AuthDisplayState.signInForm => _buildSignInForm(),
+            _AuthDisplayState.confirmingEmail => _buildConfirmingEmail(),
+            _AuthDisplayState.accountInfo => _buildAccountInfo(),
+          },
       ],
+    );
+  }
+
+  Widget _buildAuthUnavailableNotice() {
+    return Container(
+      padding: const EdgeInsets.all(Spacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(Spacing.radiusMd),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.cloud_off_outlined,
+            color: AppColors.textTertiary,
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sign-in unavailable in this build',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: Spacing.xs),
+                Text(
+                  'This build was packaged without cloud credentials, so '
+                  'accounts and cross-device sync are disabled. Your data '
+                  'remains fully available on this device.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1087,11 +1132,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // ─── Sync section ─────────────────────────────────────────────────────
 
   Widget _buildSyncSection() {
-    final isSignedIn = _authService.currentSession != null;
+    final isConfigured = SupabaseConfig.isConfigured;
+    final isSignedIn = isConfigured && _authService.currentSession != null;
     final syncState = ref.watch(syncServiceProvider);
     final isSyncing = syncState.isSyncing;
 
-    final statusSubtitle = !isSignedIn
+    final statusSubtitle = !isConfigured
+        ? 'Unavailable in this build'
+        : !isSignedIn
         ? 'Not signed in'
         : syncState.lastError != null
         ? 'Error: ${syncState.lastError}'

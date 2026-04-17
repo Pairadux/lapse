@@ -6,13 +6,33 @@ releases:
         package:
           platform: linux
           target: appimage
+          build_args:
+            dart-define-from-file: env.json
+
+      - name: linux-deb
+        package:
+          platform: linux
+          target: deb
+          build_args:
+            dart-define-from-file: env.json
+
+      - name: linux-rpm
+        package:
+          platform: linux
+          target: rpm
+          build_args:
+            dart-define-from-file: env.json
 
       - name: macos-dmg
         package:
           platform: macos
           target: dmg
+          build_args:
+            dart-define-from-file: env.json
 
       - name: windows-zip
         package:
           platform: windows
           target: zip
+          build_args:
+            dart-define-from-file: env.json
