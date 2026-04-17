@@ -103,14 +103,16 @@ void main() {
   Future<void> insertCard({
     String id = 'card-1',
     String deckId = 'deck-1',
+    String front = 'Q',
+    String back = 'A',
   }) async {
     final now = DateTime.now();
     await cardRepo.create(
       Flashcard(
         cardId: id,
         deckId: deckId,
-        front: 'Q',
-        back: 'A',
+        front: front,
+        back: back,
         createdAt: now,
         updatedAt: now,
         dueDate: now,
@@ -125,43 +127,19 @@ void main() {
     );
   }
 
-
-
   Future<void> insertManyDecks(int count) async {
-    for (int i = 0; i < count; i++) {
-      final now = DateTime.now();
-      await deckRepo.create(
-        Deck(
-          deckId: 'deck-$i',
-          deckName: 'Deck $i',
-          createdAt: now,
-          updatedAt:now,
-        ),
-      );
+    for (var i = 0; i < count; i++) {
+      await insertDeck(id: 'deck-$i', name: 'Deck $i');
     }
   }
 
-  Future<void> insertManyCards(int count, {String deckId = 'deck-1'})
-  async {
-    for (int i = 0; i < count; i++) {
-      final now = DateTime.now();
-      await cardRepo.create(
-        Flashcard(
-          cardId: 'card-$i',
-          deckId: deckId,
-          front: 'Q $i',
-          back: 'A $i',
-          createdAt: now,
-          updatedAt: now,
-          dueDate: now,
-          stability: 0,
-          difficulty: 0,
-          elapsedDays: 0,
-          scheduledDays: 0,
-          reps: 0,
-          lapses: 0,
-          cardState: CardState.newCard,
-        ),
+  Future<void> insertManyCards(int count, {String deckId = 'deck-1'}) async {
+    for (var i = 0; i < count; i++) {
+      await insertCard(
+        id: 'card-$i',
+        deckId: deckId,
+        front: 'Q $i',
+        back: 'A $i',
       );
     }
   }
@@ -313,92 +291,99 @@ void main() {
   group('paginated push', () {
     test(
       'pushes exactly 1000 rows as single page',
-    () async {
-    await insertManyDecks(1000);
-    final service = buildService();
+      () async {
+        await insertManyDecks(1000);
+        final service = buildService();
 
-    final result = await service.push();
+        final result = await service.push();
 
-    expect(result, isTrue);
-    expect(fakeQueryBuilder.upsertCalls, hasLength(1)); // One page
-    expect(fakeQueryBuilder.upsertCalls.first, hasLength(1000));
+        expect(result, isTrue);
+        expect(fakeQueryBuilder.upsertCalls, hasLength(1)); // One page
+        expect(fakeQueryBuilder.upsertCalls.first, hasLength(1000));
 
-    final unsynced = await deckRepo.getUnsynced();
-    expect(unsynced, isEmpty);
-  });
+        final unsynced = await deckRepo.getUnsynced();
+        expect(unsynced, isEmpty);
+      },
+    );
 
-  test(
-    'splits 2500 rows into 3 pages (1000, 1000, 500)',
-    () async {
-    await insertManyDecks(2500);
-    final service = buildService();
+    test(
+      'splits 2500 rows into 3 pages (1000, 1000, 500)',
+      () async {
+        await insertManyDecks(2500);
+        final service = buildService();
 
-    await service.push();
+        await service.push();
 
-    expect(fakeQueryBuilder.upsertCalls, hasLength(3));
-    expect(fakeQueryBuilder.upsertCalls[0], hasLength(1000));
-    expect(fakeQueryBuilder.upsertCalls[1], hasLength(1000));
-    expect(fakeQueryBuilder.upsertCalls[2], hasLength(500));
-  });
+        expect(fakeQueryBuilder.upsertCalls, hasLength(3));
+        expect(fakeQueryBuilder.upsertCalls[0], hasLength(1000));
+        expect(fakeQueryBuilder.upsertCalls[1], hasLength(1000));
+        expect(fakeQueryBuilder.upsertCalls[2], hasLength(500));
+      },
+    );
 
-  test(
-    'marks all pages synced even if final page is small',
-    () async {
-    await insertManyDecks(1001); // Just over 1 page size
-    final service = buildService();
+    test(
+      'marks all pages synced even if final page is small',
+      () async {
+        await insertManyDecks(1001); // Just over 1 page size
+        final service = buildService();
 
-    await service.push();
+        await service.push();
 
-    final unsynced = await deckRepo.getUnsynced();
-    expect(unsynced, isEmpty);
-  });
+        final unsynced = await deckRepo.getUnsynced();
+        expect(unsynced, isEmpty);
+      },
+    );
 
-  test(
-    'stops pushing subsequent pages if first page fails',
-    () async {
-    await insertDeck(id: 'deck-1');
-    await insertManyCards(2500, deckId: 'deck-1');
+    test(
+      'stops pushing subsequent pages if first page fails',
+      () async {
+        await insertDeck(id: 'deck-1');
+        await insertManyCards(2500, deckId: 'deck-1');
 
-    var callCount = 0;
-    final recorder = FakeQueryBuilder();
-    when(() => mockClient.from(DatabaseConstants.tableCards))
-      .thenAnswer((_) {
-        callCount++;
-        if (callCount == 1) return ThrowingQueryBuilder(); // First page fails
-        return recorder;
-      });
+        var callCount = 0;
+        final recorder = FakeQueryBuilder();
+        when(() => mockClient.from(DatabaseConstants.tableCards))
+          .thenAnswer((_) {
+            callCount++;
+            if (callCount == 1) return ThrowingQueryBuilder(); // First page fails
+            return recorder;
+          });
 
-    final service = buildService();
+        final service = buildService();
 
-    final result = await service.push();
+        final result = await service.push();
 
-    expect(result, isFalse); // Push failed
-    expect(recorder.upsertCalls, isEmpty); // Second page never attempted
-    expect(await cardRepo.getUnsynced(), hasLength(2500)); // All still pending
-  });
+        expect(result, isFalse); // Push failed
+        expect(recorder.upsertCalls, isEmpty); // Second page never attempted
+        expect(await cardRepo.getUnsynced(), hasLength(2500)); // All still pending
+      },
+    );
 
-  test('marks first page synced if second page fails', () async {
-    // Arrange: 2000 cards split into 2 pages
-    await insertDeck(id: 'deck-1');
-    await insertManyCards(2000, deckId: 'deck-1');
+    test(
+      'marks first page synced if second page fails',
+      () async {
+        // Arrange: 2000 cards split into 2 pages
+        await insertDeck(id: 'deck-1');
+        await insertManyCards(2000, deckId: 'deck-1');
 
-    var callCount = 0;
-    when(() => mockClient.from(DatabaseConstants.tableCards))
-      .thenAnswer((_) {
-        callCount++;
-        if (callCount == 2) return ThrowingQueryBuilder(); // Second page fails
-        return fakeQueryBuilder;
-      });
+        var callCount = 0;
+        when(() => mockClient.from(DatabaseConstants.tableCards))
+          .thenAnswer((_) {
+            callCount++;
+            if (callCount == 2) return ThrowingQueryBuilder(); // Second page fails
+            return fakeQueryBuilder;
+          });
 
-    final service = buildService();
+        final service = buildService();
 
-    // Act
-    final result = await service.push();
+        // Act
+        final result = await service.push();
 
-    // Assert
-    expect(result, isFalse);
-    expect(await cardRepo.getUnsynced(), hasLength(1000)); // Only 2nd page pending
-    });
+        // Assert
+        expect(result, isFalse);
+        expect(await cardRepo.getUnsynced(), hasLength(1000)); // Only 2nd page pending
+      },
+    );
   });
 }
 

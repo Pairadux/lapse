@@ -89,61 +89,7 @@ class FakeTransformBuilder extends Fake
   }) => Future.value(PostgrestList.from(_data)).then(onValue, onError: onError);
 }
 
-class FakePaginatedQueryBuilder extends Fake implements SupabaseQueryBuilder {
-  final List<Map<String, dynamic>> allRows;
-  final int pageIndex;
 
-  FakePaginatedQueryBuilder(this.allRows, this.pageIndex);
-
-  @override
-  PostgrestFilterBuilder<PostgrestList> select([String columns = '*']) {
-    return FakePaginatedFilterBuilder(allRows, pageIndex);
-  }
-}
-
-class FakePaginatedFilterBuilder extends Fake implements PostgrestFilterBuilder<PostgrestList> {
-  final List<Map<String, dynamic>> allRows;
-  final int pageIndex;
-  final int offset = 0;
-
-  FakePaginatedFilterBuilder(this.allRows, this.pageIndex);
-
-  @override
-  PostgrestFilterBuilder<PostgrestList> gt(String column, Object value) {
-    return this; // Ignore gt for paginated test
-  }
-
-  @override
-  PostgrestTransformBuilder<PostgrestList> order(String column,
-      {bool ascending = false,
-      bool nullsFirst = false,
-      String? referencedTable}) {
-    return FakePaginatedTransformBuilder(allRows, offset);
-  }
-}
-
-class FakePaginatedTransformBuilder extends Fake implements PostgrestTransformBuilder<PostgrestList> {
-  final List<Map<String, dynamic>> allRows;
-  final int offset;
-
-  FakePaginatedTransformBuilder(this.allRows, this.offset);
-
-  @override
-  PostgrestTransformBuilder<PostgrestList> range(int from, int to,
-      {String? referencedTable}) {
-    final start = from;
-    final end = (to + 1).clamp(0, allRows.length);
-    final page = allRows.sublist(start, end);
-    return FakePaginatedTransformBuilder(page, offset);
-  }
-
-  @override
-  Future<U> then<U>(FutureOr<U> Function(PostgrestList) onValue,
-      {Function? onError}) {
-    return Future.value(PostgrestList.from(allRows))
-        .then(onValue, onError: onError);
-  }
-}
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -201,12 +147,11 @@ Map<String, dynamic> remoteCardRow({
 Map<String, dynamic> remoteReviewRow({
   required String id,
   String cardId = 'card-1',
-  String rating = 'good',  // Supabase returns enum as string
+  String rating = 'good',
   String userId = 'user-1',
   DateTime? reviewedAt,
 }) {
   final ts = (reviewedAt ?? DateTime.now()).toUtc().toIso8601String();
-  // Convert string enums to integers (what the database expects)
   final ratingIndex = Rating.values.firstWhere((r) => r.name == rating).index;
   final stateIndex = CardState.learning.index;  // Default to learning
 
@@ -966,23 +911,12 @@ void main() {
     });
 
     test('paginates 2500 deck rows across 3 pages', () async {
-      // This test verifies the pagination logic in _fetchPage / _pullTable.
-      // Since our fake doesn't implement real pagination, we simulate it:
-      // - First call returns 1000 rows
-      // - Second call returns 1000 rows
-      // - Third call returns 500 rows
-      // - Fourth call returns 0 rows (stop)
-
       final allRows = List.generate(2500, (i) {
         final ts = DateTime.now().add(Duration(seconds: i)).toUtc().toIso8601String();
         return remoteDecRow(id: 'deck-$i', name: 'Deck $i', updatedAt: DateTime.parse(ts));
       });
 
-      var pageIndex = 0;
-      when(() => mockClient.from(DatabaseConstants.tableDecks))
-        .thenAnswer((_) {
-          return FakePaginatedQueryBuilder(allRows, pageIndex++);
-        });
+      tableBuilders[DatabaseConstants.tableDecks]!.setResult(allRows);
 
       final service = buildService();
       final result = await service.pull();
