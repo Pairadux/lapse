@@ -16,8 +16,11 @@ import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/data/review_repository_provider.dart';
+import 'package:lapse/features/study/data/review_session_summary_repository.dart';
 import 'package:lapse/features/study/application/study_session_service.dart';
+import 'package:lapse/features/study/domain/review_session_summary.dart';
 import 'package:lapse/core/sync/sync_service.dart';
+import 'package:lapse/features/auth/application/auth_service.dart';
 import 'package:lapse/features/notifications/presentation/providers/notification_providers.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
 import 'package:lapse/features/study/presentation/widgets/card_stack.dart';
@@ -139,6 +142,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     Rating.easy: 0,
   };
   final Set<String> _graduatedCardIds = {};
+
+  // Card state counts for session summary
+  int _newCount = 0;
+  int _learningCount = 0;
+  int _reviewCount = 0;
 
   // Debug panel state
   bool _showDebugPanel = false;
@@ -302,6 +310,18 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       final graduated = result.updatedCard.cardState == CardState.review;
       final previousSession = _session;
 
+      // Track card states for session summary
+      switch (_currentCard.cardState) {
+        case CardState.newCard:
+          _newCount++;
+        case CardState.learning:
+          _learningCount++;
+        case CardState.review:
+          _reviewCount++;
+        case CardState.relearning:
+          _learningCount++;
+      }
+
       setState(() {
         // Buffer this rating — written to DB on the next rating or session end.
         _pendingRating = _PendingRating(
@@ -337,6 +357,42 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       }
     } finally {
       _isProcessing = false;
+    }
+  }
+
+  /// Finalizes the session: saves the session summary and prunes old reviews.
+  /// Called when the user finishes or exits the session.
+  Future<void> _finalizeSession() async {
+    try {
+      final authService = AuthService();
+      final userId = await authService.getCurrentUserId();
+
+      // Create and save session summary
+      final summary = ReviewSessionSummary.fromSession(
+        startedAt: _session.startedAt,
+        endedAt: DateTime.now(),
+        againCount: _ratingCounts[Rating.again]!,
+        hardCount: _ratingCounts[Rating.hard]!,
+        goodCount: _ratingCounts[Rating.good]!,
+        easyCount: _ratingCounts[Rating.easy]!,
+        newCount: _newCount,
+        learningCount: _learningCount,
+        reviewCount: _reviewCount,
+        userId: userId,
+      );
+
+      final summaryRepo = ReviewSessionSummaryRepository();
+      await summaryRepo.add(summary);
+
+      // Prune reviews exceeding 10K per user
+      final reviewRepo = ref.read(reviewRepositoryProvider);
+      await reviewRepo.pruneOldReviews(userId);
+
+      // Schedule push to sync the session summary
+      ref.read(syncServiceProvider.notifier).schedulePush();
+    } catch (e) {
+      debugPrint('[StudySession] Error finalizing session: $e');
+      // Non-fatal — don't block session exit
     }
   }
 
@@ -888,6 +944,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
             child: ElevatedButton(
               onPressed: () async {
                 await _flushPendingWrite();
+                await _finalizeSession();
                 _invalidateDeckProviders();
                 unawaited(ref.read(dueReminderSchedulerProvider).rescheduleAll());
                 if (mounted) context.pop();
@@ -950,6 +1007,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     );
     if (shouldExit == true && context.mounted) {
       await _flushPendingWrite();
+      await _finalizeSession();
       _invalidateDeckProviders();
       unawaited(ref.read(dueReminderSchedulerProvider).rescheduleAll());
       if (context.mounted) context.pop();
