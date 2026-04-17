@@ -62,4 +62,38 @@ class ReviewRepository {
       whereArgs: reviewIds,
     );
   }
+
+  /// Prunes reviews exceeding 10K per user, keeping only the most recent.
+  Future<int> pruneOldReviews(String userId) async {
+    const int maxReviews = 10000;
+    final db = await _dbHelper.database;
+
+    return await db.transaction<int>((txn) async {
+      // Count reviews for this user
+      final countResult = await txn.rawQuery(
+        'SELECT COUNT(*) as count FROM ${DatabaseConstants.tableReviews} '
+        'WHERE ${DatabaseConstants.colUserId} = ?',
+        [userId],
+      );
+      final count = (countResult.first['count'] as int?) ?? 0;
+
+      if (count <= maxReviews) {
+        return 0; // No pruning needed
+      }
+
+      // Delete oldest reviews beyond the 10K limit
+      final deleteCount = count - maxReviews;
+      return await txn.rawDelete(
+        '''DELETE FROM ${DatabaseConstants.tableReviews}
+           WHERE ${DatabaseConstants.colReviewId} IN (
+             SELECT ${DatabaseConstants.colReviewId}
+             FROM ${DatabaseConstants.tableReviews}
+             WHERE ${DatabaseConstants.colUserId} = ?
+             ORDER BY ${DatabaseConstants.colReviewedAt} ASC
+             LIMIT ?
+           )''',
+        [userId, deleteCount],
+      );
+    });
+  }
 }
