@@ -701,6 +701,9 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
                   deck: child.deck,
                   cardCount: child.cardCount,
                   dueCount: child.dueCount,
+                  showSelectionCheckbox: _isDeckSelection,
+                  selected: isSelected,
+                  showTrailingChevron: !_isDeckSelection,
                   onTap: () {
                     if (_isDeckSelection) {
                       _toggleDeckSelection(child.deck.deckId);
@@ -727,24 +730,6 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
                         }
                       : null,
                 );
-
-                if (_isDeckSelection) {
-                  deckTile = Stack(
-                    children: [
-                      deckTile,
-                      Positioned(
-                        right: Spacing.lg,
-                        top: Spacing.md,
-                        child: IgnorePointer(
-                          child: Checkbox(
-                            value: isSelected,
-                            onChanged: (_) {},
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }
 
                 if (_selectionMode) return deckTile;
 
@@ -1022,14 +1007,13 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: Spacing.sm),
-            Icon(
-              _isCardSelection ? Icons.check : Icons.chevron_right,
-              size: 20,
-              color: _isCardSelection && isSelected
-                  ? AppColors.primary
-                  : AppColors.textTertiary,
-            ),
+            if (!_isCardSelection) const SizedBox(width: Spacing.sm),
+            if (!_isCardSelection)
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.textTertiary,
+              ),
           ],
         ),
       ),

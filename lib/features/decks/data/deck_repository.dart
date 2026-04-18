@@ -292,8 +292,38 @@ class DeckRepository {
   /// Soft-deletes [deckId], all descendant decks, and all their cards
   /// in a single transaction.
   Future<void> delete(String deckId) async {
-    final allIds = await getDescendantIds(deckId);
+    await bulkDelete([deckId]);
+  }
+
+  /// Bulk soft-delete for decks and each selected deck's descendants.
+  Future<void> bulkDelete(List<String> deckIds) async {
+    if (deckIds.isEmpty) return;
+
     final db = await _dbHelper.database;
+    final seedPlaceholders = List.filled(deckIds.length, '?').join(', ');
+    final descendantRows = await db.rawQuery(
+      '''
+      WITH RECURSIVE descendants(${DatabaseConstants.colDeckId}) AS (
+        SELECT ${DatabaseConstants.colDeckId}
+        FROM ${DatabaseConstants.tableDecks}
+        WHERE ${DatabaseConstants.colDeckId} IN ($seedPlaceholders)
+          AND ${DatabaseConstants.colIsDeleted} = 0
+        UNION ALL
+        SELECT d.${DatabaseConstants.colDeckId}
+        FROM ${DatabaseConstants.tableDecks} d
+        INNER JOIN descendants dt
+          ON d.${DatabaseConstants.colParentId} = dt.${DatabaseConstants.colDeckId}
+        WHERE d.${DatabaseConstants.colIsDeleted} = 0
+      )
+      SELECT DISTINCT ${DatabaseConstants.colDeckId} FROM descendants
+      ''',
+      deckIds,
+    );
+    final allIds = descendantRows
+        .map((row) => row[DatabaseConstants.colDeckId] as String)
+        .toList(growable: false);
+    if (allIds.isEmpty) return;
+
     final now = DateTime.now().toUtc().toIso8601String();
     final deletedFields = {
       DatabaseConstants.colIsDeleted: 1,

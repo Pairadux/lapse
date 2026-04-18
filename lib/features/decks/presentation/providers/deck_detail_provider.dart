@@ -99,9 +99,7 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
   Future<void> deleteChildDecks(List<String> childDeckIds) async {
     if (childDeckIds.isEmpty) return;
     final deckRepo = ref.read(deckRepositoryProvider);
-    for (final deckId in childDeckIds) {
-      await deckRepo.delete(deckId);
-    }
+    await deckRepo.bulkDelete(childDeckIds);
     ref.invalidateSelf();
     ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();

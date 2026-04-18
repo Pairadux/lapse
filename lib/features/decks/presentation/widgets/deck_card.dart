@@ -10,6 +10,9 @@ class DeckCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final int cardCount;
   final int dueCount;
+  final bool showSelectionCheckbox;
+  final bool selected;
+  final bool showTrailingChevron;
 
   const DeckCard({
     super.key,
@@ -19,6 +22,9 @@ class DeckCard extends StatelessWidget {
     this.onLongPress,
     this.cardCount = 0,
     this.dueCount = 0,
+    this.showSelectionCheckbox = false,
+    this.selected = false,
+    this.showTrailingChevron = true,
   });
 
   int get _cardCount => cardCount;
@@ -39,12 +45,21 @@ class DeckCard extends StatelessWidget {
           padding: const EdgeInsets.all(Spacing.cardPadding),
           child: Row(
             children: [
+              if (showSelectionCheckbox)
+                IgnorePointer(
+                  child: Checkbox(
+                    value: selected,
+                    onChanged: (_) {},
+                  ),
+                ),
+              if (showSelectionCheckbox) const SizedBox(width: Spacing.xs),
               _buildIcon(),
               const SizedBox(width: Spacing.lg),
               Expanded(child: _buildContent(context)),
               if (_dueCount > 0) _buildDueBadge(context),
-              const SizedBox(width: Spacing.sm),
-              const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+              if (showTrailingChevron) const SizedBox(width: Spacing.sm),
+              if (showTrailingChevron)
+                const Icon(Icons.chevron_right, color: AppColors.textTertiary),
             ],
           ),
         ),

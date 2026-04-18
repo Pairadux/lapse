@@ -370,6 +370,28 @@ void main() {
       expect(remaining, hasLength(1));
       expect(remaining.first.deckId, 'child-b');
     });
+
+    test('bulkDelete removes multiple deck subtrees in one call', () async {
+      await repo.create(makeDeck(id: 'root-a'));
+      await repo.create(makeDeck(id: 'a-child', parentId: 'root-a'));
+      await repo.create(makeDeck(id: 'root-b'));
+      await repo.create(makeDeck(id: 'b-child', parentId: 'root-b'));
+      await repo.create(makeDeck(id: 'keep'));
+
+      await repo.bulkDelete(['root-a', 'root-b']);
+
+      expect(await repo.getById('root-a'), isNull);
+      expect(await repo.getById('a-child'), isNull);
+      expect(await repo.getById('root-b'), isNull);
+      expect(await repo.getById('b-child'), isNull);
+      expect(await repo.getById('keep'), isNotNull);
+    });
+
+    test('bulkDelete with empty list is a no-op', () async {
+      await repo.create(makeDeck(id: 'keep'));
+      await repo.bulkDelete(const <String>[]);
+      expect(await repo.getById('keep'), isNotNull);
+    });
   });
 
   group('getChildren edge cases', () {
