@@ -28,6 +28,7 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
     });
     ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
   }
 
   Future<void> updateCard(Flashcard card) async {
@@ -37,6 +38,7 @@ class CardListNotifier extends AsyncNotifier<List<Flashcard>> {
     });
     ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
   }
 
   Future<void> deleteCard(String cardId) async {

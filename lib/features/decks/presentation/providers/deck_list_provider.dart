@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/domain/deck_with_counts.dart';
+import 'package:lapse/features/notifications/presentation/providers/notification_providers.dart';
 
 final deckListProvider =
     AsyncNotifierProvider<DeckListNotifier, List<DeckWithCounts>>(
@@ -35,5 +38,6 @@ class DeckListNotifier extends AsyncNotifier<List<DeckWithCounts>> {
     await repo.delete(deckId);
     ref.invalidateSelf();
     ref.read(syncServiceProvider.notifier).schedulePush();
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
   }
 }

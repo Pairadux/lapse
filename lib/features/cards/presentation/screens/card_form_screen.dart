@@ -138,6 +138,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       ref.invalidate(deckDetailProvider(widget.deckId));
       ref.invalidate(deckListProvider);
       ref.read(syncServiceProvider.notifier).schedulePush();
+      unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
       if (mounted) {
         final label = widget.isEditing
             ? 'Card updated'
@@ -168,6 +169,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       ref.invalidate(deckDetailProvider(widget.deckId));
       ref.invalidate(deckListProvider);
       ref.read(syncServiceProvider.notifier).schedulePush();
+      unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
 
       if (mounted) {
         setState(() {

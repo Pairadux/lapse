@@ -98,6 +98,7 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
     await ref.read(deckRepositoryProvider).delete(childDeckId);
     ref.invalidateSelf();
     ref.invalidate(deckListProvider);
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
   }
 
   Future<void> moveChildDeck(String childDeckId, String? newParentId) async {
