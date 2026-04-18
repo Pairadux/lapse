@@ -128,36 +128,93 @@ class ReviewSessionSummaryRepository {
   /// - Longest streak is the max consecutive run across all completed days.
   Future<ReviewStreak> getStreak({DateTime? asOf}) async {
     final db = await _dbHelper.database;
-    final rows = await db.rawQuery('''
-      SELECT DISTINCT ${DatabaseConstants.colDate} AS ${DatabaseConstants.colDate}
-      FROM ${DatabaseConstants.tableReviewSessionSummary}
-      WHERE ${DatabaseConstants.colTotalReviews} > 0
-      ORDER BY ${DatabaseConstants.colDate} ASC
+    final asOfDay = _dateOnly(asOf ?? DateTime.now());
+    final today = _formatDateOnly(asOfDay);
+    final yesterday = _formatDateOnly(
+      asOfDay.subtract(const Duration(days: 1)),
+    );
+
+    final summaryRows = await db.rawQuery(
+      '''
+      WITH completed_days AS (
+        SELECT DISTINCT ${DatabaseConstants.colDate} AS day
+        FROM ${DatabaseConstants.tableReviewSessionSummary}
+        WHERE ${DatabaseConstants.colTotalReviews} > 0
+      )
+      SELECT
+        MAX(day) AS last_completed_date,
+        COALESCE(MAX(CASE WHEN day = ? THEN 1 ELSE 0 END), 0) AS has_today,
+        COALESCE(MAX(CASE WHEN day = ? THEN 1 ELSE 0 END), 0) AS has_yesterday
+      FROM completed_days
+      ''',
+      [today, yesterday],
+    );
+
+    final summary = summaryRows.first;
+    final lastCompleted = summary['last_completed_date'] as String?;
+    if (lastCompleted == null) return const ReviewStreak.empty();
+
+    final hasToday = (summary['has_today'] as int) == 1;
+    final hasYesterday = (summary['has_yesterday'] as int) == 1;
+    final anchorDay = hasToday
+        ? today
+        : hasYesterday
+        ? yesterday
+        : null;
+
+    final longestRows = await db.rawQuery('''
+      WITH completed_days AS (
+        SELECT DISTINCT ${DatabaseConstants.colDate} AS day
+        FROM ${DatabaseConstants.tableReviewSessionSummary}
+        WHERE ${DatabaseConstants.colTotalReviews} > 0
+      ),
+      ranked AS (
+        SELECT
+          day,
+          ROW_NUMBER() OVER (ORDER BY day) AS rn
+        FROM completed_days
+      ),
+      runs AS (
+        SELECT
+          (JULIANDAY(day) - rn) AS grp,
+          COUNT(*) AS streak_len
+        FROM ranked
+        GROUP BY grp
+      )
+      SELECT COALESCE(MAX(streak_len), 0) AS longest_streak
+      FROM runs
       ''');
+    final longest = longestRows.first['longest_streak'] as int;
 
-    if (rows.isEmpty) return const ReviewStreak.empty();
-
-    final days =
-        rows
-            .map(
-              (row) => _parseDateOnly(row[DatabaseConstants.colDate] as String),
-            )
-            .toList()
-          ..sort();
-
-    final longest = _computeLongest(days);
-    final today = _dateOnly(asOf ?? DateTime.now());
-    final yesterday = today.subtract(const Duration(days: 1));
-    final daySet = days.toSet();
-
-    int current = 0;
-    if (daySet.contains(today)) {
-      current = _countBackwardsFrom(daySet, today);
-    } else if (daySet.contains(yesterday)) {
-      current = _countBackwardsFrom(daySet, yesterday);
+    var current = 0;
+    if (anchorDay != null) {
+      final currentRows = await db.rawQuery(
+        '''
+        WITH RECURSIVE streak(day) AS (
+          SELECT ?
+          UNION ALL
+          SELECT DATE(day, '-1 day')
+          FROM streak
+          WHERE EXISTS (
+            SELECT 1
+            FROM ${DatabaseConstants.tableReviewSessionSummary}
+            WHERE ${DatabaseConstants.colDate} = DATE(day, '-1 day')
+              AND ${DatabaseConstants.colTotalReviews} > 0
+          )
+        )
+        SELECT COUNT(*) AS current_streak
+        FROM streak
+        WHERE EXISTS (
+          SELECT 1
+          FROM ${DatabaseConstants.tableReviewSessionSummary}
+          WHERE ${DatabaseConstants.colDate} = streak.day
+            AND ${DatabaseConstants.colTotalReviews} > 0
+        )
+        ''',
+        [anchorDay],
+      );
+      current = currentRows.first['current_streak'] as int;
     }
-
-    final lastCompleted = _formatDateOnly(days.last);
 
     return ReviewStreak(
       currentStreak: current,
@@ -168,44 +225,9 @@ class ReviewSessionSummaryRepository {
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  static DateTime _parseDateOnly(String date) {
-    final parsed = DateTime.parse(date);
-    return _dateOnly(parsed);
-  }
-
   static String _formatDateOnly(DateTime date) {
     return '${date.year.toString().padLeft(4, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
-  }
-
-  static int _computeLongest(List<DateTime> daysSortedAsc) {
-    if (daysSortedAsc.isEmpty) return 0;
-    var longest = 1;
-    var run = 1;
-
-    for (var i = 1; i < daysSortedAsc.length; i++) {
-      final prev = daysSortedAsc[i - 1];
-      final curr = daysSortedAsc[i];
-      final delta = curr.difference(prev).inDays;
-
-      if (delta == 1) {
-        run++;
-        if (run > longest) longest = run;
-      } else if (delta > 1) {
-        run = 1;
-      }
-    }
-    return longest;
-  }
-
-  static int _countBackwardsFrom(Set<DateTime> days, DateTime endDay) {
-    var count = 0;
-    var cursor = endDay;
-    while (days.contains(cursor)) {
-      count++;
-      cursor = cursor.subtract(const Duration(days: 1));
-    }
-    return count;
   }
 }
