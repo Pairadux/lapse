@@ -233,7 +233,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
 
   void _flipCard() {
     setState(() {
-      _showingAnswer = true;
+      _showingAnswer = !_showingAnswer;
     });
   }
 
@@ -670,20 +670,27 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         return KeyEventResult.handled;
       }
     } else {
-      if (event.logicalKey == LogicalKeyboardKey.digit1) {
-        _dismissAndRate(Rating.again);
-        return KeyEventResult.handled;
-      } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
-        _dismissAndRate(Rating.hard);
-        return KeyEventResult.handled;
-      } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
-        _dismissAndRate(Rating.good);
-        return KeyEventResult.handled;
-      } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
-        _dismissAndRate(Rating.easy);
+      if (event.logicalKey == LogicalKeyboardKey.space) {
+        _flipCard();
         return KeyEventResult.handled;
       }
     }
+
+    // Rating shortcuts work from either face
+    if (event.logicalKey == LogicalKeyboardKey.digit1) {
+      _dismissAndRate(Rating.again);
+      return KeyEventResult.handled;
+    } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
+      _dismissAndRate(Rating.hard);
+      return KeyEventResult.handled;
+    } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
+      _dismissAndRate(Rating.good);
+      return KeyEventResult.handled;
+    } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
+      _dismissAndRate(Rating.easy);
+      return KeyEventResult.handled;
+    }
+
     return KeyEventResult.ignored;
   }
 
@@ -765,7 +772,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     if (!isDesktop) {
       flipCard = SwipeableCard(
         key: ValueKey('swipe_$_currentIndex'),
-        enabled: _showingAnswer,
+        enabled: true,
         onRate: _rateCard,
         onDismissProgress: (progress) {
           if (progress != _swipeProgress) {
@@ -822,12 +829,11 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
 
   Widget _buildRatingButtons() {
     // Fade from full → dimmed as dismiss animation plays.
-    final baseOpacity = _showingAnswer ? 1.0 : 0.3;
-    final opacity = baseOpacity - (_dismissOffset * (baseOpacity - 0.3));
+    final opacity = 1.0 - _dismissOffset;
     return Opacity(
       opacity: opacity,
       child: IgnorePointer(
-        ignoring: !_showingAnswer || _dismissOffset > 0,
+        ignoring: _dismissOffset > 0,
         child: Row(
           children: [
             _RatingButton(
