@@ -143,3 +143,21 @@ Input Summary: Team suggestions included: (1) separate "Sort By (Deck)" dropdown
 Output Summary: Implemented 6 major enhancements: deck dropdown with nested filtering, responsive layouts (mobile/desktop 600px breakpoint), filter summary display, Sort Order as button chips, SingleChildScrollView layout fix, and clearer `Icons.view_list` navigation icon.
 Modifications: Added `selectedDeckId` field and `CardSortBy.deck` enum, created `getByDeckIdWithNested()` recursive query, converted filter panel to ConsumerWidget, added responsive breakpoints and filter summary display, replaced Sort Order toggle with FilterChip buttons, fixed overflow with SingleChildScrollView, updated icon and added "Sort/Filter" label.
 Files Referenced: card_browser_filters.dart (added selectedDeckId, CardSortBy.deck), card_repository.dart (added getByDeckIdWithNested), card_browser_provider.dart (updated selectedDeckId references, added deck sort case), card_browser_screen.dart (added filter summary display, Sort/Filter label, SingleChildScrollView layout, filter summary builder), card_browser_filter_panel.dart (ConsumerWidget conversion, deck dropdown, responsive layouts, left-alignment chips, Order buttons), deck_list_screen.dart (icon/tooltip change to Icons.view_list)
+
+Date: 2026-04-18
+User: Darius Anderson
+Purpose: Implement review data rework — cap reviews at 10K per user and record session summaries (#133)
+Approach: Explored existing repository patterns and session screen structure, then requested implementation for 10K review pruning and session summary integration.
+Input Summary: The review_session_summary table was already implemented (v5 migration). Needed client-side 10K review cap enforcement by pruning oldest reviews after each study session, plus integration with StudySessionScreen to record summaries on completion.
+Output Summary: Received implementation plan for pruneOldReviews(userId) method for ReviewRepository that deletes oldest reviews exceeding 10K threshold, _finalizeSession() method for StudySessionScreen that creates/saves session summaries and triggers pruning, and comprehensive unit tests covering normal/edge cases.
+Modifications: Added pruneOldReviews() to ReviewRepository with transaction-safe deletion logic, added card state tracking (_newCount, _learningCount, _reviewCount) to StudySessionScreen, integrated _finalizeSession() on session completion (both normal exit and early termination), created 6 test cases for pruning logic (all passing).
+Files Referenced: review_repository.dart, study_session_screen.dart, review_session_summary_repository.dart, review_repository_test.dart
+
+Date: 2026-04-18
+User: Darius Anderson
+Purpose: Allow bidirectional card flipping and rating from either face (#128)
+Approach: Described the issue requirements and asked for implementation of tap-to-toggle, always-enabled swipe-to-rate, and keyboard shortcuts that work from both faces.
+Input Summary: Provided issue description showing current behavior (card locked to back after flip) and desired behavior (freely flippable and ratable from either face).
+Output Summary: Received implementation plan for changes to FlipCard (remove tap prevention), _flipCard() (toggle instead of set true), SwipeableCard (always enabled), keyboard handling (rate from either face), and rating buttons (always visible).
+Modifications: Updated FlipCard to accept taps when flipped, changed _flipCard() to toggle state, enabled SwipeableCard always on mobile, allowed rating shortcuts from either face, made buttons visible on desktop from both faces.
+Files Referenced: flip_card.dart, study_session_screen.dart
