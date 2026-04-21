@@ -23,7 +23,7 @@ class CardContentFactory {
     final content = switch (card) {
       TwoSidedCard c => _buildContent(c.cardType, c.back, isFront: false),
       ReverseCard c => _buildContent(c.cardType, c.back, isFront: false),
-      ClozeCard _ => const SizedBox.shrink(), // Cloze cards dont have backs so nothing is rendered
+      ClozeCard c => _buildContent(c.cardType, c.text, isFront: false), // Show the same text but with answers revealed
     };
     return _CardContentContainer(
       showTapHint: false,

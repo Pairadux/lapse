@@ -428,27 +428,66 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildPreviewContent() {
-    // Create a temporary card for preview
+    // Create a temporary card for preview based on selected card type
     final now = DateTime.now();
-    final previewCard = TwoSidedCard(
-      cardId: 'preview',
-      deckId: 'preview',
-      front: _frontController.text.trim(),
-      back: _backController.text.trim(),
-      createdAt: now,
-      updatedAt: now,
-      dueDate: now,
-      stability: 0.0,
-      difficulty: 0.0,
-      elapsedDays: 0,
-      scheduledDays: 0,
-      reps: 0,
-      lapses: 0,
-      cardState: CardState.newCard,
-      isDeleted: false,
-      syncStatus: SyncStatus.synced,
-      userId: '', // preview card
-    );
+    final previewCard = switch (_cardType) {
+      CardType.twoSided => TwoSidedCard(
+          cardId: 'preview',
+          deckId: 'preview',
+          front: _frontController.text.trim(),
+          back: _backController.text.trim(),
+          createdAt: now,
+          updatedAt: now,
+          dueDate: now,
+          stability: 0.0,
+          difficulty: 0.0,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          reps: 0,
+          lapses: 0,
+          cardState: CardState.newCard,
+          isDeleted: false,
+          syncStatus: SyncStatus.synced,
+          userId: '', // preview card
+        ),
+      CardType.reverse => ReverseCard(
+          cardId: 'preview',
+          deckId: 'preview',
+          front: _frontController.text.trim(),
+          back: _backController.text.trim(),
+          createdAt: now,
+          updatedAt: now,
+          dueDate: now,
+          stability: 0.0,
+          difficulty: 0.0,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          reps: 0,
+          lapses: 0,
+          cardState: CardState.newCard,
+          isDeleted: false,
+          syncStatus: SyncStatus.synced,
+          userId: '', // preview card
+        ),
+      CardType.cloze => ClozeCard(
+          cardId: 'preview',
+          deckId: 'preview',
+          text: _frontController.text.trim(),
+          createdAt: now,
+          updatedAt: now,
+          dueDate: now,
+          stability: 0.0,
+          difficulty: 0.0,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          reps: 0,
+          lapses: 0,
+          cardState: CardState.newCard,
+          isDeleted: false,
+          syncStatus: SyncStatus.synced,
+          userId: '', // preview card
+        ),
+    };
 
     return ListView(
       padding: const EdgeInsets.all(Spacing.lg),
@@ -457,7 +496,8 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
         const SizedBox(height: Spacing.lg),
         const Divider(),
         const SizedBox(height: Spacing.lg),
-        _buildPreviewField(label: 'Back Preview', child: CardContentFactory.buildBack(previewCard)),
+        if (_cardType != CardType.cloze)
+          _buildPreviewField(label: 'Back Preview', child: CardContentFactory.buildBack(previewCard)),
       ],
     );
   }
