@@ -144,8 +144,6 @@ void main() {
     }
   }
 
-
-
   test('push returns true when nothing is unsynced', () async {
     final service = buildService();
     final result = await service.push();

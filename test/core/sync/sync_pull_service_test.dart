@@ -89,8 +89,6 @@ class FakeTransformBuilder extends Fake
   }) => Future.value(PostgrestList.from(_data)).then(onValue, onError: onError);
 }
 
-
-
 // ── Helpers ────────────────────────────────────────────────────────
 
 /// Builds a Supabase-format deck row (booleans, no sync_status).
@@ -617,7 +615,7 @@ void main() {
       expect(card!.front, 'Remote Q');
     });
 
-     test('card conflict resolution: local wins if newer', () async {
+    test('card conflict resolution: local wins if newer', () async {
       await insertDeck(id: 'deck-1');
       final now = DateTime.now();
 
