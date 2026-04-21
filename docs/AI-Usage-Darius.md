@@ -144,6 +144,7 @@ Output Summary: Implemented 6 major enhancements: deck dropdown with nested filt
 Modifications: Added `selectedDeckId` field and `CardSortBy.deck` enum, created `getByDeckIdWithNested()` recursive query, converted filter panel to ConsumerWidget, added responsive breakpoints and filter summary display, replaced Sort Order toggle with FilterChip buttons, fixed overflow with SingleChildScrollView, updated icon and added "Sort/Filter" label.
 Files Referenced: card_browser_filters.dart (added selectedDeckId, CardSortBy.deck), card_repository.dart (added getByDeckIdWithNested), card_browser_provider.dart (updated selectedDeckId references, added deck sort case), card_browser_screen.dart (added filter summary display, Sort/Filter label, SingleChildScrollView layout, filter summary builder), card_browser_filter_panel.dart (ConsumerWidget conversion, deck dropdown, responsive layouts, left-alignment chips, Order buttons), deck_list_screen.dart (icon/tooltip change to Icons.view_list)
 
+<<<<<<< feat/allow-bidirectional-rating
 Date: 2026-04-18
 User: Darius Anderson
 Purpose: Implement review data rework — cap reviews at 10K per user and record session summaries (#133)
@@ -161,3 +162,13 @@ Input Summary: Provided issue description showing current behavior (card locked 
 Output Summary: Received implementation plan for changes to FlipCard (remove tap prevention), _flipCard() (toggle instead of set true), SwipeableCard (always enabled), keyboard handling (rate from either face), and rating buttons (always visible).
 Modifications: Updated FlipCard to accept taps when flipped, changed _flipCard() to toggle state, enabled SwipeableCard always on mobile, allowed rating shortcuts from either face, made buttons visible on desktop from both faces.
 Files Referenced: flip_card.dart, study_session_screen.dart
+=======
+Date: 2026-04-06
+User: Darius Anderson
+Purpose: Implement sync service test coverage gaps (paginated push/pull, card/review/summary pulls) — 5 identified gaps
+Approach: Created comprehensive test implementation guide with templates and helpers. Verified all code against actual repository APIs and database schema. Iteratively fixed enum serialization, foreign key constraints, and test data issues. Wrapped paginated tests in group() for filtering and validated all 40 tests passing.
+Input Summary: Provided audit results identifying 5 test gaps. Requested implementation guide with working code templates. Supplied error logs from failing tests (foreign key, type mismatches, null card lookups).
+Output Summary: Delivered 900+ line SYNC_TEST_IMPLEMENTATION_GUIDE.md with 9 implementation phases, importcorrections, and verified helper functions. Fixed 5 critical bugs: enum serialization (strings vs integers), repository method names (create → add/addReview), missing getById() methods (replaced with database queries), immutability warnings (final fields), and database schema mismatches (removed non-existent columns). All 40 sync tests now passing (36 existing + 4 Gap gaps).
+Modifications: Added test groups for paginated push (5 tests), card pull (4), review pull (4), session summary pull (3), paginated pull (3). Created insertDeck() and insertCard() helpers for foreign key constraints. Fixed enum helpers (remoteCardRow, remoteReviewRow, remoteSessionRow) to use correct integer/string formats. Removed debug print statements after validation. Updated implementation guide with all corrections.
+Files Referenced: test/core/sync/sync_push_service_test.dart, test/core/sync/sync_pull_service_test.dart
+>>>>>>> main
