@@ -11,7 +11,7 @@ class CardContentFactory {
   final content = switch (card) {
     TwoSidedCard c => _buildContent(c.cardType, c.front, isFront: true),
     ReverseCard c => _buildContent(c.cardType, c.front, isFront: true),
-    ClozeCard c => _buildContent(c.cardType, c.text, isFront: true),
+    ClozeCard c => _buildContent(c.cardType, c.front, isFront: true),
   };
   return _CardContentContainer(
     showTapHint: showTapHint,
@@ -23,7 +23,7 @@ class CardContentFactory {
     final content = switch (card) {
       TwoSidedCard c => _buildContent(c.cardType, c.back, isFront: false),
       ReverseCard c => _buildContent(c.cardType, c.back, isFront: false),
-      ClozeCard c => _buildContent(c.cardType, c.text, isFront: false), // Show the same text but with answers revealed
+      ClozeCard c => _buildContent(c.cardType, c.front, isFront: false), // Show the same text but with answers revealed
     };
     return _CardContentContainer(
       showTapHint: false,

@@ -239,6 +239,7 @@ class TwoSidedCard extends Flashcard {
 class ReverseCard extends Flashcard {
   final String front;
   final String back;
+  final String pairID; // ID to link the two sides of the reverse card
 
   const ReverseCard({
     required super.cardId,
@@ -260,6 +261,7 @@ class ReverseCard extends Flashcard {
     required super.userId,
     required this.front,
     required this.back,
+    required this.pairID,
   }) : super(cardType: CardType.reverse);
 
   @override
@@ -268,6 +270,7 @@ class ReverseCard extends Flashcard {
       ...baseMap(),
       DatabaseConstants.colFront: front,
       DatabaseConstants.colBack: back,
+      DatabaseConstants.colPairID: pairID,
     };
   }
 
@@ -292,6 +295,7 @@ class ReverseCard extends Flashcard {
     // subclass-specific
     String? front,
     String? back,
+    String? pairID,
   }) {
     return ReverseCard(
       cardId: cardId,
@@ -313,6 +317,7 @@ class ReverseCard extends Flashcard {
       syncStatus: syncStatus ?? this.syncStatus,
       front: front ?? this.front,
       back: back ?? this.back,
+      pairID: pairID ?? this.pairID,
     );
   }
 
@@ -338,6 +343,7 @@ class ReverseCard extends Flashcard {
       syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
       front: map[DatabaseConstants.colFront] as String,
       back: map[DatabaseConstants.colBack] as String,
+      pairID: (map[DatabaseConstants.colPairID] as String?) ?? '',
     );
   }
 
@@ -345,6 +351,7 @@ class ReverseCard extends Flashcard {
     required String deckId,
     required String front,
     required String back,
+    required String pairID, // ID to link the two sides of the reverse card
   }) {
     return ReverseCard(
       cardId: const Uuid().v4(),
@@ -364,12 +371,13 @@ class ReverseCard extends Flashcard {
       userId: '',
       front: front,
       back: back,
+      pairID: pairID,
     );
   }
 }
 
 class ClozeCard extends Flashcard {
-  final String text; // {{c1::answer}} syntax
+  final String front; // {{c1::answer}} syntax
 
   const ClozeCard({
     required super.cardId,
@@ -389,7 +397,7 @@ class ClozeCard extends Flashcard {
     super.step,
     required super.syncStatus,
     required super.userId,
-    required this.text,
+    required this.front,
   }) : super(cardType: CardType.cloze);
 
 
@@ -413,7 +421,7 @@ class ClozeCard extends Flashcard {
       step: step ?? this.step,
       userId: userId ?? this.userId,
       syncStatus: syncStatus ?? this.syncStatus,
-      text: text ?? this.text,
+      front: front,
     );
   }
 
@@ -421,7 +429,7 @@ class ClozeCard extends Flashcard {
   Map<String, dynamic> toMap() {
     return {
       ...baseMap(),
-      DatabaseConstants.colFront: text, // Cloze text stored in 'front' column
+      DatabaseConstants.colFront: front, // Cloze text stored in 'front' column
       DatabaseConstants.colBack: '', // No back content for cloze cards but database expects a back
     };
   }
@@ -446,13 +454,13 @@ class ClozeCard extends Flashcard {
       step: map[DatabaseConstants.colStep] as int?,
       userId: map[DatabaseConstants.colUserId] as String,
       syncStatus: SyncStatus.values.byName(map[DatabaseConstants.colSyncStatus] as String),
-      text: map[DatabaseConstants.colFront] as String, // Cloze text stored in 'front' column
+      front: map[DatabaseConstants.colFront] as String, // Cloze text stored in 'front' column
     );
   }
 
    static ClozeCard newCard({
     required String deckId,
-    required String text,
+    required String front,
   }) {
     return ClozeCard(
       cardId: const Uuid().v4(),
@@ -470,7 +478,7 @@ class ClozeCard extends Flashcard {
       cardState: CardState.newCard,
       syncStatus: SyncStatus.pending,
       userId: '',
-      text: text,
+      front: front,
     );
   }
 }

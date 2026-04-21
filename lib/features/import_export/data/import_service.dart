@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:lapse/features/cards/data/card_repository.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/data/deck_repository.dart';
+import 'package:uuid/uuid.dart';
 
 class DeckImportService {
   final DeckRepository _deckRepository;
@@ -52,7 +53,7 @@ class DeckImportService {
       existingFronts = existing.map((c) => switch (c) {
         TwoSidedCard c => c.front,
         ReverseCard c => c.front,
-        ClozeCard c => c.text,
+        ClozeCard c => c.front,
       }).toSet();
     }
 
@@ -74,10 +75,11 @@ class DeckImportService {
             deckId: deck.deckId,
             front: cardData.front,
             back: cardData.back,
+            pairID: const Uuid().v4(), // generate a new pairID for each imported card
           ),
         CardType.cloze => ClozeCard.newCard(
             deckId: deck.deckId,
-            text: cardData.front,
+            front: cardData.front,
           ),
       };
       await _cardRepository.create(card);

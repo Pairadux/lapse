@@ -296,7 +296,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> with Si
         cardFront: switch (_currentCard) {
             TwoSidedCard c => c.front,
             ReverseCard c => c.front,
-            ClozeCard c => c.text,
+            ClozeCard c => c.front,
           },
           rating: rating,
           before: before,
@@ -373,7 +373,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen> with Si
       final front = switch (c) {
         TwoSidedCard c => c.front,
         ReverseCard c => c.front,
-        ClozeCard c => c.text,
+        ClozeCard c => c.front,
       };
       currentCardInfo = _buildDebugSection('Next Card', AppColors.primary, {
         'front': front.length > 40 ? '${front.substring(0, 40)}...' : front,

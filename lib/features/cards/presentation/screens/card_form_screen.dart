@@ -14,6 +14,7 @@ import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 import 'package:lapse/features/study/presentation/widgets/card_content.dart';
+import 'package:uuid/uuid.dart';
 
 class _SaveIntent extends Intent {
   const _SaveIntent();
@@ -60,8 +61,8 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       case ReverseCard(:final front, :final back):
         _frontController = TextEditingController(text: front);
         _backController = TextEditingController(text: back);
-      case ClozeCard(:final text):
-        _frontController = TextEditingController(text: text);
+      case ClozeCard(:final front):
+        _frontController = TextEditingController(text: front);
         _backController = TextEditingController(text: '');
       case null:
         _frontController = TextEditingController();
@@ -152,10 +153,11 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             deckId: widget.deckId,
             front: _frontController.text.trim(),
             back: _backController.text.trim(),
+            pairID: widget.card?.cardId ?? const Uuid().v4(),
           ),
         CardType.cloze => ClozeCard.newCard(
             deckId: widget.deckId,
-            text: _frontController.text.trim(),
+            front: _frontController.text.trim(),
           ),
       };
       await _repo.create(card);
@@ -209,10 +211,11 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
             deckId: widget.deckId,
             front: _frontController.text.trim(),
             back: _backController.text.trim(),
+            pairID: widget.card?.cardId ?? const Uuid().v4(),
           ),
         CardType.cloze => ClozeCard.newCard(
             deckId: widget.deckId,
-            text: _frontController.text.trim(),
+            front: _frontController.text.trim(),
           ),
       };
       await _repo.create(card);
@@ -455,6 +458,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
           deckId: 'preview',
           front: _frontController.text.trim(),
           back: _backController.text.trim(),
+          pairID: 'preview_pair',
           createdAt: now,
           updatedAt: now,
           dueDate: now,
@@ -472,7 +476,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       CardType.cloze => ClozeCard(
           cardId: 'preview',
           deckId: 'preview',
-          text: _frontController.text.trim(),
+          front: _frontController.text.trim(),
           createdAt: now,
           updatedAt: now,
           dueDate: now,

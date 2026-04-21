@@ -88,6 +88,9 @@ class DatabaseHelper {
         case 6:
           await _migrateV6(db);
           break;
+        case 7:
+          await _migrateV7(db);
+          break;
         default:
           break;
       }
@@ -194,6 +197,12 @@ class DatabaseHelper {
   Future<void> _migrateV6(Database db) async {
     await db.execute(
       'ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colCardType} INTEGER NOT NULL DEFAULT 0',
+    );
+  }
+
+  Future<void> _migrateV7(Database db) async {
+    await db.execute(
+      'ALTER TABLE ${DatabaseConstants.tableCards} ADD COLUMN ${DatabaseConstants.colPairID} TEXT NOT NULL DEFAULT ""',
     );
   }
 

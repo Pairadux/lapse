@@ -22,7 +22,7 @@ class CardPreviewFactory {
   }
 
   static String _buildClozePreview(ClozeCard card) {
-    final clozeText = card.text.replaceAllMapped(
+    final clozeText = card.front.replaceAllMapped(
       RegExp(r'\{\{c\d+::.*?\}\}'),
       (match) => '[...]',
     );

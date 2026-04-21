@@ -30,7 +30,7 @@ final filteredCardsProvider =
     final text = switch (card) {
       TwoSidedCard c => '${c.front} ${c.back}',
       ReverseCard c => '${c.front} ${c.back}',
-      ClozeCard c => c.text,
+      ClozeCard c => c.front,
     };
     return text.toLowerCase().contains(query);
   }).toList();

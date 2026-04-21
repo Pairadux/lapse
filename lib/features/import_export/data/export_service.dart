@@ -28,7 +28,7 @@ class DeckExportService {
       final (String front, String? back) = switch (card) {
         TwoSidedCard c => (c.front, c.back),
         ReverseCard c => (c.front, c.back),
-        ClozeCard c => (c.text, null),
+        ClozeCard c => (c.front, null),
       };
       return {
         'cardType': card.cardType,

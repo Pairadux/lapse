@@ -22,7 +22,7 @@ class CardListItem extends StatelessWidget {
     final (String title, String? subtitle) = switch (card) {
       TwoSidedCard c => (c.front, c.back),
       ReverseCard c => (c.front, c.back),
-      ClozeCard c => (c.text, null),
+      ClozeCard c => (c.front, null),
     };
 
     return ListTile(

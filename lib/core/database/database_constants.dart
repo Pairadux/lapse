@@ -29,6 +29,7 @@ abstract final class DatabaseConstants {
   static const String colLastReview = 'last_review';
   static const String colCardState = 'card_state';
   static const String colStep = 'step';
+  static const String colPairID = 'pair_id';
 
   // -- Review columns --
   static const String colReviewId = 'review_id';
@@ -96,7 +97,9 @@ abstract final class DatabaseConstants {
       $colCardState     INTEGER NOT NULL DEFAULT 0,
       $colStep          INTEGER,
       $colUserId        TEXT NOT NULL,
-      $colSyncStatus    TEXT NOT NULL DEFAULT 'synced'
+      $colSyncStatus    TEXT NOT NULL DEFAULT 'synced',
+      $colPairID        TEXT DEFAULT ''
+
     )
   ''';
 
