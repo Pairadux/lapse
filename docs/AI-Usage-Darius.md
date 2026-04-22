@@ -160,4 +160,13 @@ Approach: Described the issue requirements and asked for implementation of tap-t
 Input Summary: Provided issue description showing current behavior (card locked to back after flip) and desired behavior (freely flippable and ratable from either face).
 Output Summary: Received implementation plan for changes to FlipCard (remove tap prevention), _flipCard() (toggle instead of set true), SwipeableCard (always enabled), keyboard handling (rate from either face), and rating buttons (always visible).
 Modifications: Updated FlipCard to accept taps when flipped, changed _flipCard() to toggle state, enabled SwipeableCard always on mobile, allowed rating shortcuts from either face, made buttons visible on desktop from both faces.
-Files Referenced: flip_card.dart, study_session_screen.dart
+Files Referenced: lib/features/study/presentation/widgets/flip_card.dart, lib/features/study/presentation/screens/study_session_screen.dart
+
+Date: 2026-04-22
+User: Darius Anderson
+Purpose: Refine bidirectional rating to require first flip before rating (#128)
+Approach: Tested initial implementation and identified that rating was allowed before revealing the answer. Requested refinement to allow rating only after answer has been seen at least once, but from either face thereafter.
+Input Summary: Provided test feedback showing rating worked before flip, which violated desired behavior of requiring first flip to reveal answer before rating.
+Output Summary: Received refined solution: add _hasSeenAnswer boolean flag (distinct from _showingAnswer) that tracks if answer has been revealed at least once, use this flag to guard all rating inputs and swipe-to-rate, reset flag on next card.
+Modifications: Added _hasSeenAnswer state variable initialized to false, set to true when _flipCard() reveals answer, reset to false when advancing to next card and when undoing, updated SwipeableCard.enabled, keyboard rating shortcuts, and rating buttons opacity/IgnorePointer conditions to use _hasSeenAnswer instead of _showingAnswer.
+Files Referenced: lib/features/study/presentation/screens/study_session_screen.dart
