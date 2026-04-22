@@ -91,8 +91,9 @@ class SyncPullService {
         lastPull: lastPull,
       );
       stats['decks'] = result.count;
-      if (result.maxTimestamp != null)
+      if (result.maxTimestamp != null) {
         serverTimestamps.add(result.maxTimestamp!);
+      }
 
       result = await _pullTable(
         client: client,
@@ -102,8 +103,9 @@ class SyncPullService {
         lastPull: lastPull,
       );
       stats['cards'] = result.count;
-      if (result.maxTimestamp != null)
+      if (result.maxTimestamp != null) {
         serverTimestamps.add(result.maxTimestamp!);
+      }
 
       final reviewResult = await _pullReviews(
         client: client,
@@ -124,8 +126,9 @@ class SyncPullService {
         lastPull: lastPull,
       );
       stats['summaries'] = result.count;
-      if (result.maxTimestamp != null)
+      if (result.maxTimestamp != null) {
         serverTimestamps.add(result.maxTimestamp!);
+      }
 
       // Derive pullTimestamp from the server's clock domain — the latest
       // timestamp across all pulled rows. This eliminates clock skew between
