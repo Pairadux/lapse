@@ -176,6 +176,8 @@ class _ReviewStatsScreenState extends ConsumerState<ReviewStatsScreen> {
           const SizedBox(height: Spacing.xs),
           Text(
             value,
+          Text(
+            value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
