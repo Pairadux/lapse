@@ -204,12 +204,6 @@ class ReviewSessionSummaryRepository {
         )
         SELECT COUNT(*) AS current_streak
         FROM streak
-        WHERE EXISTS (
-          SELECT 1
-          FROM ${DatabaseConstants.tableReviewSessionSummary}
-          WHERE ${DatabaseConstants.colDate} = streak.day
-            AND ${DatabaseConstants.colTotalReviews} > 0
-        )
         ''',
         [anchorDay],
       );
