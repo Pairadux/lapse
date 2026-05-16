@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lapse/core/routing/routes.dart';
+import 'package:lapse/core/theme/app_colors.dart';
 import 'package:lapse/core/theme/spacing.dart';
 import 'package:lapse/core/widgets/app_snack_bar.dart';
 import 'package:lapse/core/widgets/confirm_dialog.dart';
@@ -18,6 +19,7 @@ import 'package:lapse/features/decks/presentation/providers/deck_detail_provider
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
 import 'package:lapse/features/decks/presentation/widgets/empty_deck_state.dart';
+import 'package:lapse/features/study/presentation/providers/review_streak_provider.dart';
 
 class DeckListScreen extends ConsumerWidget {
   const DeckListScreen({super.key});
@@ -36,6 +38,7 @@ class DeckListScreen extends ConsumerWidget {
         ),
         title: const Text('Decks'),
         actions: [
+          const _StreakAppBarAction(),
           IconButton(
             icon: const Icon(Icons.view_list),
             tooltip: 'View all cards',
@@ -71,6 +74,122 @@ class DeckListScreen extends ConsumerWidget {
   }
 }
 
+class _StreakAppBarAction extends ConsumerWidget {
+  const _StreakAppBarAction();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final streakAsync = ref.watch(reviewStreakProvider);
+
+    return streakAsync.when(
+      data: (streak) {
+        if (streak.currentStreak <= 0) {
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+          child: Container(
+            margin: const EdgeInsets.only(right: Spacing.xs),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.sm,
+              vertical: Spacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(Spacing.radiusMd),
+              border: Border.all(color: AppColors.outline),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _AnimatedFlameIcon(),
+                const SizedBox(width: Spacing.xs),
+                Text(
+                  '${streak.currentStreak}',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _AnimatedFlameIcon extends StatefulWidget {
+  const _AnimatedFlameIcon();
+
+  @override
+  State<_AnimatedFlameIcon> createState() => _AnimatedFlameIconState();
+}
+
+class _AnimatedFlameIconState extends State<_AnimatedFlameIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  late final Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+
+    final curve = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
+    _scale = Tween<double>(begin: 0.92, end: 1.10).animate(curve);
+    _glow = Tween<double>(begin: 0.15, end: 0.55).animate(curve);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scale.value,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Color.lerp(
+                    Colors.transparent,
+                    AppColors.warning,
+                    _glow.value,
+                  )!,
+                  blurRadius: 8,
+                  spreadRadius: 0.5,
+                ),
+              ],
+            ),
+            child: child,
+          ),
+        );
+      },
+      child: const Icon(
+        Icons.local_fire_department_rounded,
+        size: 16,
+        color: AppColors.warning,
+      ),
+    );
+  }
+}
+
 class _DeckList extends ConsumerWidget {
   final List<DeckWithCounts> decks;
 
@@ -88,10 +207,7 @@ class _DeckList extends ConsumerWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(
-        top: Spacing.sm,
-        bottom: Spacing.sm + 80,
-      ),
+      padding: const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.sm + 80),
       itemCount: decks.length,
       itemBuilder: (context, index) {
         final item = decks[index];
@@ -141,8 +257,9 @@ class _DeckList extends ConsumerWidget {
         case ContextMenuAction.move:
           final deckRepo = ref.read(deckRepositoryProvider);
           final allDecks = await deckRepo.getAll();
-          final excludeIds =
-              (await deckRepo.getDescendantIds(deck.deckId)).toSet();
+          final excludeIds = (await deckRepo.getDescendantIds(
+            deck.deckId,
+          )).toSet();
 
           if (!context.mounted) return;
           final targetId = await DeckPickerDialog.show(
@@ -172,8 +289,9 @@ class _DeckList extends ConsumerWidget {
             return;
           }
 
-          final deckToMove =
-              deck.copyWith(parentId: Optional.value(newParentId));
+          final deckToMove = deck.copyWith(
+            parentId: Optional.value(newParentId),
+          );
           await deckRepo.update(deckToMove);
           ref.invalidate(deckListProvider);
           ref.read(syncServiceProvider.notifier).schedulePush();
@@ -183,8 +301,7 @@ class _DeckList extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        AppSnackBar.show(context, 'Action failed: $e',
-);
+        AppSnackBar.show(context, 'Action failed: $e');
       }
     }
   }

@@ -16,10 +16,14 @@ import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/study/domain/rating.dart';
 import 'package:lapse/features/study/data/review_repository_provider.dart';
+import 'package:lapse/features/study/data/review_session_summary_repository.dart';
+import 'package:lapse/features/study/data/review_session_summary_repository_provider.dart';
 import 'package:lapse/features/study/application/study_session_service.dart';
+import 'package:lapse/features/study/domain/review_session_summary.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/notifications/presentation/providers/notification_providers.dart';
 import 'package:lapse/features/study/domain/study_session.dart';
+import 'package:lapse/features/study/presentation/providers/review_streak_provider.dart';
 import 'package:lapse/features/study/presentation/widgets/card_stack.dart';
 import 'package:lapse/features/study/presentation/widgets/flip_card.dart';
 import 'package:lapse/features/study/presentation/widgets/swipeable_card.dart';
@@ -106,6 +110,8 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     with SingleTickerProviderStateMixin {
   CardRepository get _cardRepo => ref.read(cardRepositoryProvider);
   ReviewRepository get _reviewRepo => ref.read(reviewRepositoryProvider);
+  ReviewSessionSummaryRepository get _summaryRepo =>
+      ref.read(reviewSessionSummaryRepositoryProvider);
   final _studySessionService = StudySessionService();
   late StudySession _session;
   late final SyncServiceNotifier _syncNotifier;
@@ -143,6 +149,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   // Debug panel state
   bool _showDebugPanel = false;
   final List<_ReviewLogEntry> _reviewLog = [];
+  bool _sessionSummarySaved = false;
 
   Flashcard get _currentCard => _cards[_currentIndex];
   bool get _isSessionComplete =>
@@ -258,6 +265,49 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     await _cardRepo.update(pending.result.updatedCard);
     await _reviewRepo.addReview(pending.result.review);
     ref.read(syncServiceProvider.notifier).schedulePush();
+  }
+
+  Future<void> _persistSessionSummaryIfNeeded() async {
+    if (_sessionSummarySaved) return;
+
+    final totalReviewed = _ratingCounts.values.fold(0, (sum, v) => sum + v);
+    if (totalReviewed <= 0) return;
+
+    var newCount = 0;
+    var learningCount = 0;
+    var reviewCount = 0;
+
+    for (final entry in _reviewLog) {
+      switch (entry.before.cardState) {
+        case CardState.newCard:
+          newCount++;
+          break;
+        case CardState.learning:
+        case CardState.relearning:
+          learningCount++;
+          break;
+        case CardState.review:
+          reviewCount++;
+          break;
+      }
+    }
+
+    final summary = ReviewSessionSummary.fromSession(
+      startedAt: _session.startedAt,
+      endedAt: DateTime.now(),
+      againCount: _ratingCounts[Rating.again] ?? 0,
+      hardCount: _ratingCounts[Rating.hard] ?? 0,
+      goodCount: _ratingCounts[Rating.good] ?? 0,
+      easyCount: _ratingCounts[Rating.easy] ?? 0,
+      newCount: newCount,
+      learningCount: learningCount,
+      reviewCount: reviewCount,
+    );
+
+    await _summaryRepo.add(summary);
+    ref.invalidate(reviewStreakProvider);
+    ref.read(syncServiceProvider.notifier).schedulePush();
+    _sessionSummarySaved = true;
   }
 
   /// Undoes the most recent rating by discarding the pending DB write
@@ -888,6 +938,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
             child: ElevatedButton(
               onPressed: () async {
                 await _flushPendingWrite();
+                await _persistSessionSummaryIfNeeded();
                 _invalidateDeckProviders();
                 unawaited(ref.read(dueReminderSchedulerProvider).rescheduleAll());
                 if (mounted) context.pop();
@@ -950,6 +1001,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     );
     if (shouldExit == true && context.mounted) {
       await _flushPendingWrite();
+      await _persistSessionSummaryIfNeeded();
       _invalidateDeckProviders();
       unawaited(ref.read(dueReminderSchedulerProvider).rescheduleAll());
       if (context.mounted) context.pop();

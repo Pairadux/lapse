@@ -60,8 +60,9 @@ class ReviewSessionSummary extends Equatable {
     required int reviewCount,
     String userId = '',
   }) {
+    // Streaks are completion-based: count the day the session finishes.
     final date =
-        '${startedAt.year}-${startedAt.month.toString().padLeft(2, '0')}-${startedAt.day.toString().padLeft(2, '0')}';
+        '${endedAt.year}-${endedAt.month.toString().padLeft(2, '0')}-${endedAt.day.toString().padLeft(2, '0')}';
     return ReviewSessionSummary(
       userId: userId,
       date: date,

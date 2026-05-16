@@ -116,6 +116,107 @@ void main() {
     expect(summary.date, '2026-03-14');
   });
 
+  test('fromSession uses completion day for date', () {
+    final start = DateTime(2026, 3, 14, 23, 55);
+    final end = DateTime(2026, 3, 15, 0, 5);
+    final summary = ReviewSessionSummary.fromSession(
+      startedAt: start,
+      endedAt: end,
+      againCount: 1,
+      hardCount: 1,
+      goodCount: 1,
+      easyCount: 1,
+      newCount: 1,
+      learningCount: 1,
+      reviewCount: 2,
+    );
+
+    expect(summary.date, '2026-03-15');
+  });
+
+  group('streaks', () {
+    test(
+      'getStreak returns empty values when no completed sessions exist',
+      () async {
+        final streak = await repo.getStreak(asOf: DateTime(2026, 3, 20));
+        expect(streak.currentStreak, 0);
+        expect(streak.longestStreak, 0);
+        expect(streak.lastCompletedDate, isNull);
+      },
+    );
+
+    test(
+      'getStreak computes current and longest from completed dates',
+      () async {
+        await repo.add(makeSummary(id: 's1', date: '2026-03-14'));
+        await repo.add(makeSummary(id: 's2', date: '2026-03-15'));
+        await repo.add(makeSummary(id: 's3', date: '2026-03-16'));
+        await repo.add(makeSummary(id: 's4', date: '2026-03-18'));
+        await repo.add(makeSummary(id: 's5', date: '2026-03-19'));
+
+        final streak = await repo.getStreak(asOf: DateTime(2026, 3, 19, 12));
+        expect(streak.currentStreak, 2); // 18-19
+        expect(streak.longestStreak, 3); // 14-16
+        expect(streak.lastCompletedDate, '2026-03-19');
+      },
+    );
+
+    test(
+      'getStreak keeps streak if yesterday is completed and today is not yet',
+      () async {
+        await repo.add(makeSummary(id: 's1', date: '2026-03-18'));
+        await repo.add(makeSummary(id: 's2', date: '2026-03-19'));
+
+        final streak = await repo.getStreak(asOf: DateTime(2026, 3, 20, 8));
+        expect(streak.currentStreak, 2);
+        expect(streak.longestStreak, 2);
+        expect(streak.lastCompletedDate, '2026-03-19');
+      },
+    );
+
+    test('getStreak resets current streak after a missed day', () async {
+      await repo.add(makeSummary(id: 's1', date: '2026-03-18'));
+      await repo.add(makeSummary(id: 's2', date: '2026-03-19'));
+
+      final streak = await repo.getStreak(asOf: DateTime(2026, 3, 21, 8));
+      expect(streak.currentStreak, 0);
+      expect(streak.longestStreak, 2);
+      expect(streak.lastCompletedDate, '2026-03-19');
+    });
+
+    test('getStreak ignores session rows with zero reviews', () async {
+      await repo.add(makeSummary(id: 's1', date: '2026-03-18'));
+      await repo.add(makeSummary(id: 's2', date: '2026-03-19'));
+      await repo.add(
+        makeSummary(
+          id: 's3',
+          date: '2026-03-20',
+          againCount: 0,
+          hardCount: 0,
+          goodCount: 0,
+          easyCount: 0,
+        ),
+      );
+
+      final streak = await repo.getStreak(asOf: DateTime(2026, 3, 20, 12));
+      expect(streak.currentStreak, 2); // 18-19 only
+      expect(streak.longestStreak, 2);
+      expect(streak.lastCompletedDate, '2026-03-19');
+    });
+
+    test('getStreak treats multiple sessions in one day as one streak day', () async {
+      await repo.add(makeSummary(id: 's1', date: '2026-03-18'));
+      await repo.add(makeSummary(id: 's2', date: '2026-03-18'));
+      await repo.add(makeSummary(id: 's3', date: '2026-03-19'));
+      await repo.add(makeSummary(id: 's4', date: '2026-03-19'));
+
+      final streak = await repo.getStreak(asOf: DateTime(2026, 3, 19, 18));
+      expect(streak.currentStreak, 2);
+      expect(streak.longestStreak, 2);
+      expect(streak.lastCompletedDate, '2026-03-19');
+    });
+  });
+
   group('sync status', () {
     test('add sets syncStatus to pending', () async {
       await repo.add(makeSummary(id: 's1'));
