@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +14,7 @@ import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
+import 'package:lapse/features/notifications/presentation/providers/notification_providers.dart';
 
 class DeckFormScreen extends ConsumerStatefulWidget {
   final Deck? deck;
@@ -98,6 +101,7 @@ class _DeckFormScreenState extends ConsumerState<DeckFormScreen> {
     await _repo.delete(widget.deck!.deckId);
     ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
     if (mounted) context.go(Routes.home);
   }
 

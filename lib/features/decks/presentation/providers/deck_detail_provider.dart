@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapse/core/sync/sync_service.dart';
 import 'package:lapse/features/cards/data/card_repository_provider.dart';
@@ -5,6 +7,7 @@ import 'package:lapse/features/decks/data/deck_repository_provider.dart';
 import 'package:lapse/features/decks/domain/deck.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_detail_state.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
+import 'package:lapse/features/notifications/presentation/providers/notification_providers.dart';
 
 const int _cardPageSize = 50;
 
@@ -95,6 +98,7 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
     await ref.read(deckRepositoryProvider).delete(childDeckId);
     ref.invalidateSelf();
     ref.invalidate(deckListProvider);
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
   }
 
   Future<void> moveChildDeck(String childDeckId, String? newParentId) async {
@@ -127,6 +131,7 @@ class DeckDetailNotifier extends AsyncNotifier<DeckDetailState> {
   Future<void> deleteCard(String cardId) async {
     await ref.read(cardRepositoryProvider).delete(cardId);
     ref.invalidate(deckListProvider);
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
 
     final current = state.asData?.value;
     if (current == null) return;

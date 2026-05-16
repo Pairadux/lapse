@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -14,6 +16,7 @@ import 'package:lapse/features/cards/data/card_repository_provider.dart';
 import 'package:lapse/features/cards/domain/flashcard.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_detail_provider.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
+import 'package:lapse/features/notifications/presentation/providers/notification_providers.dart';
 
 class _SaveIntent extends Intent {
   const _SaveIntent();
@@ -135,6 +138,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       ref.invalidate(deckDetailProvider(widget.deckId));
       ref.invalidate(deckListProvider);
       ref.read(syncServiceProvider.notifier).schedulePush();
+      unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
       if (mounted) {
         final label = widget.isEditing
             ? 'Card updated'
@@ -165,6 +169,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
       ref.invalidate(deckDetailProvider(widget.deckId));
       ref.invalidate(deckListProvider);
       ref.read(syncServiceProvider.notifier).schedulePush();
+      unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
 
       if (mounted) {
         setState(() {
@@ -196,6 +201,7 @@ class _CardFormScreenState extends ConsumerState<CardFormScreen> {
     ref.invalidate(deckDetailProvider(widget.deckId));
     ref.invalidate(deckListProvider);
     ref.read(syncServiceProvider.notifier).schedulePush();
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
     if (mounted) context.pop();
   }
 

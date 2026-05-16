@@ -15,6 +15,7 @@ import '../../features/cards/presentation/providers/card_browser_provider.dart';
 import '../../features/cards/presentation/providers/card_list_provider.dart';
 import '../../features/decks/presentation/providers/deck_detail_provider.dart';
 import '../../features/decks/presentation/providers/deck_list_provider.dart';
+import '../../features/notifications/presentation/providers/notification_providers.dart';
 
 /// Sync orchestrator state exposed to the UI.
 class SyncState {
@@ -277,6 +278,9 @@ class SyncServiceNotifier extends Notifier<SyncState> {
 
       final pushResult = await _pushService.pushWithDetail();
       final pullResult = await _pullService.pullWithDetail();
+      if (pullResult.ok) {
+        unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
+      }
 
       final ok = pushResult.ok && pullResult.ok;
       final parts = <String>[

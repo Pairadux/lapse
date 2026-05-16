@@ -889,7 +889,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
               onPressed: () async {
                 await _flushPendingWrite();
                 _invalidateDeckProviders();
-                unawaited(ref.read(dueReminderSchedulerProvider).rescheduleAll());
+                unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
                 if (mounted) context.pop();
               },
               child: const Text('Done'),
@@ -951,7 +951,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     if (shouldExit == true && context.mounted) {
       await _flushPendingWrite();
       _invalidateDeckProviders();
-      unawaited(ref.read(dueReminderSchedulerProvider).rescheduleAll());
+      unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
       if (context.mounted) context.pop();
     }
   }

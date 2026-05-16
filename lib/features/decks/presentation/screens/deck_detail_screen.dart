@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +21,7 @@ import 'package:lapse/features/decks/presentation/providers/deck_detail_provider
 import 'package:lapse/features/decks/presentation/providers/deck_detail_state.dart';
 import 'package:lapse/features/decks/presentation/providers/deck_list_provider.dart';
 import 'package:lapse/features/decks/presentation/widgets/deck_card.dart';
+import 'package:lapse/features/notifications/presentation/providers/notification_providers.dart';
 
 class DeckDetailScreen extends ConsumerStatefulWidget {
   final String deckId;
@@ -163,6 +166,7 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     if (!confirmed || !mounted) return;
     await ref.read(deckRepositoryProvider).delete(widget.deckId);
     ref.invalidate(deckListProvider);
+    unawaited(ref.read(dueReminderSchedulerProvider).syncSchedule());
     if (!mounted) return;
     if (detail.ancestors.isNotEmpty) {
       _navigateWithAncestorStack(
