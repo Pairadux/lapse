@@ -280,4 +280,185 @@ void main() {
       await repository.markSynced([]);
     });
   });
+
+  group('Review pruning (10K cap per user)', () {
+    test('pruneOldReviews removes nothing when under 10K', () async {
+      final userId = 'test_user_1';
+
+      // Add 100 reviews
+      for (int i = 0; i < 100; i++) {
+        final review = Review(
+          reviewId: 'r_$i',
+          cardId: 'card_$i',
+          reviewedAt: DateTime.now().subtract(Duration(hours: 100 - i)),
+          rating: Rating.good,
+          scheduledDays: 1,
+          elapsedDays: 0,
+          state: CardState.review,
+          userId: userId,
+        );
+        await repository.addReview(review);
+      }
+
+      final deleted = await repository.pruneOldReviews(userId);
+
+      expect(deleted, 0);
+      final db = await dbHelper.database;
+      final countResult = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM ${DatabaseConstants.tableReviews} WHERE ${DatabaseConstants.colUserId} = ?',
+        [userId],
+      );
+      final count = (countResult.first['count'] as int?) ?? 0;
+      expect(count, 100);
+    });
+
+    test('pruneOldReviews caps at 10K when exceeding', () async {
+      const maxReviews = 10000;
+      final userId = 'test_user_2';
+
+      // Add 10,100 reviews using batch inserts for speed (100 beyond the cap)
+      final db = await dbHelper.database;
+      await db.transaction((txn) async {
+        final batch = txn.batch();
+        for (int i = 0; i < 10100; i++) {
+          final review = Review(
+            reviewId: 'r_$i',
+            cardId: 'card_${i % 1000}',
+            reviewedAt: DateTime.now().subtract(Duration(seconds: 10100 - i)),
+            rating: Rating.good,
+            scheduledDays: 1,
+            elapsedDays: 0,
+            state: CardState.review,
+            userId: userId,
+          );
+          batch.insert(DatabaseConstants.tableReviews, review.toMap());
+        }
+        await batch.commit();
+      });
+
+      final deleted = await repository.pruneOldReviews(userId);
+
+      expect(deleted, 100);
+      final countResult = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM ${DatabaseConstants.tableReviews} WHERE ${DatabaseConstants.colUserId} = ?',
+        [userId],
+      );
+      final count = (countResult.first['count'] as int?) ?? 0;
+      expect(count, maxReviews);
+    });
+
+    test('pruneOldReviews keeps newest reviews and deletes oldest', () async {
+      final userId = 'test_user_3';
+      const maxReviews = 10000;
+
+      // Add 10,005 reviews using batch inserts for speed
+      final db = await dbHelper.database;
+      await db.transaction((txn) async {
+        final batch = txn.batch();
+        for (int i = 0; i < 10005; i++) {
+          final review = Review(
+            reviewId: 'r_$i',
+            cardId: 'card_${i % 500}',
+            reviewedAt: DateTime(2026, 1, 1).add(Duration(seconds: i)),
+            rating: Rating.good,
+            scheduledDays: 1,
+            elapsedDays: 0,
+            state: CardState.review,
+            userId: userId,
+          );
+          batch.insert(DatabaseConstants.tableReviews, review.toMap());
+        }
+        await batch.commit();
+      });
+
+      final deleted = await repository.pruneOldReviews(userId);
+
+      expect(deleted, 5);
+
+      // Get all remaining reviews ordered by reviewedAt
+      final remaining = await db.query(
+        DatabaseConstants.tableReviews,
+        where: '${DatabaseConstants.colUserId} = ?',
+        whereArgs: [userId],
+        orderBy: '${DatabaseConstants.colReviewedAt} ASC',
+      );
+
+      expect(remaining.length, maxReviews);
+      // First review should be the 5th one (indices 0-4 deleted)
+      expect(remaining.first[DatabaseConstants.colReviewId], 'r_5');
+      // Last review should be the most recent one
+      expect(remaining.last[DatabaseConstants.colReviewId], 'r_10004');
+    });
+
+    test('pruneOldReviews only affects specified user', () async {
+      const maxReviews = 10000;
+      final user1 = 'user_1';
+      final user2 = 'user_2';
+
+      // Add 10,050 reviews for user_1 using batch inserts
+      final db = await dbHelper.database;
+      await db.transaction((txn) async {
+        final batch = txn.batch();
+        for (int i = 0; i < 10050; i++) {
+          final review = Review(
+            reviewId: 'u1_r_$i',
+            cardId: 'card_${i % 500}',
+            reviewedAt: DateTime(2026, 1, 1).add(Duration(seconds: i)),
+            rating: Rating.good,
+            scheduledDays: 1,
+            elapsedDays: 0,
+            state: CardState.review,
+            userId: user1,
+          );
+          batch.insert(DatabaseConstants.tableReviews, review.toMap());
+        }
+
+        // Add 500 reviews for user_2
+        for (int i = 0; i < 500; i++) {
+          final review = Review(
+            reviewId: 'u2_r_$i',
+            cardId: 'card_${i % 100}',
+            reviewedAt: DateTime(2026, 1, 1).add(Duration(seconds: i)),
+            rating: Rating.hard,
+            scheduledDays: 1,
+            elapsedDays: 0,
+            state: CardState.review,
+            userId: user2,
+          );
+          batch.insert(DatabaseConstants.tableReviews, review.toMap());
+        }
+        await batch.commit();
+      });
+
+      // Prune user_1
+      final deleted = await repository.pruneOldReviews(user1);
+
+      expect(deleted, 50);
+
+      final user1CountResult = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM ${DatabaseConstants.tableReviews} WHERE ${DatabaseConstants.colUserId} = ?',
+        [user1],
+      );
+      final user1Count = (user1CountResult.first['count'] as int?) ?? 0;
+
+      final user2CountResult = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM ${DatabaseConstants.tableReviews} WHERE ${DatabaseConstants.colUserId} = ?',
+        [user2],
+      );
+      final user2Count = (user2CountResult.first['count'] as int?) ?? 0;
+
+      expect(user1Count, maxReviews);
+      expect(user2Count, 500); // User 2 unaffected
+    });
+
+    test('pruneOldReviews on user with no reviews returns 0', () async {
+      final deleted = await repository.pruneOldReviews('nonexistent_user');
+      expect(deleted, 0);
+    });
+
+    test('pruneOldReviews with empty userId is safe', () async {
+      final deleted = await repository.pruneOldReviews('');
+      expect(deleted, 0);
+    });
+  });
 }
