@@ -68,12 +68,10 @@ class _FlipCardState extends State<FlipCard>
     final useVerticalFlip = size.width > size.height;
 
     return GestureDetector(
-      onTap: widget.isFlipped
-          ? null
-          : () {
-              HapticFeedback.lightImpact();
-              widget.onFlip();
-            },
+      onTap: () {
+        HapticFeedback.lightImpact();
+        widget.onFlip();
+      },
       child: AnimatedBuilder(
         animation: _animation,
         builder: (context, child) {

@@ -132,6 +132,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
 
   int _currentIndex = 0;
   bool _showingAnswer = false;
+  bool _hasSeenAnswer = false; // Tracks if answer has been revealed at least once
   final Map<Rating, int> _ratingCounts = {
     Rating.again: 0,
     Rating.hard: 0,
@@ -233,7 +234,10 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
 
   void _flipCard() {
     setState(() {
-      _showingAnswer = true;
+      _showingAnswer = !_showingAnswer;
+      if (_showingAnswer) {
+        _hasSeenAnswer = true;
+      }
     });
   }
 
@@ -278,6 +282,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
       }
       if (_reviewLog.isNotEmpty) _reviewLog.removeLast();
       _showingAnswer = false;
+      _hasSeenAnswer = false;
       _dismissOffset = 0;
       _swipeProgress = 0;
     });
@@ -330,6 +335,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         );
         _currentIndex++;
         _showingAnswer = false;
+        _hasSeenAnswer = false;
       });
     } catch (e) {
       if (mounted) {
@@ -664,12 +670,14 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
   KeyEventResult _handleKeyPress(KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-    if (!_showingAnswer) {
-      if (event.logicalKey == LogicalKeyboardKey.space) {
-        _flipCard();
-        return KeyEventResult.handled;
-      }
-    } else {
+    // Space always toggles flip
+    if (event.logicalKey == LogicalKeyboardKey.space) {
+      _flipCard();
+      return KeyEventResult.handled;
+    }
+
+    // Rating shortcuts work after answer has been revealed at least once
+    if (_hasSeenAnswer) {
       if (event.logicalKey == LogicalKeyboardKey.digit1) {
         _dismissAndRate(Rating.again);
         return KeyEventResult.handled;
@@ -684,6 +692,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
         return KeyEventResult.handled;
       }
     }
+
     return KeyEventResult.ignored;
   }
 
@@ -765,7 +774,7 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
     if (!isDesktop) {
       flipCard = SwipeableCard(
         key: ValueKey('swipe_$_currentIndex'),
-        enabled: _showingAnswer,
+        enabled: _hasSeenAnswer,
         onRate: _rateCard,
         onDismissProgress: (progress) {
           if (progress != _swipeProgress) {
@@ -822,12 +831,12 @@ class _StudySessionScreenState extends ConsumerState<StudySessionScreen>
 
   Widget _buildRatingButtons() {
     // Fade from full → dimmed as dismiss animation plays.
-    final baseOpacity = _showingAnswer ? 1.0 : 0.3;
+    final baseOpacity = _hasSeenAnswer ? 1.0 : 0.3;
     final opacity = baseOpacity - (_dismissOffset * (baseOpacity - 0.3));
     return Opacity(
       opacity: opacity,
       child: IgnorePointer(
-        ignoring: !_showingAnswer || _dismissOffset > 0,
+        ignoring: !_hasSeenAnswer || _dismissOffset > 0,
         child: Row(
           children: [
             _RatingButton(

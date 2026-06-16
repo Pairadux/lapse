@@ -152,3 +152,31 @@ Input Summary: Provided audit results identifying 5 test gaps. Requested impleme
 Output Summary: Delivered 900+ line SYNC_TEST_IMPLEMENTATION_GUIDE.md with 9 implementation phases, importcorrections, and verified helper functions. Fixed 5 critical bugs: enum serialization (strings vs integers), repository method names (create → add/addReview), missing getById() methods (replaced with database queries), immutability warnings (final fields), and database schema mismatches (removed non-existent columns). All 40 sync tests now passing (36 existing + 4 Gap gaps).
 Modifications: Added test groups for paginated push (5 tests), card pull (4), review pull (4), session summary pull (3), paginated pull (3). Created insertDeck() and insertCard() helpers for foreign key constraints. Fixed enum helpers (remoteCardRow, remoteReviewRow, remoteSessionRow) to use correct integer/string formats. Removed debug print statements after validation. Updated implementation guide with all corrections.
 Files Referenced: test/core/sync/sync_push_service_test.dart, test/core/sync/sync_pull_service_test.dart
+
+
+Date: 2026-04-18
+User: Darius Anderson
+Purpose: Implement review data rework — cap reviews at 10K per user and record session summaries (#133)
+Approach: Explored existing repository patterns and session screen structure, then requested implementation for 10K review pruning and session summary integration.
+Input Summary: The review_session_summary table was already implemented (v5 migration). Needed client-side 10K review cap enforcement by pruning oldest reviews after each study session, plus integration with StudySessionScreen to record summaries on completion.
+Output Summary: Received implementation plan for pruneOldReviews(userId) method for ReviewRepository that deletes oldest reviews exceeding 10K threshold, _finalizeSession() method for StudySessionScreen that creates/saves session summaries and triggers pruning, and comprehensive unit tests covering normal/edge cases.
+Modifications: Added pruneOldReviews() to ReviewRepository with transaction-safe deletion logic, added card state tracking (_newCount, _learningCount, _reviewCount) to StudySessionScreen, integrated _finalizeSession() on session completion (both normal exit and early termination), created 6 test cases for pruning logic (all passing).
+Files Referenced: review_repository.dart, study_session_screen.dart, review_session_summary_repository.dart, review_repository_test.dart
+
+Date: 2026-04-18
+User: Darius Anderson
+Purpose: Allow bidirectional card flipping and rating from either face (#128)
+Approach: Described the issue requirements and asked for implementation of tap-to-toggle, always-enabled swipe-to-rate, and keyboard shortcuts that work from both faces.
+Input Summary: Provided issue description showing current behavior (card locked to back after flip) and desired behavior (freely flippable and ratable from either face).
+Output Summary: Received implementation plan for changes to FlipCard (remove tap prevention), _flipCard() (toggle instead of set true), SwipeableCard (always enabled), keyboard handling (rate from either face), and rating buttons (always visible).
+Modifications: Updated FlipCard to accept taps when flipped, changed _flipCard() to toggle state, enabled SwipeableCard always on mobile, allowed rating shortcuts from either face, made buttons visible on desktop from both faces.
+Files Referenced: lib/features/study/presentation/widgets/flip_card.dart, lib/features/study/presentation/screens/study_session_screen.dart
+
+Date: 2026-04-22
+User: Darius Anderson
+Purpose: Refine bidirectional rating to require first flip before rating (#128)
+Approach: Tested initial implementation and identified that rating was allowed before revealing the answer. Requested refinement to allow rating only after answer has been seen at least once, but from either face thereafter.
+Input Summary: Provided test feedback showing rating worked before flip, which violated desired behavior of requiring first flip to reveal answer before rating.
+Output Summary: Received refined solution: add _hasSeenAnswer boolean flag (distinct from _showingAnswer) that tracks if answer has been revealed at least once, use this flag to guard all rating inputs and swipe-to-rate, reset flag on next card.
+Modifications: Added _hasSeenAnswer state variable initialized to false, set to true when _flipCard() reveals answer, reset to false when advancing to next card and when undoing, updated SwipeableCard.enabled, keyboard rating shortcuts, and rating buttons opacity/IgnorePointer conditions to use _hasSeenAnswer instead of _showingAnswer.
+Files Referenced: lib/features/study/presentation/screens/study_session_screen.dart
