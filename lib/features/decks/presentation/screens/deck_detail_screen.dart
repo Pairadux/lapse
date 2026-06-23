@@ -40,10 +40,16 @@ class DeckDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<DeckDetailScreen> createState() => _DeckDetailScreenState();
 }
 
+enum _SelectionKind { deck, card }
+
 class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     with RouteAware {
   final ScrollController _breadcrumbScrollController = ScrollController();
   final ScrollController _cardsScrollController = ScrollController();
+  bool _selectionMode = false;
+  _SelectionKind? _selectionKind;
+  final Set<String> _selectedDeckIds = <String>{};
+  final Set<String> _selectedCardIds = <String>{};
 
   @override
   void initState() {
@@ -90,6 +96,235 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     }
 
     ref.read(deckDetailProvider(widget.deckId).notifier).loadMoreCards();
+  }
+
+  bool get _isDeckSelection =>
+      _selectionMode && _selectionKind == _SelectionKind.deck;
+  bool get _isCardSelection =>
+      _selectionMode && _selectionKind == _SelectionKind.card;
+
+  int get _selectedCount => _isDeckSelection
+      ? _selectedDeckIds.length
+      : _isCardSelection
+      ? _selectedCardIds.length
+      : 0;
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectionKind = null;
+      _selectedDeckIds.clear();
+      _selectedCardIds.clear();
+    });
+  }
+
+  void _enterDeckSelection(String deckId) {
+    setState(() {
+      _selectionMode = true;
+      _selectionKind = _SelectionKind.deck;
+      _selectedCardIds.clear();
+      _selectedDeckIds
+        ..clear()
+        ..add(deckId);
+    });
+  }
+
+  void _enterCardSelection(String cardId) {
+    setState(() {
+      _selectionMode = true;
+      _selectionKind = _SelectionKind.card;
+      _selectedDeckIds.clear();
+      _selectedCardIds
+        ..clear()
+        ..add(cardId);
+    });
+  }
+
+  void _toggleDeckSelection(String deckId) {
+    if (!_isDeckSelection) return;
+    setState(() {
+      if (_selectedDeckIds.contains(deckId)) {
+        _selectedDeckIds.remove(deckId);
+      } else {
+        _selectedDeckIds.add(deckId);
+      }
+      if (_selectedDeckIds.isEmpty) {
+        _selectionMode = false;
+        _selectionKind = null;
+      }
+    });
+  }
+
+  void _toggleCardSelection(String cardId) {
+    if (!_isCardSelection) return;
+    setState(() {
+      if (_selectedCardIds.contains(cardId)) {
+        _selectedCardIds.remove(cardId);
+      } else {
+        _selectedCardIds.add(cardId);
+      }
+      if (_selectedCardIds.isEmpty) {
+        _selectionMode = false;
+        _selectionKind = null;
+      }
+    });
+  }
+
+  void _selectAll(DeckDetailState detail) {
+    if (_isDeckSelection) {
+      setState(() {
+        _selectedDeckIds
+          ..clear()
+          ..addAll(detail.children.map((c) => c.deck.deckId));
+      });
+      return;
+    }
+    if (_isCardSelection) {
+      setState(() {
+        _selectedCardIds
+          ..clear()
+          ..addAll(detail.cards.map((c) => c.cardId));
+      });
+    }
+  }
+
+  Future<void> _bulkDelete() async {
+    if (_selectedCount == 0) return;
+    final isDeck = _isDeckSelection;
+    final selectedDeckIds = _selectedDeckIds.toList(growable: false);
+    final selectedCardIds = _selectedCardIds.toList(growable: false);
+    final noun = isDeck ? 'deck' : 'card';
+    final confirmed = await ConfirmDialog.show(
+      context: context,
+      title: 'Delete selected $noun${_selectedCount == 1 ? '' : 's'}?',
+      message: 'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      isDestructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    try {
+      final notifier = ref.read(deckDetailProvider(widget.deckId).notifier);
+      if (isDeck) {
+        await notifier.deleteChildDecks(selectedDeckIds);
+      } else {
+        await notifier.deleteCards(selectedCardIds);
+      }
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        'Deleted $_selectedCount $noun${_selectedCount == 1 ? '' : 's'}',
+      );
+      _exitSelectionMode();
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.show(context, 'Delete failed: $e');
+    }
+  }
+
+  Future<void> _bulkMove(DeckDetailState detail) async {
+    if (_selectedCount == 0) return;
+
+    final deckRepo = ref.read(deckRepositoryProvider);
+    final allDecks = await deckRepo.getAll();
+    if (!mounted) return;
+
+    try {
+      if (_isDeckSelection) {
+        final selectedDeckIds = _selectedDeckIds.toList(growable: false);
+        final selectedDecks = detail.children
+            .where((c) => _selectedDeckIds.contains(c.deck.deckId))
+            .map((c) => c.deck)
+            .toList(growable: false);
+        if (selectedDeckIds.isEmpty || selectedDecks.isEmpty) return;
+
+        final excludeIds = <String>{...selectedDeckIds};
+        for (final id in selectedDeckIds) {
+          final descendants = await deckRepo.getDescendantIds(id);
+          excludeIds.addAll(descendants);
+        }
+
+        if (!mounted) return;
+        final targetId = await DeckPickerDialog.show(
+          context: context,
+          decks: allDecks,
+          excludeIds: excludeIds,
+          currentParentId: null,
+          title: 'Move to',
+          confirmLabel: 'Move',
+          allowReselect: true,
+        );
+        if (targetId == null || !mounted) return;
+        final newParentId = targetId.isEmpty ? null : targetId;
+
+        final selectedNames = selectedDecks
+            .map((d) => d.deckName.trim().toLowerCase())
+            .toList();
+        if (selectedNames.toSet().length != selectedNames.length) {
+          AppSnackBar.show(
+            context,
+            'Cannot move decks with duplicate names to the same location',
+          );
+          return;
+        }
+
+        for (final deck in selectedDecks) {
+          final conflict = await deckRepo.nameExistsAtLevel(
+            name: deck.deckName,
+            parentId: newParentId,
+            excludeDeckId: deck.deckId,
+          );
+          if (conflict) {
+            if (!mounted) return;
+            AppSnackBar.show(
+              context,
+              'A deck named "${deck.deckName}" already exists there',
+            );
+            return;
+          }
+        }
+
+        await ref
+            .read(deckDetailProvider(widget.deckId).notifier)
+            .moveChildDecks(selectedDeckIds, newParentId);
+        if (!mounted) return;
+        AppSnackBar.show(
+          context,
+          'Moved ${selectedDeckIds.length} deck${selectedDeckIds.length == 1 ? '' : 's'}',
+        );
+        _exitSelectionMode();
+        return;
+      }
+
+      if (_isCardSelection) {
+        final selectedCardIds = _selectedCardIds.toList(growable: false);
+        if (selectedCardIds.isEmpty) return;
+        final targetId = await DeckPickerDialog.show(
+          context: context,
+          decks: allDecks,
+          excludeIds: const <String>{},
+          currentParentId: widget.deckId,
+          showRoot: false,
+          title: 'Move to',
+          confirmLabel: 'Move',
+        );
+        if (targetId == null || !mounted) return;
+        if (targetId == widget.deckId) return;
+
+        await ref
+            .read(deckDetailProvider(widget.deckId).notifier)
+            .moveCards(selectedCardIds, targetId);
+        if (!mounted) return;
+        AppSnackBar.show(
+          context,
+          'Moved ${selectedCardIds.length} card${selectedCardIds.length == 1 ? '' : 's'}',
+        );
+        _exitSelectionMode();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.show(context, 'Move failed: $e');
+    }
   }
 
   // ── Navigation helpers ──────────────────────────────────────────
@@ -347,38 +582,56 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
   }) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(deckName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: deck == null
-                ? null
-                : () => context.push(
-                    Routes.deckEditPath(widget.deckId),
-                    extra: deck,
-                  ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: detail == null ? null : () => _deleteDeck(detail),
-          ),
-        ],
+        leading: _selectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _exitSelectionMode,
+              )
+            : null,
+        title: Text(
+          _selectionMode ? '$_selectedCount selected' : deckName,
+        ),
+        actions: _selectionMode
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: deck == null
+                      ? null
+                      : () => context.push(
+                          Routes.deckEditPath(widget.deckId),
+                          extra: deck,
+                        ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: detail == null ? null : () => _deleteDeck(detail),
+                ),
+              ],
       ),
       body: body,
-      floatingActionButton: SpeedDialFab(
-        actions: [
-          SpeedDialAction(
-            icon: Icons.style_outlined,
-            label: 'New Card',
-            onPressed: () => context.push(Routes.cardNewPath(widget.deckId)),
-          ),
-          SpeedDialAction(
-            icon: Icons.folder_outlined,
-            label: 'New Deck',
-            onPressed: () => context.push(Routes.deckNew, extra: widget.deckId),
-          ),
-        ],
-      ),
+      floatingActionButton: _selectionMode
+          ? null
+          : SpeedDialFab(
+              actions: [
+                SpeedDialAction(
+                  icon: Icons.style_outlined,
+                  label: 'New Card',
+                  onPressed: () => context.push(Routes.cardNewPath(widget.deckId)),
+                ),
+                SpeedDialAction(
+                  icon: Icons.folder_outlined,
+                  label: 'New Deck',
+                  onPressed: () => context.push(
+                    Routes.deckNew,
+                    extra: widget.deckId,
+                  ),
+                ),
+              ],
+            ),
+      bottomNavigationBar: _selectionMode && detail != null
+          ? _buildSelectionBar(detail)
+          : null,
     );
   }
 
@@ -443,25 +696,48 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
                 final child = detail.children[index];
+                final isSelected = _selectedDeckIds.contains(child.deck.deckId);
+                Widget deckTile = DeckCard(
+                  deck: child.deck,
+                  cardCount: child.cardCount,
+                  dueCount: child.dueCount,
+                  showSelectionCheckbox: _isDeckSelection,
+                  selected: isSelected,
+                  showTrailingChevron: !_isDeckSelection,
+                  onTap: () {
+                    if (_isDeckSelection) {
+                      _toggleDeckSelection(child.deck.deckId);
+                      return;
+                    }
+                    if (_selectionMode) return;
+                    context.push(
+                      Routes.deckPath(child.deck.deckId),
+                      extra: {
+                        'deck': child.deck,
+                        'ancestors': [...detail.ancestors, detail.deck],
+                        'cardCount': child.cardCount,
+                        'dueCount': child.dueCount,
+                      },
+                    );
+                  },
+                  onLongPress: (!_selectionMode || _isDeckSelection)
+                      ? () {
+                          if (_isDeckSelection) {
+                            _toggleDeckSelection(child.deck.deckId);
+                          } else {
+                            _enterDeckSelection(child.deck.deckId);
+                          }
+                        }
+                      : null,
+                );
+
+                if (_selectionMode) return deckTile;
+
                 return ContextMenuRegion(
+                  enableLongPress: false,
                   onAction: (action) =>
                       _handleDeckContextAction(child.deck, action),
-                  child: DeckCard(
-                    deck: child.deck,
-                    cardCount: child.cardCount,
-                    dueCount: child.dueCount,
-                    onTap: () {
-                      context.push(
-                        Routes.deckPath(child.deck.deckId),
-                        extra: {
-                          'deck': child.deck,
-                          'ancestors': [...detail.ancestors, detail.deck],
-                          'cardCount': child.cardCount,
-                          'dueCount': child.dueCount,
-                        },
-                      );
-                    },
-                  ),
+                  child: deckTile,
                 );
               }, childCount: detail.children.length),
             ),
@@ -629,57 +905,125 @@ class _DeckDetailScreenState extends ConsumerState<DeckDetailScreen>
     );
   }
 
+  Widget _buildSelectionBar(DeckDetailState detail) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.sm,
+        ),
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceElevated,
+          border: Border(top: BorderSide(color: AppColors.outline)),
+        ),
+        child: Row(
+          children: [
+            TextButton.icon(
+              onPressed: _selectedCount == 0 ? null : () => _bulkMove(detail),
+              icon: const Icon(Icons.folder_open_outlined),
+              label: const Text('Move'),
+            ),
+            const SizedBox(width: Spacing.sm),
+            TextButton.icon(
+              onPressed: _selectedCount == 0 ? null : _bulkDelete,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Delete'),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: () => _selectAll(detail),
+              child: const Text('Select All'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCardItem(Flashcard card) {
-    return ContextMenuRegion(
-      onAction: (action) => _handleCardContextAction(card, action),
-      child: InkWell(
-        onTap: () => context.push(
+    final isSelected = _selectedCardIds.contains(card.cardId);
+    final canToggleCardSelection = !_selectionMode || _isCardSelection;
+
+    final row = InkWell(
+      onTap: () {
+        if (_isCardSelection) {
+          _toggleCardSelection(card.cardId);
+          return;
+        }
+        if (_selectionMode) return;
+        context.push(
           Routes.cardPath(widget.deckId, card.cardId),
           extra: card,
+        );
+      },
+      onLongPress: canToggleCardSelection
+          ? () {
+              if (_isCardSelection) {
+                _toggleCardSelection(card.cardId);
+              } else {
+                _enterCardSelection(card.cardId);
+              }
+            }
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.lg,
+          vertical: Spacing.md,
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.lg,
-            vertical: Spacing.md,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: card.front,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      TextSpan(
-                        text: '  →  ',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textTertiary,
-                        ),
-                      ),
-                      TextSpan(
-                        text: card.back,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        child: Row(
+          children: [
+            if (_isCardSelection)
+              IgnorePointer(
+                child: Checkbox(
+                  value: isSelected,
+                  onChanged: (_) {},
                 ),
               ),
-              const SizedBox(width: Spacing.sm),
+            if (_isCardSelection) const SizedBox(width: Spacing.xs),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: card.front,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    TextSpan(
+                      text: '  →  ',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                    TextSpan(
+                      text: card.back,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (!_isCardSelection) const SizedBox(width: Spacing.sm),
+            if (!_isCardSelection)
               const Icon(
                 Icons.chevron_right,
                 size: 20,
                 color: AppColors.textTertiary,
               ),
-            ],
-          ),
+          ],
         ),
       ),
+    );
+
+    if (_selectionMode) return row;
+    return ContextMenuRegion(
+      enableLongPress: false,
+      onAction: (action) => _handleCardContextAction(card, action),
+      child: row,
     );
   }
 }

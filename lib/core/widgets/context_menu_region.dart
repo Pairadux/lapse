@@ -47,12 +47,14 @@ class ContextMenuRegion extends StatelessWidget {
   final Widget child;
   final ValueChanged<ContextMenuAction> onAction;
   final List<PopupMenuEntry<ContextMenuAction>>? menuItems;
+  final bool enableLongPress;
 
   const ContextMenuRegion({
     super.key,
     required this.onAction,
     required this.child,
     this.menuItems,
+    this.enableLongPress = true,
   });
 
   Future<void> _show(BuildContext context, {Offset? globalPosition}) async {
@@ -81,10 +83,12 @@ class ContextMenuRegion extends StatelessWidget {
     return GestureDetector(
       onSecondaryTapDown: (details) =>
           _show(context, globalPosition: details.globalPosition),
-      onLongPressStart: (details) {
-        HapticFeedback.heavyImpact();
-        _show(context, globalPosition: details.globalPosition);
-      },
+      onLongPressStart: enableLongPress
+          ? (details) {
+              HapticFeedback.heavyImpact();
+              _show(context, globalPosition: details.globalPosition);
+            }
+          : null,
       child: child,
     );
   }

@@ -107,6 +107,36 @@ void main() {
     expect(fetched, isNull);
   });
 
+  test('moveDecks moves multiple decks to new parent', () async {
+    await repo.create(makeDeck(id: 'root-a', name: 'Root A'));
+    await repo.create(makeDeck(id: 'root-b', name: 'Root B'));
+    await repo.create(makeDeck(id: 'd1', parentId: 'root-a', name: 'Deck 1'));
+    await repo.create(makeDeck(id: 'd2', parentId: 'root-a', name: 'Deck 2'));
+
+    await repo.moveDecks(['d1', 'd2'], 'root-b');
+
+    final d1 = await repo.getById('d1');
+    final d2 = await repo.getById('d2');
+    expect(d1, isNotNull);
+    expect(d2, isNotNull);
+    expect(d1!.parentId, 'root-b');
+    expect(d2!.parentId, 'root-b');
+    expect(d1.syncStatus, SyncStatus.pending);
+    expect(d2.syncStatus, SyncStatus.pending);
+  });
+
+  test('moveDecks supports moving decks to root level', () async {
+    await repo.create(makeDeck(id: 'parent', name: 'Parent'));
+    await repo.create(makeDeck(id: 'child', parentId: 'parent', name: 'Child'));
+
+    await repo.moveDecks(['child'], null);
+
+    final moved = await repo.getById('child');
+    expect(moved, isNotNull);
+    expect(moved!.parentId, isNull);
+    expect(moved.syncStatus, SyncStatus.pending);
+  });
+
   group('sync status', () {
     test('create sets syncStatus to pending', () async {
       final deck = makeDeck();
@@ -339,6 +369,28 @@ void main() {
       final remaining = await repo.getChildren('parent');
       expect(remaining, hasLength(1));
       expect(remaining.first.deckId, 'child-b');
+    });
+
+    test('bulkDelete removes multiple deck subtrees in one call', () async {
+      await repo.create(makeDeck(id: 'root-a'));
+      await repo.create(makeDeck(id: 'a-child', parentId: 'root-a'));
+      await repo.create(makeDeck(id: 'root-b'));
+      await repo.create(makeDeck(id: 'b-child', parentId: 'root-b'));
+      await repo.create(makeDeck(id: 'keep'));
+
+      await repo.bulkDelete(['root-a', 'root-b']);
+
+      expect(await repo.getById('root-a'), isNull);
+      expect(await repo.getById('a-child'), isNull);
+      expect(await repo.getById('root-b'), isNull);
+      expect(await repo.getById('b-child'), isNull);
+      expect(await repo.getById('keep'), isNotNull);
+    });
+
+    test('bulkDelete with empty list is a no-op', () async {
+      await repo.create(makeDeck(id: 'keep'));
+      await repo.bulkDelete(const <String>[]);
+      expect(await repo.getById('keep'), isNotNull);
     });
   });
 

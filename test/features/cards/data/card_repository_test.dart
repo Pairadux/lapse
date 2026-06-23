@@ -139,6 +139,44 @@ void main() {
     expect(fetched, isNull);
   });
 
+  test('moveCards moves multiple cards to a new deck', () async {
+    await insertParentDeck(id: 'deck-a');
+    await insertParentDeck(id: 'deck-b');
+    await cardRepo.create(makeCard(id: 'c1', deckId: 'deck-a'));
+    await cardRepo.create(makeCard(id: 'c2', deckId: 'deck-a'));
+
+    await cardRepo.moveCards(['c1', 'c2'], 'deck-b');
+
+    final sourceCards = await cardRepo.getByDeckId('deck-a');
+    final targetCards = await cardRepo.getByDeckId('deck-b');
+    expect(sourceCards, isEmpty);
+    expect(targetCards.map((c) => c.cardId).toSet(), {'c1', 'c2'});
+    expect(targetCards.every((c) => c.syncStatus == SyncStatus.pending), isTrue);
+  });
+
+  test('bulkDelete soft-deletes multiple cards', () async {
+    await insertParentDeck();
+    await cardRepo.create(makeCard(id: 'c1'));
+    await cardRepo.create(makeCard(id: 'c2'));
+
+    await cardRepo.bulkDelete(['c1', 'c2']);
+
+    expect(await cardRepo.getById('c1'), isNull);
+    expect(await cardRepo.getById('c2'), isNull);
+
+    final db = await helper.database;
+    final rows = await db.query(
+      'cards',
+      where: 'card_id IN (?, ?)',
+      whereArgs: ['c1', 'c2'],
+    );
+    expect(rows, hasLength(2));
+    for (final row in rows) {
+      expect(row['is_deleted'], 1);
+      expect(row['sync_status'], 'pending');
+    }
+  });
+
   group('sync status', () {
     test('create sets syncStatus to pending', () async {
       await insertParentDeck();

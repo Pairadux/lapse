@@ -222,6 +222,54 @@ class CardRepository {
     );
   }
 
+  /// Bulk-moves non-deleted cards to [newDeckId] in a single transaction.
+  Future<void> moveCards(List<String> cardIds, String newDeckId) async {
+    if (cardIds.isEmpty) return;
+
+    final db = await _dbHelper.database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final placeholders = List.filled(cardIds.length, '?').join(', ');
+
+    await db.transaction((txn) async {
+      await txn.update(
+        DatabaseConstants.tableCards,
+        {
+          DatabaseConstants.colDeckId: newDeckId,
+          DatabaseConstants.colUpdatedAt: now,
+          DatabaseConstants.colSyncStatus: SyncStatus.pending.name,
+        },
+        where:
+            '${DatabaseConstants.colCardId} IN ($placeholders) '
+            'AND ${DatabaseConstants.colIsDeleted} = 0',
+        whereArgs: cardIds,
+      );
+    });
+  }
+
+  /// Bulk soft-delete for cards.
+  Future<void> bulkDelete(List<String> cardIds) async {
+    if (cardIds.isEmpty) return;
+
+    final db = await _dbHelper.database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final placeholders = List.filled(cardIds.length, '?').join(', ');
+
+    await db.transaction((txn) async {
+      await txn.update(
+        DatabaseConstants.tableCards,
+        {
+          DatabaseConstants.colIsDeleted: 1,
+          DatabaseConstants.colUpdatedAt: now,
+          DatabaseConstants.colSyncStatus: SyncStatus.pending.name,
+        },
+        where:
+            '${DatabaseConstants.colCardId} IN ($placeholders) '
+            'AND ${DatabaseConstants.colIsDeleted} = 0',
+        whereArgs: cardIds,
+      );
+    });
+  }
+
   /// Returns all cards with pending sync status.
   Future<List<Flashcard>> getUnsynced() async {
     final db = await _dbHelper.database;
